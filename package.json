@@ -1,0 +1,1 @@
+{ "name": "naruto-mythos-sim", "private": true, "type": "commonjs", "scripts": { "test": "node tools/selftest.js 200", "start": "python -m http.server 8765" } }

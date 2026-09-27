@@ -1,0 +1,1337 @@
+[
+  {
+    "id": "N-001",
+    "number": "N-001",
+    "name": "Naruto Uzumaki",
+    "type": "Leader",
+    "color": "red",
+    "cost": null,
+    "dmg": 1,
+    "pow": 3,
+    "hp": null,
+    "life": 15,
+    "rarity": "L",
+    "traits": [
+      "Wind",
+      "Jinchuriki",
+      "Hidden Leaf Village",
+      "Team 7"
+    ],
+    "keywords": [
+      "Activate: Main",
+      "Recovery"
+    ],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [
+      "[Activate: Main] Flip 1 of your CHAKRA face-down and choose 1 Character: The chosen card gets +3 power during this turn.",
+      "[Recovery] If it is the second turn or later, rest this card and flip all of your CHAKRA face-up."
+    ],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/type_img01_en.webp",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/feature_img01_en.webp?v1",
+      "https://www.naruto-cardgame.com/images/welcome/feature_img02_en.webp?v1",
+      "https://narutoreca.com/og/cards/en/n-001-naruto-uzumaki-leader.png"
+    ],
+    "confidence": "confirmed-official",
+    "source": [
+      "naruto-cardgame.com/en/welcome/ (official sample card image)",
+      "Official Overview Trailer youtube 3o_wqkZJfr0"
+    ],
+    "notes": "Official image is a composite with the card back (Leader on left half of type_img01_en.webp). Activate: Main has no Once Per Turn. Frame color magenta; official color names unannounced."
+  },
+  {
+    "id": "N-012",
+    "number": "N-012",
+    "name": "Sasuke Uchiha",
+    "type": "Leader",
+    "color": "blue",
+    "cost": null,
+    "dmg": 1,
+    "pow": 3,
+    "hp": null,
+    "life": 15,
+    "rarity": "L",
+    "traits": [
+      "Fire",
+      "Lightning",
+      "Uchiha Clan",
+      "The Taka"
+    ],
+    "keywords": [
+      "Activate: Main",
+      "Once Per Turn",
+      "Recovery"
+    ],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [
+      "[Activate: Main] [Once Per Turn] Draw 1 card and place 1 card from your hand on top of your deck.",
+      "[Recovery] If it is the second turn or later, rest this card and flip all of your CHAKRA face-up."
+    ],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/feature_img02_en.webp?v1",
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/n-012-sasuke-uchiha-leader.png"
+    ],
+    "confidence": "confirmed-official",
+    "source": [
+      "naruto-cardgame.com/en/welcome/ (official sample card image)",
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/ (card number)"
+    ],
+    "notes": "Right-hand card in the official Naruto-vs-Sasuke diagram; N-012 confirmed from Gen Con demo scans."
+  },
+  {
+    "id": "N-003",
+    "number": "N-003",
+    "name": "Naruto Uzumaki",
+    "type": "EX Character",
+    "color": "red",
+    "cost": null,
+    "dmg": 3,
+    "pow": 11,
+    "hp": 10,
+    "life": null,
+    "rarity": "SR",
+    "traits": [
+      "Wind",
+      "Jinchuriki",
+      "Hidden Leaf Village",
+      "Team 7"
+    ],
+    "keywords": [
+      "Summon Requirements",
+      "Rush",
+      "On Summon"
+    ],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [
+      "Cannot be summoned normally.",
+      "[Summon Requirements] Place 1 of your Characters and 1 of your Characters with 10 or more power in your trash.",
+      "[Rush] (This card can attack on the turn in which it is played.)",
+      "[On Summon] Summon up to 1 [Naruto Uzumaki] from your deck or trash with its effects negated."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/n-003-naruto-uzumaki-ex.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": "Kurama-mode art; read from venue photos. Color inferred from Naruto demo deck."
+  },
+  {
+    "id": "N-004",
+    "number": "N-004",
+    "name": "Naruto Uzumaki",
+    "type": "Character",
+    "color": "red",
+    "cost": 2,
+    "dmg": 1,
+    "pow": 5,
+    "hp": 4,
+    "life": null,
+    "rarity": "R",
+    "traits": [
+      "Special",
+      "Jinchuriki",
+      "Hidden Leaf Village",
+      "Team 7"
+    ],
+    "keywords": [
+      "Support",
+      "During Your Main"
+    ],
+    "support_name": "Rasengan",
+    "support_timing": "During Your Main",
+    "effect_text": [
+      "[Support] Rasengan",
+      "[During Your Main] K.O. all Characters."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/n-004-naruto-uzumaki.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": "Card number reading slightly uncertain. cost = Chakra cost of the Support. Board wipe (both players' Characters)."
+  },
+  {
+    "id": "N-005",
+    "number": "N-005",
+    "name": "Gamabunta",
+    "type": "EX Character",
+    "color": "red",
+    "cost": null,
+    "dmg": 2,
+    "pow": 10,
+    "hp": 8,
+    "life": null,
+    "rarity": "C",
+    "traits": [
+      "Water",
+      "Toad",
+      "Mount Myoboku"
+    ],
+    "keywords": [
+      "Summon Requirements",
+      "On Summon"
+    ],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [
+      "Cannot be summoned normally.",
+      "[Summon Requirements] Place 1 of your Characters with 10 or more power in your trash.",
+      "[On Summon] Summon 1 non-EX [Naruto Uzumaki], [Jiraiya], or [Minato Namikaze] Character from your trash."
+    ],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/type_img03_en.webp",
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/n-005-gamabunta.png"
+    ],
+    "confidence": "confirmed-official",
+    "source": [
+      "naruto-cardgame.com/en/welcome/ (official sample card image)",
+      "Official Overview Trailer"
+    ],
+    "notes": "Official image is composite with card back (card on left half)."
+  },
+  {
+    "id": "N-006",
+    "number": "N-006",
+    "name": "Jiraiya",
+    "type": "Character",
+    "color": "red",
+    "cost": 2,
+    "dmg": 1,
+    "pow": 7,
+    "hp": 4,
+    "life": null,
+    "rarity": "SR",
+    "traits": [
+      "Fire",
+      "The Legendary Sannin",
+      "Hidden Leaf Village"
+    ],
+    "keywords": [
+      "Support",
+      "During Your Opponent's Attack"
+    ],
+    "support_name": "Fire Style: Toad Flame Bombs",
+    "support_timing": "During Your Opponent's Attack",
+    "effect_text": [
+      "[Support] Fire Style: Toad Flame Bombs",
+      "[During Your Opponent's Attack] Choose up to 2 rested Characters: K.O. the chosen cards."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/n-006-jiraiya.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": null
+  },
+  {
+    "id": "N-007",
+    "number": "N-007",
+    "name": "Minato Namikaze",
+    "type": "Character",
+    "color": "red",
+    "cost": null,
+    "dmg": 2,
+    "pow": 8,
+    "hp": 8,
+    "life": null,
+    "rarity": "SR",
+    "traits": [
+      "Wind",
+      "Lightning",
+      "The Five Kage",
+      "Hidden Leaf Village"
+    ],
+    "keywords": [
+      "Your Turn",
+      "Rush"
+    ],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [
+      "[Your Turn] If this Character has 10 or more power, this Character gains [Rush].",
+      "(This card can attack on the turn in which it is summoned.)"
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/n-007-minato-namikaze.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": "No cost box (no Support block)."
+  },
+  {
+    "id": "N-008",
+    "number": "N-008",
+    "name": "Shikamaru Nara",
+    "type": "Character",
+    "color": "red",
+    "cost": 1,
+    "dmg": 1,
+    "pow": 6,
+    "hp": 4,
+    "life": null,
+    "rarity": "C",
+    "traits": [
+      "Special",
+      "Hidden Leaf Village",
+      "Team 10"
+    ],
+    "keywords": [
+      "Support",
+      "During Your Opponent's Attack"
+    ],
+    "support_name": "Shadow Possession Jutsu",
+    "support_timing": "During Your Opponent's Attack",
+    "effect_text": [
+      "[Support] Shadow Possession Jutsu",
+      "[During Your Opponent's Attack] Summon this card and interrupt that attack."
+    ],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/type_img02_en.webp",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/feature_img04_en.webp",
+      "https://narutoreca.com/og/cards/en/n-008-shikamaru-nara.png"
+    ],
+    "confidence": "confirmed-official",
+    "source": [
+      "naruto-cardgame.com/en/welcome/ (official sample card image)",
+      "Official Overview Trailer (shown cancelling Itachi's attack: 'ATTACK CANCEL!!')"
+    ],
+    "notes": "Official image composite (Ino N-011 behind, card back right)."
+  },
+  {
+    "id": "N-009",
+    "number": "N-009",
+    "name": "Kakashi Hatake",
+    "type": "Character",
+    "color": "red",
+    "cost": 1,
+    "dmg": 1,
+    "pow": 7,
+    "hp": 4,
+    "life": null,
+    "rarity": "R",
+    "traits": [
+      "Lightning",
+      "Hidden Leaf Village",
+      "Team 7"
+    ],
+    "keywords": [
+      "Support",
+      "Support Activated"
+    ],
+    "support_name": "Lightning Blade",
+    "support_timing": "Support Activated",
+    "effect_text": [
+      "[Support] Lightning Blade",
+      "[Support Activated] Negate that card. Then, reduce your life by 2."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/n-009-kakashi-hatake.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": null
+  },
+  {
+    "id": "N-010",
+    "number": "N-010",
+    "name": "Karin",
+    "type": "Character",
+    "color": "blue",
+    "cost": 1,
+    "dmg": 1,
+    "pow": 4,
+    "hp": 6,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Special",
+      "The Taka"
+    ],
+    "keywords": [
+      "Support",
+      "During Your Opponent's Attack"
+    ],
+    "support_name": "Hurry up and bite me!",
+    "support_timing": "During Your Opponent's Attack",
+    "effect_text": [
+      "[Support] Hurry up and bite me!",
+      "[During Your Opponent's Attack] Summon this card and you gain 2 Life."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/n-010-karin.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": null
+  },
+  {
+    "id": "N-011",
+    "number": "N-011",
+    "name": "Ino Yamanaka",
+    "type": "Character",
+    "color": "red",
+    "cost": null,
+    "dmg": 2,
+    "pow": 5,
+    "hp": 8,
+    "life": null,
+    "rarity": "C",
+    "traits": [
+      "Special",
+      "Hidden Leaf Village",
+      "Team 10"
+    ],
+    "keywords": [
+      "Activate: Main",
+      "Once Per Turn",
+      "Rush"
+    ],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [
+      "[Activate: Main] [Once Per Turn] If you have [Shikamaru Nara] and [Choji Akimichi] on the field, your [Ino Yamanaka], [Shikamaru Nara], and [Choji Akimichi] all gain [Rush] and +5 power/+1 damage during this turn.",
+      "(This card can attack on the turn in which it is summoned.)"
+    ],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/feature_img03_en.webp",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/type_img02_en.webp",
+      "https://narutoreca.com/og/cards/en/n-011-ino-yamanaka.png"
+    ],
+    "confidence": "confirmed-official",
+    "source": [
+      "naruto-cardgame.com/en/welcome/ (official sample card image)",
+      "Official Overview Trailer (deck-building graphic)"
+    ],
+    "notes": "No Chakra cost box (no Support block). Official image shows Summon card -> Ino."
+  },
+  {
+    "id": "N-013",
+    "number": "N-013",
+    "name": "Itachi Uchiha",
+    "type": "Character",
+    "color": "blue",
+    "cost": null,
+    "dmg": 2,
+    "pow": 8,
+    "hp": 8,
+    "life": null,
+    "rarity": "SR",
+    "traits": [
+      "Fire",
+      "Illusion",
+      "Uchiha Clan",
+      "Akatsuki"
+    ],
+    "keywords": [
+      "On Summon"
+    ],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [
+      "[On Summon] Choose 1 Leader or Character: Reveal the top card of your deck, and if the revealed card has the {Uchiha Clan} type, the selected card cannot attack during your opponent's next turn."
+    ],
+    "image_url": "https://www.youtube.com/watch?v=3o_wqkZJfr0&t=117",
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/n-013-itachi-uchiha.png"
+    ],
+    "confidence": "confirmed-official",
+    "source": [
+      "Official Overview Trailer 3o_wqkZJfr0 at ~1:57 (full card face incl. N-013, SR)",
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": "Rarity SR read from official trailer frame. No cost box. image_url is a video timestamp, not a still."
+  },
+  {
+    "id": "N-014",
+    "number": "N-014",
+    "name": "Sasuke Uchiha",
+    "type": "EX Character",
+    "color": "blue",
+    "cost": null,
+    "dmg": 3,
+    "pow": 10,
+    "hp": 11,
+    "life": null,
+    "rarity": "SR",
+    "traits": [
+      "Fire",
+      "Lightning",
+      "Uchiha Clan",
+      "The Taka"
+    ],
+    "keywords": [
+      "Summon Requirements",
+      "Rush",
+      "On Summon"
+    ],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [
+      "Cannot be summoned normally.",
+      "[Summon Requirements] Place 1 of your Characters and 1 of your {The Taka} type Characters in your trash.",
+      "[Rush] (This card can attack on the turn in which it is summoned.)",
+      "[On Summon] Choose 1 Character: K.O. the chosen card."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/n-014-sasuke-uchiha-ex.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": null
+  },
+  {
+    "id": "N-016",
+    "number": "N-016",
+    "name": "Shisui Uchiha",
+    "type": "Character",
+    "color": "blue",
+    "cost": 1,
+    "dmg": 1,
+    "pow": 5,
+    "hp": 6,
+    "life": null,
+    "rarity": "R",
+    "traits": [
+      "Illusion",
+      "Uchiha Clan",
+      "Hidden Leaf Village"
+    ],
+    "keywords": [
+      "Support",
+      "Support Activated"
+    ],
+    "support_name": "Koto Amatsukami",
+    "support_timing": "Support Activated",
+    "effect_text": [
+      "[Support] Koto Amatsukami",
+      "[Support Activated] Negate that card. Then, from this turn until the end of your next turn's End Phase, you cannot turn your CHAKRA face-up."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/n-016-shisui-uchiha.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": null
+  },
+  {
+    "id": "N-019",
+    "number": "N-019",
+    "name": "Jugo",
+    "type": "Character",
+    "color": "blue",
+    "cost": null,
+    "dmg": 2,
+    "pow": 9,
+    "hp": 7,
+    "life": null,
+    "rarity": "C",
+    "traits": [
+      "Special",
+      "The Taka"
+    ],
+    "keywords": [
+      "When Attacking"
+    ],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [
+      "[When Attacking] Reveal the top card of your deck, and if the revealed card is [Sasuke Uchiha], or {The Taka} type card other than an EX Character, summon that card."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/n-019-jugo.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": "Printed name 'Jūgo'. Punctuation garbled in scans; exact wording may differ. No cost box legible."
+  },
+  {
+    "id": "N-021",
+    "number": "N-021",
+    "name": "Suigetsu Hozuki",
+    "type": "Character",
+    "color": "blue",
+    "cost": 1,
+    "dmg": 1,
+    "pow": 5,
+    "hp": 5,
+    "life": null,
+    "rarity": "C",
+    "traits": [
+      "Water",
+      "The Taka"
+    ],
+    "keywords": [
+      "Support",
+      "Quick"
+    ],
+    "support_name": "Water Transformation Jutsu",
+    "support_timing": "Quick",
+    "effect_text": [
+      "[Support] Water Transformation Jutsu",
+      "[Quick] Choose 1 Character: Summon this card, and the chosen card will not be affected by your opponent's Support effects during this turn."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/n-021-suigetsu-hozuki.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": null
+  },
+  {
+    "id": "N-022",
+    "number": "N-022",
+    "name": "Manda",
+    "type": "EX Character",
+    "color": "blue",
+    "cost": null,
+    "dmg": 2,
+    "pow": 8,
+    "hp": 10,
+    "life": null,
+    "rarity": "R",
+    "traits": [
+      "Special",
+      "Snake"
+    ],
+    "keywords": [
+      "Summon Requirements",
+      "On Summon"
+    ],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [
+      "Cannot be summoned normally.",
+      "[Summon Requirements] Place 1 of your Characters in your trash.",
+      "[On Summon] Reveal the top card of your deck, and if the revealed card is a non-EX Character, summon that card."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/n-022-manda.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": null
+  },
+  {
+    "id": "DEMO-choji-akimichi",
+    "number": null,
+    "name": "Choji Akimichi",
+    "type": "Character",
+    "color": "red",
+    "cost": 1,
+    "dmg": 1,
+    "pow": 7,
+    "hp": 3,
+    "life": null,
+    "rarity": "R",
+    "traits": [
+      "Taijutsu",
+      "Hidden Leaf Village",
+      "Team 10"
+    ],
+    "keywords": [
+      "Support",
+      "Quick"
+    ],
+    "support_name": "Expansion Jutsu",
+    "support_timing": "Quick",
+    "effect_text": [
+      "[Support] Expansion Jutsu",
+      "[Quick] Choose 1 Character: Summon this card, and the chosen card's power is doubled during this turn."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/choji-akimichi.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": "Card number cut off in scans; first trait partially legible."
+  },
+  {
+    "id": "DEMO-sakura-haruno",
+    "number": null,
+    "name": "Sakura Haruno",
+    "type": "Character",
+    "color": "red",
+    "cost": 1,
+    "dmg": 2,
+    "pow": 6,
+    "hp": 4,
+    "life": null,
+    "rarity": "R",
+    "traits": [
+      "Taijutsu",
+      "Hidden Leaf Village",
+      "Team 7"
+    ],
+    "keywords": [
+      "Support",
+      "During Your Opponent's Attack"
+    ],
+    "support_name": "Cha!",
+    "support_timing": "During Your Opponent's Attack",
+    "effect_text": [
+      "[Support] Cha!",
+      "[During Your Opponent's Attack] Choose 1 Character: Return the chosen card to the owner's hand."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/sakura-haruno.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": "Card number unconfirmed."
+  },
+  {
+    "id": "DEMO-hinata-hyuga",
+    "number": null,
+    "name": "Hinata Hyuga",
+    "type": "Character",
+    "color": "red",
+    "cost": 1,
+    "dmg": 1,
+    "pow": 5,
+    "hp": 5,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Hyuga Clan",
+      "Hidden Leaf Village",
+      "Team 8"
+    ],
+    "keywords": [
+      "Support",
+      "During Your Opponent's Attack"
+    ],
+    "support_name": "[8-TRIGRAM] Air Palm",
+    "support_timing": "During Your Opponent's Attack",
+    "effect_text": [
+      "[Support] [8-TRIGRAM] Air Palm",
+      "[During Your Opponent's Attack] Choose 1 non-EX Character: K.O. the chosen card."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/hinata-hyuga.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": "Card number unconfirmed (earlier misread as N-010)."
+  },
+  {
+    "id": "DEMO-sasuke-uchiha-chidori",
+    "number": null,
+    "name": "Sasuke Uchiha",
+    "type": "Character",
+    "color": "blue",
+    "cost": 2,
+    "dmg": 1,
+    "pow": 4,
+    "hp": 5,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Lightning",
+      "Uchiha Clan"
+    ],
+    "keywords": [
+      "Support",
+      "During Your Main"
+    ],
+    "support_name": "Chidori: One Thousand Birds",
+    "support_timing": "During Your Main",
+    "effect_text": [
+      "[Support] Chidori: One Thousand Birds",
+      "[During Your Main] K.O. all Characters."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/sasuke-uchiha-chidori.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": "Card number/rarity cut off; trait line may continue."
+  },
+  {
+    "id": "DEMO-orochimaru-demo",
+    "number": null,
+    "name": "Orochimaru",
+    "type": "Character",
+    "color": "blue",
+    "cost": 2,
+    "dmg": 1,
+    "pow": 4,
+    "hp": 7,
+    "life": null,
+    "rarity": "SR",
+    "traits": [
+      "Special",
+      "The Legendary Sannin",
+      "Hidden Sound Village"
+    ],
+    "keywords": [
+      "Support",
+      "During Your Opponent's Attack"
+    ],
+    "support_name": "Striking Shadow Snake",
+    "support_timing": "During Your Opponent's Attack",
+    "effect_text": [
+      "[Support] Striking Shadow Snake",
+      "[During Your Opponent's Attack] Choose up to 2 rested Characters: K.O. the chosen cards."
+    ],
+    "image_url": null,
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/orochimaru-demo.png"
+    ],
+    "confidence": "confirmed-print",
+    "source": [
+      "Gen Con 2026 English demo card (SAMPLE/NOT FOR SALE), photos/scans posted on X, transcribed by narutoreca.com/en/cards/"
+    ],
+    "notes": "Card number unconfirmed; mirror of Jiraiya N-006. Color inferred (Sasuke demo deck)."
+  },
+  {
+    "id": "C-001",
+    "number": "C-001",
+    "name": "Chakra Card",
+    "type": "Chakra",
+    "color": null,
+    "cost": null,
+    "dmg": null,
+    "pow": null,
+    "hp": null,
+    "life": null,
+    "rarity": null,
+    "traits": [],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [
+      "When using Chakra, turn this card face-down."
+    ],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/type_img04_en.webp",
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/c-001-chakra-card.png"
+    ],
+    "confidence": "confirmed-official",
+    "source": [
+      "naruto-cardgame.com/en/welcome/ (official sample card image)"
+    ],
+    "notes": "5 per player, outside the main deck. Orange frame, orange back. Official image composite with back."
+  },
+  {
+    "id": "CP-001-GENCON",
+    "number": "CP-001",
+    "name": "Chakra Card -Gen Con 2026 Ver.-",
+    "type": "Chakra",
+    "color": null,
+    "cost": null,
+    "dmg": null,
+    "pow": null,
+    "hp": null,
+    "life": null,
+    "rarity": "Promo",
+    "traits": [],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [
+      "When using Chakra, turn this card face-down."
+    ],
+    "image_url": "https://www.naruto-cardgame.com/en/images/news/nycc-2026/img01.webp?v2",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/en/images/news/gencon-2026/img01.webp?v1"
+    ],
+    "confidence": "confirmed-official",
+    "source": [
+      "naruto-cardgame.com/en/news/gencon-2026.php",
+      "naruto-cardgame.com/en/news/nycc-2026.php"
+    ],
+    "notes": "Promo art of Naruto & Sasuke (credit Taiga Itokazu). nycc img01 = clean full card face 600x838 (NYCC/PAX gift, no event logo); gencon img01 = composite with Gen Con logo version + sticker + backpack."
+  },
+  {
+    "id": "CP-001-NYY",
+    "number": "CP-001",
+    "name": "Chakra Card -New York Yankees Ver.-",
+    "type": "Chakra",
+    "color": null,
+    "cost": null,
+    "dmg": null,
+    "pow": null,
+    "hp": null,
+    "life": null,
+    "rarity": "Promo",
+    "traits": [],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [
+      "When using Chakra, turn this card face-down. (presumed, text unpublished)"
+    ],
+    "image_url": null,
+    "other_image_urls": [],
+    "confidence": "confirmed-official (existence only)",
+    "source": [
+      "naruto-cardgame.com/en/news/nyy-collab.php",
+      "narutoreca.com/en/cards/cp-001-chakra-card-yankees-ver/"
+    ],
+    "notes": "Yankee Stadium giveaway 2026-09-08; image unpublished."
+  },
+  {
+    "id": "S-001",
+    "number": "S-001",
+    "name": "Summon Card",
+    "type": "Summon",
+    "color": null,
+    "cost": null,
+    "dmg": null,
+    "pow": null,
+    "hp": null,
+    "life": null,
+    "rarity": null,
+    "traits": [],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [
+      "You may rest this card to summon a Character card."
+    ],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/type_img05_en.webp",
+    "other_image_urls": [
+      "https://narutoreca.com/og/cards/en/s-001-summon-card.png"
+    ],
+    "confidence": "confirmed-official",
+    "source": [
+      "naruto-cardgame.com/en/welcome/ (official sample card image)"
+    ],
+    "notes": "1 per player. Black card, white Naruto silhouette. JP name: 登場カード."
+  },
+  {
+    "id": "ART-01",
+    "number": null,
+    "name": "Orochimaru",
+    "type": "Character",
+    "color": "blue",
+    "cost": null,
+    "dmg": 3,
+    "pow": 6,
+    "hp": 6,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Special",
+      "The Legendary Sannin",
+      "Village Hidden in the Sound"
+    ],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/card/en/card01.webp",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/card/jp/card01.webp"
+    ],
+    "confidence": "low (artwork showcase sample: all 12 show DMG3/POW6/HP6 placeholder stats, no text/number/rarity)",
+    "source": [
+      "naruto-cardgame.com/en/welcome/#artwork gallery",
+      "Official Overview Trailer 'Card design' segment",
+      "Gen Con booth display (foil)"
+    ],
+    "notes": "Full-art showcase card: holo illustrated art. Not a playable card definition."
+  },
+  {
+    "id": "ART-02",
+    "number": null,
+    "name": "Boruto Uzumaki",
+    "type": "Character",
+    "color": "red",
+    "cost": null,
+    "dmg": 3,
+    "pow": 6,
+    "hp": 6,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Lightning",
+      "Hidden Leaf Village"
+    ],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/card/en/card02.webp?v1",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/card/jp/card02.webp"
+    ],
+    "confidence": "low (artwork showcase sample: all 12 show DMG3/POW6/HP6 placeholder stats, no text/number/rarity)",
+    "source": [
+      "naruto-cardgame.com/en/welcome/#artwork gallery",
+      "Official Overview Trailer 'Card design' segment",
+      "Gen Con booth display (foil)"
+    ],
+    "notes": "Full-art showcase card: Boruto illustrated art. Not a playable card definition."
+  },
+  {
+    "id": "ART-03",
+    "number": null,
+    "name": "Sasuke Uchiha",
+    "type": "Character",
+    "color": "blue",
+    "cost": null,
+    "dmg": 3,
+    "pow": 6,
+    "hp": 6,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Special",
+      "Hidden Leaf Village"
+    ],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/card/en/card03.webp",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/card/jp/card03.webp"
+    ],
+    "confidence": "low (artwork showcase sample: all 12 show DMG3/POW6/HP6 placeholder stats, no text/number/rarity)",
+    "source": [
+      "naruto-cardgame.com/en/welcome/#artwork gallery",
+      "Official Overview Trailer 'Card design' segment",
+      "Gen Con booth display (foil)"
+    ],
+    "notes": "Full-art showcase card: manga-panel art. Not a playable card definition."
+  },
+  {
+    "id": "ART-04",
+    "number": null,
+    "name": "Naruto Uzumaki",
+    "type": "Character",
+    "color": "red",
+    "cost": null,
+    "dmg": 3,
+    "pow": 6,
+    "hp": 6,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Special",
+      "Hidden Leaf Village"
+    ],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/card/en/card04.webp",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/card/jp/card04.webp"
+    ],
+    "confidence": "low (artwork showcase sample: all 12 show DMG3/POW6/HP6 placeholder stats, no text/number/rarity)",
+    "source": [
+      "naruto-cardgame.com/en/welcome/#artwork gallery",
+      "Official Overview Trailer 'Card design' segment",
+      "Gen Con booth display (foil)"
+    ],
+    "notes": "Full-art showcase card: manga-panel art. Not a playable card definition."
+  },
+  {
+    "id": "ART-05",
+    "number": null,
+    "name": "Jiraiya",
+    "type": "Character",
+    "color": "red",
+    "cost": null,
+    "dmg": 3,
+    "pow": 6,
+    "hp": 6,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Special",
+      "Hidden Leaf Village"
+    ],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/card/en/card05.webp",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/card/jp/card05.webp"
+    ],
+    "confidence": "low (artwork showcase sample: all 12 show DMG3/POW6/HP6 placeholder stats, no text/number/rarity)",
+    "source": [
+      "naruto-cardgame.com/en/welcome/#artwork gallery",
+      "Official Overview Trailer 'Card design' segment",
+      "Gen Con booth display (foil)"
+    ],
+    "notes": "Full-art showcase card: illustrated art. Not a playable card definition."
+  },
+  {
+    "id": "ART-06",
+    "number": null,
+    "name": "Itachi Uchiha",
+    "type": "Character",
+    "color": "blue",
+    "cost": null,
+    "dmg": 3,
+    "pow": 6,
+    "hp": 6,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Special",
+      "Akatsuki Organization"
+    ],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/card/en/card06.webp",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/card/jp/card06.webp"
+    ],
+    "confidence": "low (artwork showcase sample: all 12 show DMG3/POW6/HP6 placeholder stats, no text/number/rarity)",
+    "source": [
+      "naruto-cardgame.com/en/welcome/#artwork gallery",
+      "Official Overview Trailer 'Card design' segment",
+      "Gen Con booth display (foil)"
+    ],
+    "notes": "Full-art showcase card: illustrated art. Not a playable card definition."
+  },
+  {
+    "id": "ART-07",
+    "number": null,
+    "name": "Sasuke Uchiha",
+    "type": "Character",
+    "color": "blue",
+    "cost": null,
+    "dmg": 3,
+    "pow": 6,
+    "hp": 6,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Lightning",
+      "The Taka"
+    ],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/card/en/card07.webp",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/card/jp/card07.webp"
+    ],
+    "confidence": "low (artwork showcase sample: all 12 show DMG3/POW6/HP6 placeholder stats, no text/number/rarity)",
+    "source": [
+      "naruto-cardgame.com/en/welcome/#artwork gallery",
+      "Official Overview Trailer 'Card design' segment",
+      "Gen Con booth display (foil)"
+    ],
+    "notes": "Full-art showcase card: Shippuden illustrated art. Not a playable card definition."
+  },
+  {
+    "id": "ART-08",
+    "number": null,
+    "name": "Naruto Uzumaki",
+    "type": "Character",
+    "color": "red",
+    "cost": null,
+    "dmg": 3,
+    "pow": 6,
+    "hp": 6,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Wind",
+      "Hidden Leaf Village"
+    ],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/card/en/card08.webp",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/card/jp/card08.webp"
+    ],
+    "confidence": "low (artwork showcase sample: all 12 show DMG3/POW6/HP6 placeholder stats, no text/number/rarity)",
+    "source": [
+      "naruto-cardgame.com/en/welcome/#artwork gallery",
+      "Official Overview Trailer 'Card design' segment",
+      "Gen Con booth display (foil)"
+    ],
+    "notes": "Full-art showcase card: Rasengan illustrated art. Not a playable card definition."
+  },
+  {
+    "id": "ART-09",
+    "number": null,
+    "name": "Sakura Haruno",
+    "type": "Character",
+    "color": "red",
+    "cost": null,
+    "dmg": 3,
+    "pow": 6,
+    "hp": 6,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Special",
+      "Hidden Leaf Village"
+    ],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/card/en/card09.webp",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/card/jp/card09.webp"
+    ],
+    "confidence": "low (artwork showcase sample: all 12 show DMG3/POW6/HP6 placeholder stats, no text/number/rarity)",
+    "source": [
+      "naruto-cardgame.com/en/welcome/#artwork gallery",
+      "Official Overview Trailer 'Card design' segment",
+      "Gen Con booth display (foil)"
+    ],
+    "notes": "Full-art showcase card: illustrated art. Not a playable card definition."
+  },
+  {
+    "id": "ART-10",
+    "number": null,
+    "name": "Tsunade",
+    "type": "Character",
+    "color": "green",
+    "cost": null,
+    "dmg": 3,
+    "pow": 6,
+    "hp": 6,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Special",
+      "Hidden Leaf Village"
+    ],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/card/en/card10.webp",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/card/jp/card10.webp"
+    ],
+    "confidence": "low (artwork showcase sample: all 12 show DMG3/POW6/HP6 placeholder stats, no text/number/rarity)",
+    "source": [
+      "naruto-cardgame.com/en/welcome/#artwork gallery",
+      "Official Overview Trailer 'Card design' segment",
+      "Gen Con booth display (foil)"
+    ],
+    "notes": "Full-art showcase card: watercolor art. Not a playable card definition."
+  },
+  {
+    "id": "ART-11",
+    "number": null,
+    "name": "Sasuke Uchiha",
+    "type": "Character",
+    "color": "blue",
+    "cost": null,
+    "dmg": 3,
+    "pow": 6,
+    "hp": 6,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Lightning",
+      "Uchiha Clan"
+    ],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/card/en/card11.webp",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/card/jp/card11.webp"
+    ],
+    "confidence": "low (artwork showcase sample: all 12 show DMG3/POW6/HP6 placeholder stats, no text/number/rarity)",
+    "source": [
+      "naruto-cardgame.com/en/welcome/#artwork gallery",
+      "Official Overview Trailer 'Card design' segment",
+      "Gen Con booth display (foil)"
+    ],
+    "notes": "Full-art showcase card: anime still (Chidori), credit Yasuhiko Kanezuka. Not a playable card definition."
+  },
+  {
+    "id": "ART-12",
+    "number": null,
+    "name": "Naruto Uzumaki",
+    "type": "Character",
+    "color": "red",
+    "cost": null,
+    "dmg": 3,
+    "pow": 6,
+    "hp": 6,
+    "life": null,
+    "rarity": null,
+    "traits": [
+      "Special",
+      "Jinchuriki",
+      "Hidden Leaf Village",
+      "Team 7"
+    ],
+    "keywords": [],
+    "support_name": null,
+    "support_timing": null,
+    "effect_text": [],
+    "image_url": "https://www.naruto-cardgame.com/images/welcome/card/en/card12.webp",
+    "other_image_urls": [
+      "https://www.naruto-cardgame.com/images/welcome/card/jp/card12.webp"
+    ],
+    "confidence": "low (artwork showcase sample: all 12 show DMG3/POW6/HP6 placeholder stats, no text/number/rarity)",
+    "source": [
+      "naruto-cardgame.com/en/welcome/#artwork gallery",
+      "Official Overview Trailer 'Card design' segment",
+      "Gen Con booth display (foil)"
+    ],
+    "notes": "Full-art showcase card: anime still (Rasengan), credit Yasuhiko Kanezuka. Not a playable card definition."
+  }
+]

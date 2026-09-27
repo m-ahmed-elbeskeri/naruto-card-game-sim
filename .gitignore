@@ -1,0 +1,7 @@
+node_modules/
+*.zip
+.wrangler/
+.DS_Store
+Thumbs.db
+backgrounds/*.mp4
+backgrounds/*.webm

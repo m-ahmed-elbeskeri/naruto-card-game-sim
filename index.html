@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NARUTO CARD GAME Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=1790530195">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%23f07c14'/><path d='M50 22a28 28 0 1 0 28 28' stroke='white' stroke-width='10' fill='none'/></svg>">
+</head>
+<body>
+<div id="backdrop"></div>
+<div class="t-wall" id="tWall">
+  <video class="t-video" id="tVideo" muted loop playsinline preload="auto"></video>
+  <div class="t-swirl" id="tSwirl"></div>
+  <div class="t-rays"></div>
+  <div class="t-streaks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="keyart-wrap" id="keyartWrap">
+    <div class="keyart" id="keyart"><div class="rasengan"><b></b><b></b><b></b></div><div class="blade-glint"></div></div>
+  </div>
+  <canvas class="t-particles" id="tParticles"></canvas>
+  <div class="t-shade"></div>
+</div>
+<div id="app">
+  <div id="stage">
+
+    <section id="screen-title" class="screen active">
+      <div class="logo">
+        <img id="logoImg" alt="NARUTO CARD GAME" draggable="false">
+        <div class="sub">Battle Simulator</div>
+        <div class="pre">PRE-RELEASE · REVEALED CARDS ONLY</div>
+      </div>
+      <div class="menu">
+        <button class="btn primary" data-go="tutorial">Tutorial</button>
+        <button class="btn" data-go="setup-ai">Battle vs AI</button>
+        <button class="btn" data-go="setup-hot">Local 2-Player</button>
+        <button class="btn" data-go="builder">Deck Builder</button>
+        <button class="btn" data-go="gallery">Revealed Cards</button>
+        <button class="btn" data-go="rules">How to Play</button>
+        <button class="btn" data-go="settings">Settings &amp; House Rules</button>
+      </div>
+      <div class="footer-note">Unofficial fan simulator. NARUTO CARD GAME © Bandai · NARUTO © Masashi Kishimoto / Shueisha, TV Tokyo, Pierrot. Key art from naruto-cardgame.com · card images from the ExBurst card database.</div>
+    </section>
+
+    <section id="screen-setup" class="screen">
+      <button class="btn small ghost back-btn" data-go="title"><i data-icon="back"></i> Back</button>
+      <h1 class="h-title" style="position:absolute;left:170px;top:18px" id="setupTitle">Choose Your Deck</h1>
+      <div class="wrap">
+        <div class="panel" style="display:flex;flex-direction:column;min-height:0;padding:14px">
+          <div class="seg" style="margin-bottom:6px"><button id="pickMe" class="on">Pick your deck</button><button id="pickOpp">Pick opponent deck</button></div>
+          <div class="deck-grid" id="deckGrid"></div>
+        </div>
+        <div class="panel setup-side">
+          <div class="field"><label>Your name</label><input id="nameMe" maxlength="16"></div>
+          <div class="field"><label>Opponent name</label><input id="nameOpp" maxlength="16"></div>
+          <div class="field" id="aiField"><label>AI difficulty</label>
+            <div class="seg" id="aiSeg"><button data-lv="genin">Genin</button><button data-lv="chunin" class="on">Chunin</button><button data-lv="jonin">Jonin</button><button data-lv="kage">Kage</button></div>
+          </div>
+          <div class="field"><label>Matchup</label><div id="matchup" style="font-size:18px;line-height:1.5"></div></div>
+          <div style="flex:1"></div>
+          <button class="btn primary" id="startBtn" style="text-align:center">Start Battle <i data-icon="play"></i></button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-game" class="screen"><div class="gb" id="gb"></div></section>
+
+    <section id="screen-builder" class="screen">
+      <button class="btn small ghost back-btn" data-go="title"><i data-icon="back"></i> Back</button>
+      <h1 class="h-title" style="position:absolute;left:170px;top:18px">Deck Builder</h1>
+      <div class="wrap">
+        <div class="panel pool"><div class="filters" id="bFilters"></div><div class="pool-grid" id="bPool"></div></div>
+        <div class="panel decklist" id="bDeck"></div>
+      </div>
+    </section>
+
+    <section id="screen-gallery" class="screen">
+      <button class="btn small ghost back-btn" data-go="title"><i data-icon="back"></i> Back</button>
+      <h1 class="h-title" style="position:absolute;left:170px;top:18px">Revealed Cards</h1>
+      <div class="wrap"><div class="panel pool"><div class="filters" id="gFilters"></div><div class="pool-grid" id="gPool"></div></div></div>
+    </section>
+
+    <section id="screen-rules" class="screen">
+      <button class="btn small ghost back-btn" data-go="title"><i data-icon="back"></i> Back</button>
+      <h1 class="h-title" style="position:absolute;left:170px;top:18px">How to Play</h1>
+      <div class="wrap panel" id="rulesBody"></div>
+    </section>
+
+  </div>
+</div>
+<canvas id="fx"></canvas>
+<div id="preview"></div>
+<div class="modal-back" id="modalBack"><div class="modal panel" id="modal"></div></div>
+<div class="handoff" id="handoff"></div>
+<div class="result" id="result"></div>
+
+<script src="js/data.js?v=1790530616"></script>
+<script src="js/engine.js?v=1790530616"></script>
+<script src="js/effects.js?v=1790530616"></script>
+<script src="js/cards.js?v=1790530616"></script>
+<script src="js/ai.js?v=1790530616"></script>
+<script src="js/icons.js"></script>
+<script src="js/fx.js?v=1790530616"></script>
+<script src="js/audio.js?v=1790530616"></script>
+<script src="js/ui.js?v=1790530616"></script>
+<script src="js/screens.js?v=1790530616"></script>
+<script src="js/tutorial.js?v=1790530616"></script>
+<script src="js/main.js?v=1790530616"></script>
+</body>
+</html>

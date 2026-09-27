@@ -1,0 +1,6 @@
+Music (CC0 / public domain) — "Fakebit / Chiptune Music Pack" by Ragnar Random
+https://opengameart.org/content/fakebit-chiptune-music-pack
+  (main menu uses the built-in original anthem "Will of the Leaf")
+  (battles use the built-in original anthem "Clash of Shinobi")
+  tension.ogg = 30 - Lost Rune of the Wind Princess
+Replace any file with your own (same name, .mp3 or .ogg) to change the music.
