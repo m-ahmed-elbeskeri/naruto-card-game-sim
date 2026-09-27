@@ -50,7 +50,8 @@
     if (!o.statbar || card.type === 'chakra' || card.type === 'summoncard') return face;
     const live = o.live || { pow: card.pow, dmg: card.dmg };
     const cls = (a, b) => a > b ? 'up' : a < b ? 'dn' : '';
-    return `<div class="card-wrap">${face}<div class="statbar"><span class="${cls(live.dmg, card.dmg)}">DMG <b>${live.dmg}</b></span><span class="${cls(live.pow, card.pow)}">POW <b>${live.pow}</b></span>${card.hp != null ? `<span>HP <b>${card.hp}</b></span>` : `<span>LIFE <b>${o.life != null ? o.life : card.life}</b></span>`}</div></div>`;
+    const hp = live.hp != null ? live.hp : card.hp;
+    return `<div class="card-wrap">${face}<div class="statbar"><span class="${cls(live.dmg, card.dmg)}">DMG <b>${live.dmg}</b></span><span class="${cls(live.pow, card.pow)}">POW <b>${live.pow}</b></span>${card.hp != null ? `<span class="${hp < card.hp ? 'dn' : ''}">HP <b>${hp}</b></span>` : `<span>LIFE <b>${o.life != null ? o.life : card.life}</b></span>`}</div></div>`;
   }
   function backHTML(kind, w) {
     return `<div class="nback ${kind || ''}" style="--w:${w || 150}px;background-image:url('${NS.ASSETS.swirl}')"><div class="lg"><img src="${NS.ASSETS.logo}" alt="" draggable="false"></div></div>`;
@@ -230,7 +231,7 @@
         const sick = u.summonedTurn === g.turn && g.active === pi && !g.hasRush(u);
         const flag = u.flags.cantAttackTurn >= g.turn ? 'GENJUTSU' : u.flags.immuneSupportTurn === g.turn ? 'SHIELDED' : u.negated ? 'NEGATED' : '';
         const rush = u.summonedTurn === g.turn && g.active === pi && g.hasRush(u) && !u.rested;
-        h += `<div class="slot ${side} ${u.rested ? 'rested' : ''}" data-k="${u.uid}" data-unit="${u.uid}">${cardHTML(u.card, { w: 120, statbar: true, live: { pow: g.pow(u), dmg: g.dmg(u) } })}${flag ? `<div class="flag">${flag}</div>` : ''}${rush && !flag ? `<div class="flag rush">${NS.icon('fast')} RUSH</div>` : ''}</div>`;
+        h += `<div class="slot ${side} ${u.rested ? 'rested' : ''}" data-k="${u.uid}" data-unit="${u.uid}">${cardHTML(u.card, { w: 120, statbar: true, live: { pow: g.pow(u), dmg: g.dmg(u), hp: g.hpLeft(u) } })}${flag ? `<div class="flag">${flag}</div>` : ''}${rush && !flag ? `<div class="flag rush">${NS.icon('fast')} RUSH</div>` : ''}</div>`;
       }
       h += `</div>`;
       // leader, life, summon, chakra
@@ -364,7 +365,7 @@
         case 'summon': return ['Summon (rest Summon card)', ''];
         case 'ex': return ['EX Summon (trash requirements)', ''];
         case 'set': return ['Set face-down as Support', ''];
-        case 'support': return [`Activate: ${a.sup.card.support.name}`, a.sup.card.support.cost];
+        case 'support': return [`${a.fromHand ? 'Activate from hand' : 'Activate'}: ${a.sup.card.support.name}`, a.sup.card.support.cost];
         case 'leaderAbility': return [NS.LEADER[P.leader.card.id].label, P.leader.card.id === 'N-001' ? 1 : ''];
         case 'recovery': return ['[Recovery] — rest Leader, refill all Chakra', ''];
         case 'charAbility': return [NS.ABILITY[a.unit.card.id].label, ''];
@@ -462,10 +463,12 @@
       if (win.kind === 'attack') {
         const a = win.attack;
         ctx = a.pi === this.viewPi ? `Your ${esc(g.unitName(a.attacker))} is attacking ${esc(g.unitName(a.target))}. Use a [Quick] Support?` : `<b style="color:#ff6a6a">${esc(g.unitName(a.attacker))}</b> attacks your <b>${esc(g.unitName(a.target))}</b> (${a.target.isLeader ? `${g.dmg(a.attacker)} damage` : `${g.pow(a.attacker)} POW vs ${a.target.card.hp} HP`}). Respond with a Support?`;
-      } else ctx = `Opponent activated <b style="color:#ffb86a">${esc(win.link.sup.card.support.name)}</b> (${esc(win.link.sup.card.name)}). Respond?`;
+      } else if (win.kind === 'summon') ctx = 'Your opponent summoned a Character. Cut in with a [Quick] Support?';
+      else if (win.kind === 'effect') ctx = 'Your opponent activated an effect. Cut in with a [Quick] Support?';
+      else ctx = `Opponent activated <b style="color:#ffb86a">${esc(win.link.sup.card.support.name)}</b> (${esc(win.link.sup.card.name)}). Respond?`;
       NS.Audio.play('edge');
       return new Promise(res => {
-        const close = modal(`<h2>${win.kind === 'attack' ? 'Incoming Attack!' : 'Support Activated!'}</h2><p>${ctx}</p><div class="cards-row">${win.options.map((s, i) => `<div class="pickable" data-i="${i}">${cardHTML(s.card, { w: 170 })}<div class="lbl">${esc(s.card.support.name)} · ${s.card.support.cost} Chakra</div></div>`).join('')}</div><div class="row-btns">${win.noSkip ? '' : '<button class="btn" id="noResp">No response</button>'}</div>`, m => {
+        const close = modal(`<h2>${win.kind === 'attack' ? 'Incoming Attack!' : win.kind === 'support' ? 'Support Activated!' : 'Support Cut-in'}</h2><p>${ctx}</p><div class="cards-row">${win.options.map((s, i) => `<div class="pickable" data-i="${i}">${cardHTML(s.card, { w: 170 })}<div class="lbl">${esc(s.card.support.name)} · ${s.card.support.cost} Chakra</div></div>`).join('')}</div><div class="row-btns">${win.noSkip ? '' : '<button class="btn" id="noResp">No response</button>'}</div>`, m => {
           $$('.pickable', m).forEach(b => b.onclick = () => { close(); NS.Audio.play('click'); res(win.options[+b.dataset.i]); });
           const nr = $('#noResp', m); if (nr) nr.onclick = () => { close(); res(null); };
         }, 'resp');
@@ -512,7 +515,7 @@
         case 'mulligan': this.render(); break;
         case 'turn': {
           this.render({ noFlip: true });
-          if (d.turn === 1 && !g.house.firstPlayerCanAttack && this.opts.humans[d.player] && d.player === this.viewPi) setTimeout(() => this.toast('Turn 1: the first player cannot attack (House Rule, you can change it in Settings)'), 900 * S());
+          if (g.p(d.player).turns <= 1 && !g.house.firstRoundAttacks && this.opts.humans[d.player] && d.player === this.viewPi) setTimeout(() => this.toast('First turn: neither player can attack on their first turn, even with Rush'), 900 * S());
           snd('taiko');
           if (mine(d.player) && this.opts.humans[d.player]) NS.Audio.jingle('turn');
           await NS.FX.banner(mine(d.player) && this.opts.humans[d.player] ? 'Your Turn' : `${esc(g.p(d.player).name)}'s Turn`, `Turn ${d.turn}`, { hold: 750, cls: mine(d.player) ? '' : 'blue' });
@@ -618,7 +621,7 @@
           const t2 = this.el(d.target.uid);
           let label, kind = '';
           if (d.target.isLeader) label = `${NS.icon('swords')} <b>${g.dmg(d.attacker)} DMG</b> ${NS.icon('arrow')} Leader`;
-          else { const pw = g.pow(d.attacker), hp = d.target.card.hp; kind = pw >= hp ? 'lethal' : 'weak'; label = `${NS.icon('swords')} POW <b>${pw}</b> vs HP <b>${hp}</b> ${NS.icon('arrow')} ${pw >= hp ? '<b class="ko">K.O.</b>' : `${NS.icon('shield')} survives`}`; }
+          else { const pw = g.pow(d.attacker), hp = g.hpLeft(d.target); kind = pw >= hp ? 'lethal' : 'weak'; label = `${NS.icon('swords')} POW <b>${pw}</b> vs HP <b>${hp}</b> ${NS.icon('arrow')} ${pw >= hp ? '<b class="ko">K.O.</b>' : `${NS.icon('shield')} survives`}`; }
           if (a2 && t2) {
             const p = this.center(a2);
             this.showArrow(d.attacker, d.target, label, kind);
@@ -700,7 +703,7 @@
           break;
         }
         case 'immune': { const el = this.el(d.unit.uid); if (el) { const c = this.center(el); NS.FX.ring(c.x, c.y, { color: '#6ac8ff', max: 110, width: 10 }); NS.FX.floatText(c.x, c.y - 30, 'NO EFFECT', '#6ac8ff', 28); } await wait(400); break; }
-        case 'withstand': { const el = this.el(d.target.uid); this.outcome(el, 'BLOCKED', 'blocked'); await wait(450); break; }
+        case 'withstand': { this.render({ noFlip: true }); const el = this.el(d.target.uid); this.outcome(el, `${d.left} HP LEFT`, 'blocked'); await wait(450); break; }
         case 'fizzle': this.hideArrow(); this.render(); await wait(200); break;
         case 'genjutsu': {
           const el = this.el(d.unit.uid);

@@ -254,28 +254,39 @@
 
   // ---------------- rules ----------------
   function buildRules() {
-    const ok = '<span class="tag ok">CONFIRMED</span>', hr = '<span class="tag hr">HOUSE RULE</span>';
+    const ok = '<span class="tag ok">CONFIRMED</span>', cm = '<span class="tag hr">COMMUNITY</span>';
     $('#rulesBody').innerHTML = `
-      <p><b>NARUTO CARD GAME</b> is Bandai's trading card game, releasing worldwide in <b>Summer 2027</b>. Bandai has not published a full rulebook yet. This simulator uses everything revealed so far: the official site, the Overview Trailer, the Gen Con 2026 playmat and demo cards. Rules that haven't been revealed are covered by <b>House Rules</b>, which you can change in Settings.</p>
-      <h3>Goal</h3><p>${ok} Reduce the opposing Leader's <b>LIFE (15)</b> to 0.</p>
-      <h3>Your Cards</h3><table>
-        <tr><td>${ok}</td><td><b>1 Leader</b>, a main deck of Characters (including EX Characters) that match your Leader's color, <b>5 Chakra cards</b> and <b>1 Summon card</b>. The official deck size is 50. Only about 20 cards have been revealed, so the default here is ${NS.HOUSE_DEFAULTS.deckSize}.</td></tr>
-        <tr><td>${ok}</td><td>Characters show <b>DMG</b> (damage dealt to a Leader), <b>POW</b> and <b>HP</b>.</td></tr></table>
-      <h3>Turn — 4 Phases</h3><div class="ph">
-        <div><b>Refresh</b>Stand your rested Leader, Characters and Summon card. ${hr} Chakra does <u>not</u> refresh here.</div>
-        <div><b>Draw</b>${hr} Draw ${NS.HOUSE_DEFAULTS.drawPerTurn} card. The player going first skips their first draw.</div>
-        <div><b>Main</b>Summon, set Supports, use abilities and <b>attack</b>. There's no separate battle phase.</div>
-        <div><b>End</b>"During this turn" effects end.</div></div>
-      <h3>Main Phase Actions</h3><table>
-        <tr><td>${ok}</td><td><b>Summon:</b> rest your Summon card to put a Character from your hand onto the field. That's one summon per turn. Characters <b>can't attack the turn they're summoned</b> unless they have <span class="kw rush">Rush</span>.</td></tr>
-        <tr><td>${ok}</td><td><b>EX Characters</b> "cannot be summoned normally". To summon one, put the Characters listed in its <span class="kw req">Summon Requirements</span> into your trash.</td></tr>
-        <tr><td>${ok}</td><td><b>Support Area:</b> set Character cards face-down, up to 5. Later, flip one by paying the <b>Chakra</b> cost on its [Support] and use its jutsu at the listed timing: <span class="kw tim">[During Your Main]</span>, <span class="kw tim">[During Your Opponent's Attack]</span>, <span class="kw tim">[Quick]</span> or <span class="kw tim">[Support Activated]</span>.</td></tr>
-        <tr><td>${ok}</td><td><b>Chakra:</b> pay costs by turning Chakra cards face-down. Your Leader's <span class="kw rec">Recovery</span> (second turn or later) <b>rests your Leader</b> and flips all your Chakra face-up.</td></tr>
-        <tr><td>${hr}</td><td><b>Attack:</b> rest a standing Character or your Leader to attack the enemy Leader or a <b>rested</b> enemy Character. The defender can respond with Supports, then the attacker can use [Quick]. A hit on a Leader removes Life equal to the attacker's <b>DMG</b>. Against a Character, the target is K.O.'d if the attacker's <b>POW ≥ its HP</b>.</td></tr>
-        <tr><td>${hr}</td><td>Responses resolve newest-first. A negated Support goes to the trash without effect.</td></tr></table>
+      <p><b>NARUTO CARD GAME</b> is Bandai's trading card game, releasing worldwide in <b>Summer 2027</b>. Bandai hasn't published the official rulebook yet. The simulator follows the official reveals plus the community <b>Naruto Card Game Rulebook v1.4</b> (The Lookout team / fan Discord), which was compiled from the Gen Con 2026 demos. Anything still uncertain can be changed under <b>House Rules</b> in Settings.</p>
+      <h3>Goal</h3><p>${ok} Reduce the opposing Leader's <b>LIFE (15)</b> to 0. ${cm} You also lose if your deck runs out.</p>
+      <h3>Deck</h3><table>
+        <tr><td>${ok}</td><td><b>1 Leader</b>, a main deck of Characters (EX Characters included) of your Leader's color, plus <b>5 Chakra cards</b> and <b>1 Summon card</b> that start in play. Retail decks are 50 cards.</td></tr>
+        <tr><td>${cm}</td><td>The Gen Con demo decks were <b>30 cards: 3 copies of each of 10 cards</b>. That's the default here.</td></tr>
+        <tr><td>${ok}</td><td><b>DMG</b> is dealt to the enemy Leader, <b>POW</b> is dealt to enemy Characters, and <b>HP</b> is a Character's health.</td></tr></table>
+      <h3>Starting the Game</h3><table>
+        <tr><td>${cm}</td><td>Both players draw 5. Only the <b>second player</b> may take one full-hand mulligan.</td></tr>
+        <tr><td>${cm}</td><td>The first player draws <b>1</b> card on their first turn; every other draw phase is <b>2</b> cards.</td></tr>
+        <tr><td>${cm}</td><td><b>Neither player can attack during their first turn</b>, even with <span class="kw rush">Rush</span>.</td></tr></table>
+      <h3>Turn Phases</h3><div class="ph">
+        <div><b>Refresh</b>Your rested Leader, Characters and Summon card stand up. Face-down Chakra does <u>not</u> flip back.</div>
+        <div><b>Draw</b>Draw 2 cards (1 on the first player's first turn).</div>
+        <div><b>Main</b>Summon, set Supports, use abilities and attack, in any order you like.</div>
+        <div><b>End</b>"During this turn" effects end, and damage on Characters wears off.</div></div>
+      <h3>Main Phase</h3><table>
+        <tr><td>${ok}</td><td><b>Summon:</b> rest your Summon card to play one Character per turn. It can't attack the turn it's played unless it has <span class="kw rush">Rush</span>.</td></tr>
+        <tr><td>${cm}</td><td><b>EX Characters</b> don't use the Summon card and aren't limited to one per turn. Pay their <span class="kw req">Summon Requirements</span> by placing your Characters in the trash.</td></tr>
+        <tr><td>${ok}</td><td><b>Support Area:</b> set as many cards face-down as you like, up to 5 in the area.</td></tr>
+        <tr><td>${ok}</td><td><b>Chakra:</b> pay costs by turning Chakra face-down. <span class="kw rec">Recovery</span> rests your Leader and flips all of your Chakra face-up (from your second turn on).</td></tr></table>
+      <h3>Battle</h3><table>
+        <tr><td>${cm}</td><td>Steps: <b>Attack Declaration</b>, then <b>Effect Declaration</b> ([When Attacking] resolves), then <b>Support Cut-in</b>, then <b>Damage</b>.</td></tr>
+        <tr><td>${cm}</td><td>Rest a standing Character or your Leader to attack the enemy Leader or a <b>rested</b> enemy Character. There is no blocking.</td></tr>
+        <tr><td>${cm}</td><td>A Leader loses Life equal to the attacker's <b>DMG</b>. A Character loses HP equal to the attacker's <b>POW</b> and is K.O.'d at 0. <b>Damage stays until the end of the turn</b>, so several attacks can add up.</td></tr></table>
+      <h3>Support Cut-ins</h3><table>
+        <tr><td>${cm}</td><td>Supports can cut in when a card effect is activated, when the opponent attacks, and when the opponent plays a Character. Each Support has its own timing: <span class="kw tim">[During Your Main]</span>, <span class="kw tim">[During Your Opponent's Attack]</span>, <span class="kw tim">[Support Activated]</span>, or <span class="kw tim">[Quick]</span> (any valid cut-in window).</td></tr>
+        <tr><td>${cm}</td><td>The <b>turn player</b> can activate Supports from the Support Area <b>or from hand</b>. The non-turn player can only use the Support Area. Always pay the Chakra cost first.</td></tr>
+        <tr><td>${cm}</td><td>Cut-ins chain, and they resolve from <b>last to first</b>. Kakashi and Shisui can negate each other and Support summons (such as Choji), but not normal or EX summons.</td></tr></table>
       <h3>Playing the Simulator</h3>
-      <p>Glowing orange cards can act; click one to see its options. Hover over any card to read it in full. Right-click cancels targeting. When your opponent attacks, a response window pops up if you have a usable Support.</p>
-      <p style="font-size:13px;color:var(--dim)">Sources: <a href="https://www.naruto-cardgame.com/en/welcome/" target="_blank">naruto-cardgame.com</a>, the official Overview Trailer, and the Gen Con 2026 playmat and demo cards (transcribed by the community). Card images are loaded from the official site and carry Bandai's "SAMPLE" watermark. This is an unofficial fan simulator, not affiliated with Bandai, Shueisha, Studio Pierrot or Masashi Kishimoto.</p>`;
+      <p>Cards glowing orange can act, so click one to see its options. Hover over any card to read it in full, and right-click to cancel targeting. A response panel pops up whenever you have a Support you can cut in with.</p>
+      <p style="font-size:13px;color:var(--dim)">Sources: <a href="https://www.naruto-cardgame.com/en/welcome/" target="_blank">naruto-cardgame.com</a>, the official trailer, the Gen Con 2026 demo cards, and the community Naruto Card Game Rulebook v1.4 (<a href="https://www.reddit.com/r/NarutoCardGame/" target="_blank">r/NarutoCardGame</a> / fan Discord). This is an unofficial fan simulator, not affiliated with Bandai, Shueisha, Studio Pierrot or Masashi Kishimoto.</p>`;
   }
 
   // ---------------- settings (incl. House Rules) ----------------
@@ -288,15 +299,17 @@
       ${tog('lowfx', 'Reduced effects (performance)', 'Fewer particles and background animations — use on slower PCs')}
       ${tog('music', 'Music', 'Generated soundtrack')}${tog('sfx', 'Sound effects', 'Hits, jutsu, chakra')}${tog('cutins', 'Jutsu cut-ins', 'Big banners for Supports and EX summons')}
       <div class="set-row"><div>Animation speed</div><div class="seg" style="width:320px">${['slow', 'normal', 'fast', 'turbo'].map(s => `<button data-sp="${s}" class="${st.speed === s ? 'on' : ''}">${s}</button>`).join('')}</div></div>
-      <h4>House Rules (not yet published by Bandai)</h4>
-      ${num('deckSize', 'Deck size', 'Official: 50. Only ~20 cards are revealed, so default is 30', 10, 60)}
-      ${num('copyLimit', 'Copies per card', 'Official limit unknown', 1, 10)}
-      ${num('handSize', 'Opening hand', 'Unknown officially', 3, 8)}
-      ${num('drawPerTurn', 'Cards drawn per turn', 'Unknown officially', 1, 3)}
-      ${num('charLimit', 'Character Area size', 'Unknown officially', 3, 7)}
-      ${tog('mulligan', 'Mulligan allowed', 'One full redraw', H)}
-      ${tog('firstPlayerDraws', 'First player draws on turn 1', '', H)}
-      ${tog('firstPlayerCanAttack', 'Attacks allowed on turn 1', '', H)}
+      <h4>House Rules (defaults follow the community rulebook v1.4)</h4>
+      ${num('deckSize', 'Deck size', 'Gen Con demo: 30 (retail: 50)', 10, 60)}
+      ${num('copyLimit', 'Copies per card', 'Gen Con demo decks: 3', 1, 10)}
+      ${num('handSize', 'Opening hand', 'Community rulebook: 5', 3, 8)}
+      ${num('drawPerTurn', 'Cards drawn per turn', 'Community rulebook: 2', 1, 3)}
+      ${num('firstTurnDraw', 'First player\'s first draw', 'Community rulebook: 1', 0, 3)}
+      ${num('charLimit', 'Character Area size', 'Not confirmed', 3, 7)}
+      ${tog('mulligan', 'Second player may mulligan', 'One full redraw', H)}
+      ${tog('firstRoundAttacks', 'Allow attacks on each player\'s first turn', 'Community rulebook: no attacks, even with Rush', H)}
+      ${tog('damagePersists', 'Damage stays until end of turn', 'Several attacks can add up to a K.O.', H)}
+      ${tog('handSupports', 'Turn player can use Supports from hand', 'Community rulebook: yes', H)}
       ${tog('leaderCanAttack', 'Leader can attack', 'Leaders have DMG 1 / POW 3', H)}
       ${tog('attackRestedOnly', 'Only rested Characters can be attacked', 'One Piece-style targeting', H)}
       ${tog('exUsesSummonCard', 'EX summon also rests the Summon card', '', H)}

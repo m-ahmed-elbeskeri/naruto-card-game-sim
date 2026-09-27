@@ -112,7 +112,7 @@
       mode: 'face', conf: 'demo',
     },
     {
-      id: 'N-020', type: 'character', name: 'Sakura Haruno', color: 'red', dmg: 2, pow: 6, hp: 4, rarity: 'C',
+      id: 'N-020', type: 'character', name: 'Sakura Haruno', color: 'blue', dmg: 2, pow: 6, hp: 4, rarity: 'C',
       traits: ['Taijutsu', 'Hidden Leaf Village', 'Team 7'],
       support: { name: 'Cha!', cost: 1, timing: 'oppAttack', text: "Choose 1 Character: Return the chosen card to the owner's hand." },
       mode: 'face', conf: 'demo',
@@ -206,14 +206,18 @@
   };
 
   // House rules: every rule Bandai has not published yet. Editable in Settings.
+  // Defaults follow the community "Naruto Card Game Rulebook v1.4" (The Lookout / fan Discord, from Gen Con demos).
   NS.HOUSE_DEFAULTS = {
-    deckSize: 30,        // official: 50 (only ~20 designs revealed so far)
-    copyLimit: 4,
+    deckSize: 30,        // Gen Con demo decks: 30 cards (official retail decks: 50)
+    copyLimit: 3,        // demo decks ran 3 copies of each card
     handSize: 5,
-    mulligan: true,
-    drawPerTurn: 1,
-    firstPlayerDraws: false,
-    firstPlayerCanAttack: false,
+    mulligan: true,      // only the second player may mulligan
+    drawPerTurn: 2,      // everyone draws 2 ...
+    firstTurnDraw: 1,    // ... except the first player's very first draw
+    firstPlayerDraws: true,
+    firstRoundAttacks: false, // neither player can attack during their first turn (even with Rush)
+    handSupports: true,  // turn player may activate Supports from hand
+    damagePersists: true,     // damage stays on a Character until end of turn
     charLimit: 5,
     battle: 'powVsHp',   // attacker POW >= target HP -> K.O.
     exUsesSummonCard: false,
@@ -226,13 +230,13 @@
   const STARTERS = [
     {
       id: 'st-red', name: 'Will of Fire (Red)', leader: 'N-001', color: 'red',
-      desc: 'Naruto leader. Team 10 combos, Rasengan board wipes and toad summons with Gamabunta.',
-      cards: { 'N-004': 2, 'N-006': 4, 'N-007': 3, 'N-008': 4, 'N-009': 2, 'N-011': 3, 'N-002': 3, 'N-020': 2, 'N-018': 4, 'N-003': 2, 'N-005': 1 },
+      desc: 'Naruto leader. Gen Con demo deck: 3 of each red card. Team 10 combos, Rasengan and Gamabunta.',
+      cards: { 'N-002': 3, 'N-003': 3, 'N-004': 3, 'N-005': 3, 'N-006': 3, 'N-007': 3, 'N-008': 3, 'N-009': 3, 'N-011': 3, 'N-018': 3 },
     },
     {
       id: 'st-blue', name: 'Path of Revenge (Blue)', leader: 'N-012', color: 'blue',
-      desc: 'Sasuke leader. Team Taka swarm, Uchiha genjutsu and Chidori, finished by EX Sasuke and Manda.',
-      cards: { 'N-010': 4, 'N-013': 4, 'N-016': 2, 'N-019': 4, 'N-021': 4, 'N-015': 3, 'N-017': 3, 'N-014': 3, 'N-022': 3 },
+      desc: 'Sasuke leader. Gen Con demo deck: 3 of each blue card. Team Taka, Uchiha genjutsu, Chidori and Manda.',
+      cards: { 'N-010': 3, 'N-013': 3, 'N-014': 3, 'N-015': 3, 'N-016': 3, 'N-017': 3, 'N-019': 3, 'N-020': 3, 'N-021': 3, 'N-022': 3 },
     },
   ];
 

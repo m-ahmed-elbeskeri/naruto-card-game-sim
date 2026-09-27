@@ -28,7 +28,7 @@
         deck: (o.noShuffle ? x => x : shuffle)(o.decks[i].map(c => ({ iid: 'c' + (UID++), card: c, owner: i }))),
         hand: [], trash: [], exclusion: [],
         chars: [], supports: [],
-        setThisTurn: 0, once: {},
+        setThisTurn: 0, once: {}, turns: 0,
       }));
       this.turn = 0;
       this.active = 0;
@@ -77,7 +77,7 @@
       if (this.active !== u.owner || this.phase !== 'main' || this.over) return false;
       if (u.rested) return false;
       if (u.flags.cantAttackTurn === this.turn) return false;
-      if (this.turn === 1 && !this.house.firstPlayerCanAttack) return false;
+      if (this.p(u.owner).turns <= 1 && !this.house.firstRoundAttacks) return false;
       if (u.isLeader) return !!this.house.leaderCanAttack;
       if (u.summonedTurn === this.turn && !this.hasRush(u)) return false;
       return true;
@@ -94,6 +94,7 @@
       if (paid) await this.emit('chakra', { player: pi, amount: -paid });
       return paid === n;
     }
+    hpLeft(u) { return u.isLeader ? u.life : Math.max(0, (u.card.hp || 0) - (u.damage || 0)); }
     unitName(u) { return u.isLeader ? `${u.card.name} (Leader)` : u.card.name; }
     hasName(pi, name) { return this.p(pi).chars.some(u => u.card.name === name); }
 
@@ -110,9 +111,13 @@
         const sp = s.card.support;
         if ((sp.timing === 'main' || sp.timing === 'quick') && this.faceUpChakra(pi) >= sp.cost && this.supportUsable(pi, s, { kind: 'main' })) out.push({ kind: 'support', sup: s });
       }
+      if (H.handSupports) for (const c of P.hand) {
+        const sp = c.card.support;
+        if (sp && (sp.timing === 'main' || sp.timing === 'quick') && this.faceUpChakra(pi) >= sp.cost && this.supportUsable(pi, c, { kind: 'main' })) out.push({ kind: 'support', sup: c, card: c, fromHand: true });
+      }
       const L = P.leader;
       if (NS.LEADER[L.card.id] && NS.LEADER[L.card.id].usable(this, pi)) out.push({ kind: 'leaderAbility' });
-      if (!L.rested && this.turn >= 2 && this.turn > P.chakraLockUntil && this.faceUpChakra(pi) < 5) out.push({ kind: 'recovery' });
+      if (!L.rested && P.turns >= 2 && this.turn > P.chakraLockUntil && this.faceUpChakra(pi) < 5) out.push({ kind: 'recovery' });
       for (const u of P.chars) if (NS.ABILITY[u.card.id] && !u.negated && NS.ABILITY[u.card.id].usable(this, pi, u)) out.push({ kind: 'charAbility', unit: u });
       for (const a of [L].concat(P.chars)) if (this.canAttack(a)) for (const t of this.targetsFor(pi)) out.push({ kind: 'attack', attacker: a, target: t });
       out.push({ kind: 'end' });
@@ -146,7 +151,7 @@
         await this.emit('coin', { player: this.first });
         for (const i of [0, 1]) await this.draw(i, H.handSize, true);
         await this.emit('dealt');
-        if (H.mulligan) for (const i of [this.first, 1 - this.first]) {
+        if (H.mulligan) for (const i of [1 - this.first]) {
           const r = await this.choose({ player: i, kind: 'mulligan', options: ['keep', 'mulligan'], prompt: 'Keep this hand or mulligan?', ai: o => o === 'keep' ? NS.AI.handScore(this, i) : 5 });
           if (r === 'mulligan') {
             const P = this.p(i);
@@ -173,15 +178,16 @@
 
     async playTurn(pi) {
       const P = this.p(pi);
-      P.once = {}; P.setThisTurn = 0;
+      P.once = {}; P.setThisTurn = 0; P.turns++;
       this.phase = 'refresh';
       await this.emit('turn', { player: pi, turn: this.turn });
       P.leader.rested = false; P.summonRested = false;
       P.chars.forEach(u => { u.rested = false; });
       await this.emit('refresh', { player: pi });
       this.phase = 'draw';
-      if (!(this.turn === 1 && !this.house.firstPlayerDraws)) {
-        await this.draw(pi, this.house.drawPerTurn);
+      const n = (this.turn === 1) ? (this.house.firstPlayerDraws ? this.house.firstTurnDraw : 0) : this.house.drawPerTurn;
+      if (n > 0) {
+        await this.draw(pi, n);
         if (this.over) return;
       }
       this.phase = 'main';
@@ -195,7 +201,7 @@
       }
       if (this.over) return;
       this.phase = 'end';
-      for (const pl of this.players) for (const u of [pl.leader].concat(pl.chars)) u.buffs = (u.buffs || []).filter(b => b.until !== 'turn');
+      for (const pl of this.players) for (const u of [pl.leader].concat(pl.chars)) { u.buffs = (u.buffs || []).filter(b => b.until !== 'turn'); u.damage = 0; }
       await this.emit('phase', { phase: 'end', player: pi });
     }
 
@@ -211,6 +217,7 @@
         P.hand.push(c);
         await this.emit('draw', { player: pi, card: c, silent });
       }
+      if (!silent) await this.checkLife();
       if (!silent && k) this.say(`${P.name} draws ${k}.`, 'draw');
       return k;
     }
@@ -226,6 +233,7 @@
           P.summonRested = true;
           await this.emit('summonCard', { player: pi });
           await this.summon(pi, a.card, 'hand');
+          await this.responseWindow(1 - pi, { kind: 'summon' });
           break;
         case 'ex': {
           const reqs = NS.EX_REQ[a.card.card.id];
@@ -240,6 +248,7 @@
           this.say(`${P.name} fulfils the Summon Requirements of ${a.card.card.name}!`, 'ex');
           for (const u of chosen) await this.toTrash(u, 'tribute');
           await this.summon(pi, a.card, 'hand', { ex: true });
+          await this.responseWindow(1 - pi, { kind: 'summon' });
           break;
         }
         case 'set':
@@ -251,14 +260,14 @@
           await this.emit('set', { player: pi, sup: a.card });
           break;
         case 'support': await this.activateSupport(pi, a.sup, { kind: 'main' }); break;
-        case 'leaderAbility': await this.safe(() => NS.LEADER[P.leader.card.id].run(this.ctx(pi, P.leader))); break;
+        case 'leaderAbility': await this.safe(() => NS.LEADER[P.leader.card.id].run(this.ctx(pi, P.leader))); await this.responseWindow(1 - pi, { kind: 'effect' }); break;
         case 'recovery':
           P.leader.rested = true;
           P.chakra = [true, true, true, true, true];
           this.say(`${P.name} uses [Recovery] — all Chakra flipped face-up!`, 'chakra');
           await this.emit('recovery', { player: pi });
           break;
-        case 'charAbility': await this.safe(() => NS.ABILITY[a.unit.card.id].run(this.ctx(pi, a.unit))); break;
+        case 'charAbility': await this.safe(() => NS.ABILITY[a.unit.card.id].run(this.ctx(pi, a.unit))); await this.responseWindow(1 - pi, { kind: 'effect' }); break;
         case 'attack': await this.attack(pi, a.attacker, a.target); break;
       }
       await this.checkLife();
@@ -312,31 +321,31 @@
       await this.emit('life', { player: pi, amount: n, source });
     }
     async checkLife() {
+      if (this.house.deckOutLoses) for (const i of [0, 1]) if (!this.over && this.p(i).deck.length === 0 && this.turn > 0) { this.say(`${this.p(i).name}'s deck is empty!`, 'ko'); await this.lose(i); }
       for (const i of [0, 1]) if (this.p(i).leader.life <= 0 && !this.over) { this.say(`${this.p(i).name}'s Leader has fallen!`, 'win'); await this.lose(i); }
     }
 
     // ---------------- supports & chain ----------------
     async activateSupport(pi, s, win) {
       const P = this.p(pi), sp = s.card.support;
-      if (!P.supports.includes(s)) return;
+      const fromHand = P.hand.includes(s);
+      if (!P.supports.includes(s) && !(fromHand && this.active === pi)) return;
       await this.payChakra(pi, sp.cost);
       const link = { pi, sup: s, negated: false };
       this.chain.push(link);
-      this.say(`${P.name} flips ${s.card.name}: ${sp.name}!`, 'support');
-      await this.emit('supportFlip', { player: pi, sup: s, attack: win && win.attack });
+      this.say(`${P.name} ${fromHand ? 'activates from hand' : 'flips'} ${s.card.name}: ${sp.name}!`, 'support');
+      await this.emit('supportFlip', { player: pi, sup: s, attack: win && win.attack, fromHand });
       await this.responseWindow(1 - pi, { kind: 'support', link });
       this.chain.pop();
       if (link.negated) {
         this.say(`${sp.name} is negated!`, 'ko');
-        const i = P.supports.indexOf(s);
-        if (i >= 0) { P.supports.splice(i, 1); P.trash.push(s); }
+        for (const z of [P.supports, P.hand]) { const i = z.indexOf(s); if (i >= 0) { z.splice(i, 1); P.trash.push(s); } }
         await this.emit('supportEnd', { player: pi, sup: s, negated: true });
         return;
       }
       const def = NS.SUPPORTS[s.card.id];
       if (def && def.resolve) await this.safe(() => def.resolve(this.ctx(pi, null, { sup: s, link, win })));
-      const j = P.supports.indexOf(s);
-      if (j >= 0) { P.supports.splice(j, 1); P.trash.push(s); }
+      for (const z of [P.supports, P.hand]) { const j = z.indexOf(s); if (j >= 0) { z.splice(j, 1); P.trash.push(s); } }
       await this.emit('supportEnd', { player: pi, sup: s });
       await this.checkLife();
     }
@@ -344,12 +353,14 @@
     async responseWindow(pi, win) {
       for (let guard = 0; guard < 6 && !this.over; guard++) {
         const P = this.p(pi);
-        const opts = P.supports.filter(s => {
+        const pool = P.supports.concat(this.house.handSupports && this.active === pi ? P.hand.filter(c => c.card.support) : []);
+        const opts = pool.filter(s => {
           const t = s.card.support.timing;
           if (this.faceUpChakra(pi) < s.card.support.cost) return false;
           let okT = false;
           if (win.kind === 'support') okT = t === 'supportActivated' || t === 'quick';
           if (win.kind === 'attack') okT = (t === 'oppAttack' && this.active !== pi) || t === 'quick';
+          if (win.kind === 'summon' || win.kind === 'effect') okT = t === 'quick';
           return okT && this.supportUsable(pi, s, win);
         });
         if (!opts.length) return;
@@ -382,8 +393,10 @@
         if (!this.p(target.owner).chars.includes(target)) { await this.emit('fizzle', { attack: atk }); return; }
         const pw = this.pow(attacker);
         await this.emit('hit', { attacker, target, amount: pw });
-        if (pw >= (target.card.hp || 0)) await this.ko(target, null);
-        else { this.say(`${target.card.name} withstands the blow (${pw} POW vs ${target.card.hp} HP).`, 'sys'); await this.emit('withstand', { target }); }
+        target.damage = (this.house.damagePersists ? (target.damage || 0) : 0) + pw;
+        const left = (target.card.hp || 0) - target.damage;
+        if (left <= 0) await this.ko(target, null);
+        else { this.say(`${target.card.name} takes ${pw} damage (${left} HP left this turn).`, 'sys'); await this.emit('withstand', { target, left }); }
       }
       await this.checkLife();
     }

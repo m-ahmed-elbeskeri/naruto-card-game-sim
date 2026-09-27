@@ -81,7 +81,7 @@
           if (O.leader.life - d <= 0) return 100;
           return 1.5 + d * 1.6 - risk;
         }
-        if (g.pow(at) >= t.card.hp) return 2 + unitValue(g, t) - risk;
+        if (g.pow(at) >= g.hpLeft(t)) return 2 + unitValue(g, t) - risk;
         return -3;
       }
     }
@@ -91,7 +91,7 @@
   // value of an opponent's attack if it resolves (from defender's view)
   function threat(g, atk) {
     if (atk.target.isLeader) return g.dmg(atk.attacker) * 1.8 + (g.p(atk.target.owner).leader.life <= g.dmg(atk.attacker) ? 100 : 0);
-    return g.pow(atk.attacker) >= atk.target.card.hp ? unitValue(g, atk.target) : 0;
+    return g.pow(atk.attacker) >= g.hpLeft(atk.target) ? unitValue(g, atk.target) : 0;
   }
 
   function scoreResponse(g, pi, s, win) {
@@ -103,6 +103,7 @@
       const selfCost = id === 'N-009' ? (g.p(pi).leader.life <= 4 ? 99 : 2) : 1;
       return bad - selfCost - cost * 0.5;
     }
+    if (win.kind === 'summon' || win.kind === 'effect') return -1;
     const atk = win.attack;
     const mine = atk.pi === pi;
     if (mine) {
