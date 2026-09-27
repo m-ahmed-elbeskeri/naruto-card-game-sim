@@ -43,7 +43,7 @@
       if (!pick) return;
       const fromDeck = P.deck.includes(pick);
       await c.g.summon(c.pi, pick, fromDeck ? 'deck' : 'trash', { negated: true });
-      if (fromDeck) NS.shuffle(P.deck);
+      if (fromDeck) NS.shuffle(P.deck, c.g.rng);
     },
     'N-005': async c => {
       if (!space(c)) return;

@@ -125,30 +125,30 @@
   }
 
   class AIController {
-    constructor(level) { this.lv = LEVELS[level] || LEVELS.chunin; }
-    async wait() { await NS.wait(this.lv.think * (NS.settings ? NS.settings.speedMul() : 1)); }
+    constructor(level, o) { this.lv = LEVELS[level] || LEVELS.chunin; this.fast = !!(o && o.fast); this.rand = (o && o.rand) || Math.random; }
+    async wait(ms) { if (!this.fast) await NS.wait((ms != null ? ms : this.lv.think) * (NS.settings ? NS.settings.speedMul() : 1)); }
     async takeMain(g, pi, acts) {
       await this.wait();
       let best = null, bs = -Infinity;
       for (const a of acts) {
-        const s = scoreMain(g, pi, a) + (a.kind === 'end' ? 0 : (Math.random() - 0.5) * this.lv.noise);
+        const s = scoreMain(g, pi, a) + (a.kind === 'end' ? 0 : (this.rand() - 0.5) * this.lv.noise);
         if (s > bs) { bs = s; best = a; }
       }
       if (bs < 0.5) return { kind: 'end' };
       return best;
     }
     async respond(g, pi, win) {
-      await NS.wait(250 * (NS.settings ? NS.settings.speedMul() : 1));
+      await this.wait(250);
       let best = null, bs = 2.2;
       for (const s of win.options) {
-        const v = scoreResponse(g, pi, s, win) + (Math.random() - 0.5) * this.lv.noise * 0.5;
+        const v = scoreResponse(g, pi, s, win) + (this.rand() - 0.5) * this.lv.noise * 0.5;
         if (v > bs) { bs = v; best = s; }
       }
       return best;
     }
     async choose(g, req) {
-      await NS.wait(180 * (NS.settings ? NS.settings.speedMul() : 1));
-      const sc = req.ai || (() => Math.random());
+      await this.wait(180);
+      const sc = req.ai || (() => this.rand());
       let best = null, bs = -Infinity;
       for (const o of req.options) { const v = sc(o); if (v > bs) { bs = v; best = o; } }
       if (req.optional && req.kind === 'unit' && bs <= 0) return null;
@@ -156,6 +156,6 @@
     }
   }
 
-  NS.AI = { AIController, unitValue, cardValue, handScore, LEVELS };
+  NS.AI = { AIController, unitValue, cardValue, handScore, LEVELS, scoreMain, scoreResponse };
   NS.wait = ms => new Promise(r => setTimeout(r, ms));
 })();

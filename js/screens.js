@@ -133,7 +133,7 @@
     };
     $('#pickMe').onclick = () => { setup.pick = 'me'; $('#pickMe').classList.add('on'); $('#pickOpp').classList.remove('on'); };
     $('#pickOpp').onclick = () => { setup.pick = 'opp'; $('#pickOpp').classList.add('on'); $('#pickMe').classList.remove('on'); };
-    $$('#aiSeg button').forEach(b => b.onclick = () => { $$('#aiSeg button').forEach(x => x.classList.remove('on')); b.classList.add('on'); setup.lv = b.dataset.lv; });
+    $$('#aiSeg button').forEach(b => b.onclick = () => { $$('#aiSeg button').forEach(x => x.classList.remove('on')); b.classList.add('on'); setup.lv = b.dataset.lv; if (setup.lv === 'hokage' && NS.AZ) NS.AZ.warm(); });
     $('#startBtn').onclick = startGame;
   }
 
@@ -149,7 +149,7 @@
     ui = new NS.GameUI({ humans: [true, setup.hot], hotseat: setup.hot });
     game = new NS.Game({
       names, ui, house: NS.house,
-      controllers: [ui.controllerFor(0), setup.hot ? ui.controllerFor(1) : new NS.AI.AIController(setup.lv)],
+      controllers: [ui.controllerFor(0), setup.hot ? ui.controllerFor(1) : setup.lv === 'hokage' && NS.AZ ? NS.AZ.hokage() : new NS.AI.AIController(setup.lv)],
       leaders: defs.map(d => NS.Cards.byId[d.leader]),
       decks: defs.map(NS.Cards.expand),
     });

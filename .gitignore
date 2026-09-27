@@ -6,3 +6,5 @@ Thumbs.db
 backgrounds/*.mp4
 backgrounds/*.webm
 .deploy/
+training/
+training-run.log

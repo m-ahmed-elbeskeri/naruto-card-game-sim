@@ -11,21 +11,38 @@
 (function () {
   const NS = window.NTCG = window.NTCG || {};
   let UID = 1;
-  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  // seeded PRNG with readable/writable state, so games can be replayed exactly
+  function mulberry32(seed) {
+    let s = seed >>> 0;
+    const f = () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    f.get = () => s; f.set = v => { s = v >>> 0; };
+    return f;
+  }
+  const shuffle = (a, rng) => { rng = rng || Math.random; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const isAbort = e => e && e.message === 'aborted';
+  const sameAct = (x, a) => x.kind === a.kind && x.card === a.card && x.sup === a.sup && x.unit === a.unit && x.attacker === a.attacker && x.target === a.target;
+  // plain-data (de)serialisation of cards and units; card definitions travel as ids
+  const instS = c => ({ iid: c.iid, id: c.card.id, owner: c.owner, setTurn: c.setTurn });
+  const instL = o => { const c = { iid: o.iid, card: NS.Cards.byId[o.id], owner: o.owner }; if (o.setTurn != null) c.setTurn = o.setTurn; return c; };
+  const unitS = u => { const o = Object.assign({}, u, { card: u.card.id, buffs: (u.buffs || []).map(b => Object.assign({}, b)), flags: Object.assign({}, u.flags) }); return o; };
+  const unitL = o => Object.assign({}, o, { card: NS.Cards.byId[o.card], buffs: o.buffs.map(b => Object.assign({}, b)), flags: Object.assign({}, o.flags) });
 
   class Game {
     constructor(o) {
       this.opts = o;
       this.house = Object.assign({}, NS.HOUSE_DEFAULTS, o.house || {});
       this.ui = o.ui || null;
+      this.seed = o.seed != null ? o.seed : (Math.random() * 4294967296) >>> 0;
+      this.rng = mulberry32(this.seed);
+      this.log = []; this.replay = o.replay || null; this.rp = 0;
+      this.snap = null; this.snapLog = 0;
       this.players = [0, 1].map(i => ({
         idx: i, name: o.names[i], controller: o.controllers[i],
         leader: { uid: 'L' + i, card: o.leaders[i], life: o.leaders[i].life || 15, rested: false, isLeader: true, owner: i, buffs: [], flags: {} },
         summonRested: false,
         chakra: [true, true, true, true, true],
         chakraLockUntil: -1,
-        deck: (o.noShuffle ? x => x : shuffle)(o.decks[i].map(c => ({ iid: 'c' + (UID++), card: c, owner: i }))),
+        deck: (o.noShuffle ? x => x : x => shuffle(x, this.rng))((o.decks[i] || []).map(c => ({ iid: 'c' + (UID++), card: c, owner: i }))),
         hand: [], trash: [], exclusion: [],
         chars: [], supports: [],
         setThisTurn: 0, once: {}, turns: 0,
@@ -50,7 +67,54 @@
     async choose(req) {
       if (this.aborted) throw new Error('aborted');
       if (!req.options || !req.options.length) return null;
-      return this.p(req.player).controller.choose(this, req);
+      return this.decide(req.options, () => this.p(req.player).controller.choose(this, req), r => req.options.indexOf(r));
+    }
+    // every controller decision goes through here: logged as an option index, or replayed from a log
+    async decide(options, ask, toIdx, fromIdx) {
+      if (this.aborted) throw new Error('aborted');
+      if (this.replay && this.rp < this.replay.length) {
+        const k = this.replay[this.rp++];
+        this.log.push(k);
+        return fromIdx ? fromIdx(k) : (k < 0 ? null : options[k]);
+      }
+      const r = await ask();
+      this.log.push(r == null ? -1 : toIdx(r));
+      return r;
+    }
+
+    // ---------------- snapshots (taken at every turn start) ----------------
+    snapshot() {
+      return {
+        turn: this.turn, active: this.active, first: this.first, rng: this.rng.get(),
+        players: this.players.map(P => ({
+          leader: unitS(P.leader), summonRested: P.summonRested, chakra: P.chakra.slice(), chakraLockUntil: P.chakraLockUntil,
+          deck: P.deck.map(instS), hand: P.hand.map(instS), trash: P.trash.map(instS), exclusion: P.exclusion.map(instS),
+          chars: P.chars.map(unitS), supports: P.supports.map(instS),
+          setThisTurn: P.setThisTurn, once: Object.assign({}, P.once), turns: P.turns,
+        })),
+      };
+    }
+    load(s) {
+      this.turn = s.turn; this.active = s.active; this.first = s.first; this.rng.set(s.rng);
+      this.over = false; this.winner = null; this.chain = []; this.phase = 'refresh';
+      s.players.forEach((q, i) => Object.assign(this.players[i], {
+        leader: unitL(q.leader), summonRested: q.summonRested, chakra: q.chakra.slice(), chakraLockUntil: q.chakraLockUntil,
+        deck: q.deck.map(instL), hand: q.hand.map(instL), trash: q.trash.map(instL), exclusion: q.exclusion.map(instL),
+        chars: q.chars.map(unitL), supports: q.supports.map(instL),
+        setThisTurn: q.setThisTurn, once: Object.assign({}, q.once), turns: q.turns,
+      }));
+    }
+    // everything a search worker needs to rebuild the current decision point
+    spec() {
+      return { snap: this.snap, log: this.log.slice(this.snapLog), house: this.house, leaders: this.players.map(P => P.leader.card.id) };
+    }
+    // continue a game from a turn-start snapshot, replaying the decisions made since
+    async resume(snap, replay) {
+      try {
+        this.load(snap);
+        this.replay = replay || []; this.rp = 0;
+        await this.loop();
+      } catch (e) { if (isAbort(e)) return; throw e; }
     }
 
     // ---------------- stats ----------------
@@ -146,7 +210,7 @@
     async start() {
       try {
         const H = this.house;
-        this.first = this.opts.first != null ? this.opts.first : (Math.random() < 0.5 ? 0 : 1);
+        this.first = this.opts.first != null ? this.opts.first : (this.rng() < 0.5 ? 0 : 1);
         this.say(`${this.p(this.first).name} goes first.`, 'sys');
         await this.emit('coin', { player: this.first });
         for (const i of [0, 1]) await this.draw(i, H.handSize, true);
@@ -155,25 +219,29 @@
           const r = await this.choose({ player: i, kind: 'mulligan', options: ['keep', 'mulligan'], prompt: 'Keep this hand or mulligan?', ai: o => o === 'keep' ? NS.AI.handScore(this, i) : 5 });
           if (r === 'mulligan') {
             const P = this.p(i);
-            P.deck.push(...P.hand); P.hand = []; shuffle(P.deck);
+            P.deck.push(...P.hand); P.hand = []; shuffle(P.deck, this.rng);
             this.say(`${P.name} redraws their hand.`, 'sys');
             await this.draw(i, H.handSize, true);
             await this.emit('mulligan', { player: i });
           }
         }
         this.active = this.first;
-        while (!this.over && this.turn < 200) {
-          this.turn++;
-          await this.playTurn(this.active);
-          if (this.over) break;
-          this.active = 1 - this.active;
-        }
-        this.phase = 'over';
-        await this.emit('gameOver', { winner: this.winner });
+        await this.loop();
       } catch (e) {
         if (isAbort(e)) return;
         console.error(e); throw e;
       }
+    }
+    async loop() {
+      while (!this.over && this.turn < 200) {
+        if (!this.noSnap) { this.snap = this.snapshot(); this.snapLog = this.log.length; }
+        this.turn++;
+        await this.playTurn(this.active);
+        if (this.over) break;
+        this.active = 1 - this.active;
+      }
+      this.phase = 'over';
+      await this.emit('gameOver', { winner: this.winner });
     }
 
     async playTurn(pi) {
@@ -195,7 +263,11 @@
       let guard = 0;
       while (!this.over && guard++ < 150) {
         const acts = this.mainActions(pi);
-        const a = await P.controller.takeMain(this, pi, acts);
+        const endIdx = acts.length - 1;
+        const a = await this.decide(acts, () => P.controller.takeMain(this, pi, acts),
+          r => { if (r.kind === 'end') return endIdx; const k = acts.findIndex(x => sameAct(x, r)); return k < 0 ? -2 : k; },
+          k => k === -1 ? null : k === -2 || !acts[k] ? { kind: 'illegal' } : acts[k]);
+        if (a && a.kind === 'illegal') { this.say('That action is no longer legal.', 'sys'); continue; }
         if (!a || a.kind === 'end') break;
         await this.doAction(pi, a);
       }
@@ -364,7 +436,7 @@
           return okT && this.supportUsable(pi, s, win);
         });
         if (!opts.length) return;
-        const pick = await P.controller.respond(this, pi, Object.assign({ options: opts }, win));
+        const pick = await this.decide(opts, () => P.controller.respond(this, pi, Object.assign({ options: opts }, win)), r => opts.indexOf(r));
         if (!pick) return;
         await this.activateSupport(pi, pick, win);
         if (win.kind === 'support' && win.link.negated) return;
@@ -404,4 +476,5 @@
 
   NS.Game = Game;
   NS.shuffle = shuffle;
+  NS.mulberry32 = mulberry32;
 })();
