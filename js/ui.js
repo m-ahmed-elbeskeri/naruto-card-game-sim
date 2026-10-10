@@ -235,8 +235,12 @@
       h += `</div>`;
       // characters
       h += `<div class="row ${side}" data-zone="chars-${pi}" style="left:230px;width:1090px;top:${charY}px;height:168px;gap:34px">`;
+      this.slotMap = this.slotMap || [[], []];
+      const sm = this.slotMap[pi]; sm.length = H.charLimit;
+      for (let i = 0; i < H.charLimit; i++) if (sm[i] && !P.chars.some(u => u.uid === sm[i])) sm[i] = null;
+      for (const u of P.chars) if (!sm.includes(u.uid)) { const k = sm.findIndex(x => !x); if (k >= 0) sm[k] = u.uid; }
       for (let i = 0; i < H.charLimit; i++) {
-        const u = P.chars[i];
+        const u = sm[i] ? P.chars.find(x => x.uid === sm[i]) : null;
         if (!u) { h += `<div class="slot" style="width:120px;height:168px;border:1px dashed rgba(240,124,20,.14);border-radius:6px"></div>`; continue; }
         const sick = u.summonedTurn === g.turn && g.active === pi && !g.hasRush(u);
         const flag = u.flags.cantAttackTurn >= g.turn ? 'GENJUTSU' : u.flags.immuneSupportTurn === g.turn ? 'SHIELDED' : u.negated ? 'NEGATED' : '';
@@ -641,7 +645,7 @@
         case 'buff': {
           this.render({ noFlip: true });
           const el = this.el(d.unit.uid);
-          if (el) { const c = this.center(el); NS.FX.floatText(c.x, c.y - 40, d.text, '#ffd23a', 34, 'pow', '強化'); NS.FX.chakra(c.x, c.y, { color: '#ffb347', count: 30 }); }
+          if (el) { const c = this.center(el); NS.FX.floatText(c.x, c.y - 40, d.text, '#ffd23a', 34, 'pow', '強化'); el.animate([{ filter: 'brightness(1.9) saturate(1.35)' }, { filter: 'none' }], { duration: 460, easing: 'ease-out' }); }
           snd('power');
           await wait(420);
           break;
@@ -709,7 +713,7 @@
           setTimeout(() => { if (this.ghost) this.ghost[d.player] = null; const gb = this.root.querySelector(`[data-lb="${d.player}"] .ghost`); if (gb) gb.style.width = Math.max(0, g.p(d.player).leader.life / 15 * 100) + '%'; }, 650 * S());
           { const lb = this.root.querySelector(`[data-lb="${d.player}"]`); if (lb) { lb.classList.remove('hurt', 'healed'); void lb.offsetWidth; lb.classList.add(d.amount < 0 ? 'hurt' : 'healed'); } }
           const el = this.root.querySelector(`[data-life="${d.player}"]`);
-          if (el) { const c = this.center(el); NS.FX.damage(c.x - 60, c.y, `${d.amount > 0 ? '+' : ''}${d.amount}`, d.amount < 0 ? '#ff4a3a' : '#5aff8a', d.amount > 0); el.animate([{ transform: 'scale(1.7)' }, { transform: 'none' }], { duration: 500 }); }
+          if (el) { const c = this.center(el); if (!(d.amount < 0 && d.source)) NS.FX.damage(c.x - 60, c.y, `${d.amount > 0 ? '+' : ''}${d.amount}`, d.amount < 0 ? '#ff4a3a' : '#5aff8a', d.amount > 0); el.animate([{ transform: 'scale(1.7)' }, { transform: 'none' }], { duration: 500 }); }
           if (d.amount < 0) NS.FX.flash('#ff2a2a');
           snd(d.amount < 0 ? 'defeat' : 'win');
           await wait(420);
