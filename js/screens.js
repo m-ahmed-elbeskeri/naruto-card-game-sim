@@ -343,7 +343,6 @@
       const go = b.dataset.go;
       if (go === 'tutorial') NS.Tutorial.start();
       else if (go === 'setup-ai') openSetup(false);
-      else if (go === 'setup-hot') openSetup(true);
       else if (go === 'online') NS.Net.open();
       else if (go === 'builder') openBuilder();
       else if (go === 'gallery') openGallery();

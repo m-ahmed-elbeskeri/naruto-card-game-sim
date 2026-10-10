@@ -7,7 +7,7 @@ Double-click `index.html`, or run `npm start` and open http://localhost:8765. Yo
 
 - **Tutorial**: a guided match that teaches the whole game.
 - **Battle vs AI**: Genin, Chunin, Jonin and Kage (heuristic), plus **Hokage**, an AlphaZero-style bot (see below).
-- **Local 2-Player**: hot-seat mode that hides your Supports while the other player looks.
+- **Online Match**: Quick Match or private rooms against another player (see Online play below).
 - **Deck Builder**, **Revealed Cards** gallery, **How to Play**, and **Settings & House Rules**.
 
 ## Rules
