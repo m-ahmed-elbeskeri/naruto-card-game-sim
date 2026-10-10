@@ -172,12 +172,13 @@ void main(){
     c.strokeStyle = '#dfe3ec'; c.lineWidth = 2; c.beginPath(); c.arc(-30, 0, 5.5, 0, 6.2832); c.stroke(); c.restore();
   }
   const KANJI = '飛雷神之術封印式忍';
-  function formula(b, e, x, y, spread, fade, rot, heat) { // ink on the ground + a molten line that blooms
-    for (const [c, col, lw, al] of [[b, '#08060a', 6, .92 * fade], [e, '#ffb52e', 2.2, heat * fade]]) {
+  function formula(b, e, x, y, spread, fade, rot, heat, script, glowCol) { // ink on the ground + a molten line that blooms
+    script = script || KANJI;
+    for (const [c, col, lw, al] of [[b, '#08060a', 6, .92 * fade], [e, glowCol || '#ffb52e', 2.2, heat * fade]]) {
       if (al <= 0) continue; c.save(); c.translate(x, y); c.scale(1, .32); if (c === e) c.globalCompositeOperation = 'lighter';
       c.globalAlpha = clamp(al, 0, 1); c.strokeStyle = col; c.fillStyle = col; c.lineWidth = lw; c.lineCap = 'round';
       for (let i = 0; i < 10; i++) { const a = i / 10 * 6.2832 + rot, len = 300 * spread; c.beginPath(); c.moveTo(Math.cos(a) * 56, Math.sin(a) * 56); c.lineTo(Math.cos(a) * len, Math.sin(a) * len); c.stroke();
-        for (let j = 0; j < 5; j++) { const d = 92 + j * 44; if (d > len) break; c.save(); c.translate(Math.cos(a) * d, Math.sin(a) * d); c.rotate(a + 1.571); c.font = '900 30px "Zen Kaku Gothic New", serif'; c.textAlign = 'center'; c.fillText(KANJI[(i + j) % KANJI.length], 0, 10); c.restore(); } }
+        for (let j = 0; j < 5; j++) { const d = 92 + j * 44; if (d > len) break; c.save(); c.translate(Math.cos(a) * d, Math.sin(a) * d); c.rotate(a + 1.571); c.font = '900 30px "Zen Kaku Gothic New", serif'; c.textAlign = 'center'; c.fillText(script[(i + j) % script.length], 0, 10); c.restore(); } }
       c.beginPath(); c.arc(0, 0, 56, 0, 6.2832 * Math.min(1, spread * 2)); c.stroke(); c.restore();
     }
   }
@@ -187,7 +188,7 @@ void main(){
   // ================= Flying Thunder God (Minato) =================
   // A marked kunai strikes, the formula spreads, the field pulls in, and he arrives in one flash.
   const thunderGod = {
-    dur: 2800, land: 880, reveal: 1340,
+    dur: 2800, land: 880, reveal: 1340, neg: true, shake: 14,
     cues: [[0, 'slash'], [300, 'hit'], [640, 'whoosh'], [880, 'impact'], [880, 'lightning'], [900, 'taiko']],
     draw(b, e, P, t, img) {
       const sx = 1230, sy = -60, tx = CX + 118, ty = FLOOR - 6, ang = Math.atan2(ty - sy, tx - sx);
@@ -218,7 +219,224 @@ void main(){
       motes(e, t, { seed: 6, t0: T + 100, x: CX, y: FLOOR, n: 46, spread: 520, color: '#ffc933' });
     },
   };
-  const EFFECTS = { 'N-007': thunderGod };
+
+  // =====================================================================
+  // Shared arrival: the card burns in with a coloured edge, sparks, a ground ring and a shockwave.
+  // o: { col, hot, edge:[r,g,b], pow, flash, rise }
+  // =====================================================================
+  function arrive(e, P, t, T, o) {
+    if (t < T) return;
+    const pw = o.pow || 1, ap = seg(t, T, T + 420), fl = o.fl || [1, 1, 1];
+    P.flash = [fl[0], fl[1], fl[2], t >= T + 40 ? (1 - seg(t, T + 40, T + 260)) * (o.flash == null ? .35 : o.flash) : 0];
+    P.aberr = .02 * pw * (1 - seg(t, T, T + 380));
+    wave(P, t, T, CX, CY, 620 * pw, 40 * pw, 680); wave(P, t, T + 90, CX, CY, 420 * pw, 22 * pw, 600);
+    P.card.a = 1 - seg(t, T + 460, T + 600); P.card.burn = seg(t, T, T + 320); P.card.white = 1 - seg(t, T + 40, T + 360);
+    P.card.s = 1 + .12 * pw * (1 - easeOut(ap)); P.card.y = CY + (o.rise || 0) * (1 - easeOut(ap)); P.edge = o.edge;
+    sparks(e, t, { seed: 31, t0: T, x: CX, y: CY, n: Math.round(150 * pw), speed: 1300 * pw, life: 620, color: o.col, w: 2.6 });
+    sparks(e, t, { seed: 32, t0: T + 40, x: CX, y: FLOOR, n: Math.round(60 * pw), speed: 1000 * pw, life: 700, color: o.hot || o.col, a0: 3.3, a1: 6.1, grav: 260, sy: .6 });
+    ringE(e, CX, FLOOR, 60 + 480 * pw * easeOut(seg(t, T, T + 520)), 8 * (1 - seg(t, T, T + 520)), o.col, 1 - seg(t, T, T + 520), .32);
+    glow(e, CX, CY, 380 * pw * (1 - seg(t, T, T + 420)), o.col, (1 - seg(t, T, T + 420)) * .6);
+    motes(e, t, { seed: 6, t0: T + 100, x: CX, y: FLOOR, n: 40, spread: 480, color: o.col });
+  }
+  const mk = (T, dur, cues, o, draw) => ({ dur, land: T, reveal: T + 460, neg: !!o.neg, shake: o.shake || Math.round(9 * (o.pow || 1)), cues, draw: (b, e, P, t, img) => draw(b, e, P, t, img, o, T) });
+
+  // ---------- lightning strike (Chidori users) ----------
+  const lightning = o => mk(820, 2300, [[120, 'lightning'], [400, 'lightning'], [820, 'impact'], [820, 'lightning']], o, (b, e, P, t, img, o, T) => {
+    [[120, -180], [260, 150], [400, -40]].forEach(([t0, dx], i) => {
+      const a = seg(t, t0, t0 + 150), gx = CX + dx * .35, gy = FLOOR - 10;
+      if (a > 0 && a < 1) { bolt(e, CX + dx * 1.6, -60, gx, gy, 500 + i * 11 + Math.floor(t / 40), 150, o.col, 1 - a, 2.6); glow(e, gx, gy, 120 * (1 - a), o.hot, 1 - a); }
+      sparks(e, t, { seed: 60 + i, t0, x: gx, y: gy, n: 26, speed: 700, life: 380, color: o.col, a0: 3.5, a1: 5.9, grav: 160 });
+      wave(P, t, t0, gx, gy, 200, 10, 320);
+    });
+    const ck = seg(t, 420, T);
+    if (ck > 0 && t < T) { // crackling core where he will stand
+      glow(e, CX, CY, 90 + 160 * ck, o.col, .55 * ck); glow(e, CX, CY, 50 + 60 * ck, '#ffffff', .8 * ck);
+      const r = rng(700 + Math.floor(t / 50));
+      for (let i = 0; i < 7; i++) { const a = r() * 6.2832, l = 120 + r() * 160 * ck; bolt(e, CX, CY, CX + Math.cos(a) * l, CY + Math.sin(a) * l * .8, 900 + i + Math.floor(t / 50), 50, o.col, .8 * ck, 1.6); }
+      speedLines(e, t, 9, ck * .45, o.hot);
+    }
+    if (t >= T) {
+      const a = seg(t, T, T + 420), pw = o.pow || 1;
+      bolt(e, CX + 30, -80, CX, CY, 1300 + Math.floor(t / 36), 190, o.col, 1 - a, 5 * pw);
+      for (let i = 0; i < 8; i++) { const an = i / 8 * 6.2832 + .3, s2 = seg(t, T + i * 20, T + 340 + i * 20); if (s2 > 0 && s2 < 1) bolt(e, CX, CY, CX + Math.cos(an) * (260 + i * 18) * pw, CY + Math.sin(an) * (210 + i * 10) * pw, 1400 + i * 5 + Math.floor(t / 42), 80, o.col, 1 - s2, 2.2); }
+    }
+    arrive(e, P, t, T, o);
+  });
+
+  // ---------- Rasengan spiral ----------
+  const spiral = o => mk(820, 2300, [[0, 'chakra'], [400, 'whoosh'], [820, 'impact']], o, (b, e, P, t, img, o, T) => {
+    const charge = seg(t, 0, 740), core = t < T ? 10 + 90 * easeOut(charge) - 28 * seg(t, 740, T) : 0;
+    const r = rng(4); e.save(); e.globalCompositeOperation = 'lighter'; e.lineCap = 'round';
+    for (let i = 0; i < 260; i++) {
+      const a0 = r() * 6.2832, r0 = 240 + r() * 460, d = r() * 500, w = 1 + r() * 2.4, hot = r() < .25, k = (t - d) / 420;
+      if (k <= 0 || k >= 1 || t > T) continue;
+      const pos = kk => { const rad = r0 * Math.pow(1 - kk, 1.7) + core * .5, a = a0 + kk * 5.2; return [CX + Math.cos(a) * rad, CY + Math.sin(a) * rad * .9]; };
+      const p1 = pos(k), p0 = pos(Math.max(0, k - .06));
+      e.globalAlpha = bell(k); e.strokeStyle = hot ? '#ffffff' : o.col; e.lineWidth = w; e.beginPath(); e.moveTo(p0[0], p0[1]); e.lineTo(p1[0], p1[1]); e.stroke();
+    }
+    e.restore();
+    if (core > 0) {
+      glow(e, CX, CY, core * 3.6, o.col, .55); glow(e, CX, CY, core * 1.7, o.hot, .9); glow(e, CX, CY, core * .9, '#ffffff', 1);
+      e.save(); e.translate(CX, CY); e.globalCompositeOperation = 'lighter'; e.lineCap = 'round';
+      for (let i = 0; i < 14; i++) { const a = t / 60 + i * .47, rr2 = core * (.3 + (i % 4) * .19); e.strokeStyle = i % 2 ? '#ffffff' : o.hot; e.globalAlpha = .9; e.lineWidth = 2.2; e.beginPath(); e.ellipse(0, 0, rr2, rr2 * (.4 + (i % 5) * .13), a, 0, 2.4); e.stroke(); }
+      e.restore();
+      P.waves.push([CX, CY, core * 1.5, -16 * charge]); // the sphere bends the air around it
+    }
+    if (t >= T) {
+      e.save(); e.translate(CX, CY); e.globalCompositeOperation = 'lighter'; e.lineCap = 'round';
+      for (let i = 0; i < 7; i++) { const k = seg(t, T + 60 + i * 40, T + 900 + i * 40); if (k <= 0 || k >= 1) continue; e.globalAlpha = (1 - k) * .7; e.strokeStyle = o.hot; e.lineWidth = 4 * (1 - k); const rad = 150 + 220 * k + i * 22; e.beginPath(); e.ellipse(0, 0, rad, rad * .5, i * .5, k * 3 + i, k * 3 + i + 1.9); e.stroke(); }
+      e.restore();
+    }
+    arrive(e, P, t, T, o);
+  });
+
+  // ---------- crows and Sharingan (Uchiha genjutsu) ----------
+  function crow(c, x, y, s, flap, rot, a, col) {
+    if (a <= 0) return; c.save(); c.translate(x, y); c.rotate(rot); c.scale(s, s); c.globalAlpha = clamp(a, 0, 1); c.fillStyle = col;
+    const w = 15, lift = -7 + flap * 9;
+    c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(-w * .5, lift - 4, -w, lift); c.quadraticCurveTo(-w * .45, lift + 5, 0, 4); c.quadraticCurveTo(w * .45, lift + 5, w, lift); c.quadraticCurveTo(w * .5, lift - 4, 0, 0); c.fill();
+    c.beginPath(); c.ellipse(0, 2, 2.6, 5.5, 0, 0, 6.2832); c.fill(); c.restore();
+  }
+  const crows = o => mk(860, 2400, [[0, 'whoosh'], [860, 'impact'], [860, 'fire']], o, (b, e, P, t, img, o, T) => {
+    // Sharingan opens behind the slot
+    const sk = easeOut(seg(t, 200, 700)), sa = bell(seg(t, 200, T + 420));
+    if (sa > 0) {
+      e.save(); e.translate(CX, CY); e.globalCompositeOperation = 'lighter'; e.globalAlpha = sa * .9; e.strokeStyle = o.col; e.fillStyle = o.col;
+      e.lineWidth = 7; e.beginPath(); e.arc(0, 0, 150 * sk, 0, 6.2832); e.stroke(); e.lineWidth = 2.5; e.beginPath(); e.arc(0, 0, 96 * sk, 0, 6.2832); e.stroke();
+      for (let i = 0; i < 3; i++) { const a = t / 260 + i * 2.094, x = Math.cos(a) * 96 * sk, y = Math.sin(a) * 96 * sk; e.beginPath(); e.arc(x, y, 15 * sk, 0, 6.2832); e.fill(); e.lineWidth = 8 * sk; e.lineCap = 'round'; e.beginPath(); e.arc(0, 0, 96 * sk, a - .5, a - .08); e.stroke(); }
+      e.beginPath(); e.arc(0, 0, 24 * sk, 0, 6.2832); e.fill(); e.restore();
+    }
+    const r = rng(12);
+    for (let i = 0; i < 38; i++) {
+      const a0 = r() * 6.2832, r0 = 420 + r() * 320, delay = r() * 420, sz = 1.3 + r() * 1.4, out = 300 + r() * 520, k = seg(t, delay, T), flap = Math.sin(t / 55 + i * 1.7);
+      if (t < delay) continue;
+      let x, y, al, ang;
+      if (t < T) { const rad = r0 * (1 - easeIn(k)) + 50, a = a0 + k * 4.2; x = CX + Math.cos(a) * rad; y = CY + Math.sin(a) * rad * .7 - (1 - k) * 50; al = Math.min(1, k * 4); ang = a + 1.9; }
+      else { const k2 = seg(t, T, T + 760), rad = 50 + out * easeOut(k2), a = a0 + 4.2 + k2 * .8; x = CX + Math.cos(a) * rad; y = CY + Math.sin(a) * rad * .7 - k2 * 90; al = 1 - k2; ang = a - 1.2; }
+      crow(b, x, y, sz, flap, ang * .25, al, '#07060a'); glow(e, x, y, 16 * sz, o.col, al * .22);
+    }
+    if (t >= T) sparks(e, t, { seed: 77, t0: T, x: CX, y: FLOOR, n: 110, speed: 620, life: 1100, color: o.col, a0: 3.9, a1: 5.5, grav: -260, jit: 500, w: 2.2 });
+    arrive(e, P, t, T, o);
+  });
+
+  // ---------- serpents (Orochimaru, Manda) ----------
+  const serpent = o => mk(880, 2500, [[0, 'hidden'], [500, 'whoosh'], [880, 'impact']], o, (b, e, P, t, img, o, T) => {
+    const pw = o.pow || 1, n = pw > 1.2 ? 5 : 3, fade = 1 - seg(t, T, T + 340);
+    const r = rng(9); e.save(); e.globalCompositeOperation = 'lighter';
+    for (let j = 0; j < 18; j++) { const d = r() * 900, x = CX + (r() - .5) * 460 * pw, k = (t - d) / 1300; if (k <= 0 || k >= 1) continue; glow(e, x, FLOOR - k * 260, 90 + 60 * k, o.col, bell(k) * .16); }
+    e.restore();
+    if (fade > 0) for (let i = 0; i < n; i++) {
+      const ph = i * 6.2832 / n, grow = easeOut(seg(t, i * 90, 700 + i * 90)), strike = easeIn(seg(t, T - 160, T));
+      let px = null, py = null, hx = 0, hy = 0;
+      for (let q = 0; q <= 40; q++) {
+        const sI = q / 40 * grow, ang = ph + sI * 5.4 + t / 900, rad = (250 - 130 * sI) * pw * (1 - strike * .7 * sI);
+        const x = CX + Math.cos(ang) * rad, y = FLOOR - sI * 470 * pw + Math.sin(ang) * rad * .25;
+        if (px != null) { const w = (40 - 24 * sI) * pw;
+          b.save(); b.globalAlpha = fade; b.lineCap = 'round'; b.strokeStyle = '#150a1c'; b.lineWidth = w; b.beginPath(); b.moveTo(px, py); b.lineTo(x, y); b.stroke(); b.restore();
+          if (q % 2) line(e, px, py - w * .25, x, y - w * .25, w * .18, o.col, .5 * fade); }
+        px = x; py = y; hx = x; hy = y;
+      }
+      if (grow > .1) { b.save(); b.globalAlpha = fade; b.fillStyle = '#150a1c'; b.beginPath(); b.ellipse(hx, hy, 26 * pw, 19 * pw, 0, 0, 6.2832); b.fill(); b.restore(); glow(e, hx - 9 * pw, hy - 3, 10 * pw, '#ffe14a', fade); glow(e, hx + 9 * pw, hy - 3, 10 * pw, '#ffe14a', fade); }
+    }
+    arrive(e, P, t, T, o);
+  });
+
+  // ---------- curse mark (Jugo) ----------
+  const curse = o => mk(820, 2300, [[0, 'hidden'], [820, 'impact'], [820, 'fire']], o, (b, e, P, t, img, o, T) => {
+    const sp = easeOut(seg(t, 0, 700)), cf = 1 - seg(t, 1500, 2200), heat = .35 + .65 * bell(seg(t, 500, T + 500)), rq = rng(21);
+    for (const [c, col, mul, al] of [[b, '#050406', 1, cf], [e, o.col, .32, heat * cf]]) {
+      c.save(); c.translate(CX, FLOOR); c.scale(1, .34); if (c === e) c.globalCompositeOperation = 'lighter'; c.globalAlpha = clamp(al, 0, 1); c.strokeStyle = col; c.lineJoin = 'round'; c.lineCap = 'round';
+      const rr2 = rng(21);
+      for (let i = 0; i < 14; i++) { const a = i / 14 * 6.2832 + rr2() * .4, len = (170 + rr2() * 250) * sp; c.lineWidth = (4 + rr2() * 7) * mul; c.beginPath(); c.moveTo(Math.cos(a) * 36, Math.sin(a) * 36); c.lineTo(Math.cos(a + .16) * len * .4, Math.sin(a + .16) * len * .4); c.lineTo(Math.cos(a - .1) * len * .72, Math.sin(a - .1) * len * .72); c.lineTo(Math.cos(a + .05) * len, Math.sin(a + .05) * len); c.stroke(); }
+      c.restore();
+    }
+    void rq;
+    // black flame licks climb around the slot
+    const fk = seg(t, 260, T), ff = 1 - seg(t, T, T + 300);
+    if (fk > 0 && ff > 0) for (const [c, col, grow2] of [[b, '#060407', 1], [e, o.col, .55]]) {
+      c.save(); if (c === e) { c.globalCompositeOperation = 'lighter'; c.globalAlpha = .5 * ff; } else c.globalAlpha = ff; c.fillStyle = col;
+      for (let i = 0; i < 16; i++) { const x = CX - CW / 2 - 30 + i * (CW + 60) / 15, h = (120 + 150 * Math.abs(Math.sin(i * 1.7 + t / 140))) * fk * grow2, w = 26; c.beginPath(); c.moveTo(x - w, FLOOR + 6); c.quadraticCurveTo(x - w * .2, FLOOR - h * .5, x + Math.sin(t / 90 + i) * 12, FLOOR - h); c.quadraticCurveTo(x + w * .3, FLOOR - h * .45, x + w, FLOOR + 6); c.closePath(); c.fill(); }
+      c.restore();
+    }
+    sparks(e, t, { seed: 91, t0: 200, x: CX, y: FLOOR, n: 80, speed: 420, life: 1200, color: o.col, a0: 3.9, a1: 5.5, grav: -220, jit: 800, w: 2 });
+    arrive(e, P, t, T, o);
+  });
+
+  // ---------- Summoning Jutsu smoke (toads) ----------
+  const SUMMON_SCRIPT = '口寄之術契約蝦蟇亥戌酉申未';
+  const smoke = o => mk(560, 2300, [[0, 'seal'], [560, 'poof'], [560, 'hit']].concat(o.pow > 1.2 ? [[560, 'impact']] : []), o, (b, e, P, t, img, o, T) => {
+    const pw = o.pow || 1;
+    formula(b, e, CX, FLOOR, easeOut(seg(t, 0, 420)), 1 - seg(t, 1100, 1700), .5, .7 * (1 - seg(t, 0, 900)) + .3, SUMMON_SCRIPT, o.col);
+    glow(e, CX, FLOOR, 130 * bell(seg(t, 300, 620)), o.hot, bell(seg(t, 300, 620)));
+    if (t >= T) {
+      const r = rng(15), n = Math.round(34 * pw); e.save(); e.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < n; i++) {
+        const a = r() * 6.2832, dist = (70 + r() * 230) * pw, life = 900 + r() * 700, d0 = r() * 140, k = (t - T - d0) / life; if (k <= 0 || k >= 1) continue;
+        const rad = (70 + (110 + r() * 90) * easeOut(k)) * pw, x = CX + Math.cos(a) * dist * easeOut(k), y = CY + 30 + Math.sin(a) * dist * .55 * easeOut(k) - k * 46;
+        glow(e, x, y, rad, i % 3 ? '#6f6a63' : '#8d877e', (k < .12 ? k / .12 : Math.pow(1 - k, 1.5)) * .13);
+      }
+      e.restore();
+      if (pw > 1.2) { wave(P, t, T, CX, FLOOR, 900, 60, 760); ringE(e, CX, FLOOR, 80 + 700 * easeOut(seg(t, T, T + 600)), 16 * (1 - seg(t, T, T + 600)), '#d9c9a8', (1 - seg(t, T, T + 600)) * .8, .3); }
+    }
+    arrive(e, P, t, T, o);
+  });
+
+  // ---------- swirl: leaves, petals, water or shadow ----------
+  function leafShape(c, x, y, s, rot, a, fill, vein) { if (a <= 0) return; c.save(); c.translate(x, y); c.rotate(rot); c.globalAlpha = clamp(a, 0, 1); c.fillStyle = fill; c.beginPath(); c.moveTo(-s, 0); c.quadraticCurveTo(0, -s * .75, s, 0); c.quadraticCurveTo(0, s * .75, -s, 0); c.fill(); if (vein) { c.strokeStyle = vein; c.lineWidth = 1.2; c.beginPath(); c.moveTo(-s, 0); c.lineTo(s, 0); c.stroke(); } c.restore(); }
+  const swirl = o => mk(780, 2200, [[0, 'whoosh'], [780, 'hit'], [780, 'chakra']], o, (b, e, P, t, img, o, T) => {
+    const r = rng(12);
+    if (o.kind === 'shadow') { // shadows crawl in along the ground and pool under the slot
+      const sp = easeOut(seg(t, 0, 720)), sf = 1 - seg(t, 1300, 1900);
+      b.save(); b.translate(CX, FLOOR); b.scale(1, .34); b.globalAlpha = sf * .95; b.fillStyle = '#040306'; b.strokeStyle = '#040306'; b.lineCap = 'round';
+      for (let i = 0; i < 11; i++) { const a = i / 11 * 6.2832 + r() * .5, far = 430 + r() * 160, near = far * (1 - sp) + 30; b.lineWidth = 9 + r() * 14; b.beginPath(); b.moveTo(Math.cos(a) * far, Math.sin(a) * far); b.quadraticCurveTo(Math.cos(a + .35) * (far + near) / 2, Math.sin(a + .35) * (far + near) / 2, Math.cos(a) * near, Math.sin(a) * near); b.stroke(); }
+      b.beginPath(); b.arc(0, 0, 40 + 150 * sp, 0, 6.2832); b.fill(); b.restore();
+      ringE(e, CX, FLOOR, 40 + 150 * sp, 3, o.col, .5 * sp * sf, .34);
+    } else {
+      for (let i = 0; i < 46; i++) {
+        const delay = r() * 520, a0 = r() * 6.2832, rad0 = 110 + r() * 180, sz = 7 + r() * 9, k = (t - delay) / 1300; if (k <= 0 || k >= 1) continue;
+        const burst = t >= T ? easeOut(seg(t, T, T + 600)) * 140 : 0, a = a0 + k * 7, rad = rad0 * (1 - .35 * k) + burst, x = CX + Math.cos(a) * rad, y = FLOOR - 20 - k * 470 + Math.sin(a) * 36, al = bell(k);
+        if (o.kind === 'drop') { line(e, x, y, x + Math.cos(a) * 3, y + 16, sz * .32, o.col, al * .9); glow(e, x, y, sz * 1.5, o.hot, al * .6); }
+        else { leafShape(b, x, y, o.kind === 'petal' ? sz * .7 : sz, a * 2, al, o.item, o.kind === 'petal' ? null : o.vein); glow(e, x, y, sz * 1.6, o.col, al * .2); }
+      }
+      if (o.kind === 'drop') for (let i = 0; i < 4; i++) { const k = ((t + i * 260) % 1040) / 1040; ringE(e, CX, FLOOR, 30 + 260 * k, 3 * (1 - k), o.col, (1 - k) * .55 * (1 - seg(t, 1500, 2100)), .3); }
+      // soft column of light and wind arcs
+      const ck = bell(seg(t, 250, T + 520));
+      if (ck > 0) { e.save(); e.globalCompositeOperation = 'lighter'; e.translate(CX, CY - 40); e.scale(.55, 1.5); glow(e, 0, 0, 300, o.col, ck * .32); e.restore(); }
+      e.save(); e.translate(CX, CY + 40); e.globalCompositeOperation = 'lighter'; e.lineCap = 'round';
+      for (let i = 0; i < 5; i++) { const k = seg(t, 120 + i * 110, 900 + i * 110); if (k <= 0 || k >= 1) continue; e.globalAlpha = bell(k) * .45; e.strokeStyle = o.hot; e.lineWidth = 2.5; const rad = 150 + i * 26; e.beginPath(); e.ellipse(0, 60 - k * 220, rad, rad * .3, 0, k * 5 + i, k * 5 + i + 1.6); e.stroke(); }
+      e.restore();
+    }
+    arrive(e, P, t, T, o);
+  });
+
+  const EFFECTS = {
+    'N-007': thunderGod,
+    // Chidori users
+    'N-015': lightning({ col: '#6fb7ff', hot: '#d6ecff', edge: [.4, .7, 1], pow: 1 }),
+    'N-014': lightning({ col: '#a877ff', hot: '#e6d8ff', edge: [.65, .45, 1], pow: 1.35, neg: true, flash: .5 }),
+    'N-009': lightning({ col: '#9fd8ff', hot: '#ffffff', edge: [.6, .85, 1], pow: 1 }),
+    // Rasengan
+    'N-004': spiral({ col: '#6cc4ff', hot: '#cfeeff', edge: [.35, .75, 1], pow: 1 }),
+    'N-003': spiral({ col: '#ff9a2a', hot: '#ffe0a8', edge: [1, .6, .15], pow: 1.35, neg: true, flash: .5 }),
+    // Uchiha
+    'N-013': crows({ col: '#ff3b30', hot: '#ffb0a0', edge: [1, .25, .2], pow: 1 }),
+    'N-016': crows({ col: '#4dff9a', hot: '#c9ffe0', edge: [.3, 1, .6], pow: 1 }),
+    // snakes and the curse mark
+    'N-017': serpent({ col: '#b06cff', hot: '#e3ccff', edge: [.7, .4, 1], pow: 1 }),
+    'N-022': serpent({ col: '#b06cff', hot: '#e3ccff', edge: [.7, .4, 1], pow: 1.4, neg: true, flash: .45 }),
+    'N-019': curse({ col: '#ff7a1a', hot: '#ffd0a0', edge: [1, .45, .1], pow: 1.05 }),
+    // toads
+    'N-006': smoke({ col: '#ffb86a', hot: '#fff0d8', edge: [1, .75, .4], pow: .95 }),
+    'N-005': smoke({ col: '#ffb86a', hot: '#fff0d8', edge: [1, .8, .3], pow: 1.45, flash: .45 }),
+    // swirls
+    'N-002': swirl({ kind: 'leaf', col: '#ffa23a', hot: '#ffe0b0', item: '#d9772a', vein: '#7a3c10', edge: [1, .62, .2], pow: .85, flash: .22 }),
+    'N-011': swirl({ kind: 'petal', col: '#c58bff', hot: '#ecd9ff', item: '#b47be8', edge: [.75, .5, 1], pow: .85, flash: .22 }),
+    'N-018': swirl({ kind: 'petal', col: '#cfc4ff', hot: '#ffffff', item: '#e4dcff', edge: [.8, .76, 1], pow: .85, flash: .22 }),
+    'N-020': swirl({ kind: 'petal', col: '#ff8fc0', hot: '#ffe0ee', item: '#ff9cc8', edge: [1, .5, .72], pow: .85, flash: .22 }),
+    'N-010': swirl({ kind: 'petal', col: '#ff4d5e', hot: '#ffc2c8', item: '#e23a4c', edge: [1, .3, .35], pow: .85, flash: .22 }),
+    'N-021': swirl({ kind: 'drop', col: '#4fc3ff', hot: '#d8f3ff', edge: [.3, .75, 1], pow: .9, flash: .22 }),
+    'N-008': swirl({ kind: 'shadow', col: '#8a6cff', hot: '#cfc4ff', edge: [.5, .4, .9], pow: .85, flash: .18, rise: 36 }),
+  };
 
   // ---------------- player ----------------
   const imgs = {};
@@ -249,8 +467,8 @@ void main(){
       fx.cues.forEach(([at, name], i) => { if (t >= at && !fired.has(i)) { fired.add(i); NS.Audio.play(name); } });
       if (t >= fx.land && !landed) { // the hit: one negative frame, a camera punch and a lens split on the whole board
         landed = true;
-        if (stage) { stage.classList.add('negframe'); setTimeout(() => stage.classList.remove('negframe'), 60); }
-        NS.FX.shake(14); NS.FX.punch(ax, ay, 0.05); NS.FX.chroma(170);
+        if (stage && fx.neg) { stage.classList.add('negframe'); setTimeout(() => stage.classList.remove('negframe'), 60); }
+        NS.FX.shake(fx.shake || 10); NS.FX.punch(ax, ay, fx.neg ? 0.05 : 0.03); if (fx.neg) NS.FX.chroma(170);
       }
       if (t >= fx.reveal && !fired.has('rv')) { fired.add('rv'); reveal(); }
       const P = { waves: [], aberr: 0, exposure: 1.15, flash: [1, 1, 1, 0], edge: GOLD, card: { x: CX, y: CY, s: 1, sx: 1, burn: 1, white: 0, a: 0 } };
