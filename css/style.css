@@ -530,3 +530,4 @@ body.lowfx .nc .ex-rim::before { animation: none; }
 .resp-trig span b { color: #ffb86a; font-size: 14px; letter-spacing: .5px; text-transform: none; }
 .resp-trig span i { font-style: normal; font-size: 11px; }
 .resp-pill .resp-trig { margin: 0; box-shadow: 0 8px 24px rgba(0, 0, 0, .6); background: #16161c; }
+.modal .pickable .lbl .tim { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--dim); }
