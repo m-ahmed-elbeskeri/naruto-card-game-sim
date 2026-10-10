@@ -38,7 +38,7 @@ Put a video at `backgrounds/menu.mp4` (or `.webm`) and it becomes the animated f
   - After that it's AlphaZero self-play on every CPU core: about 200 simulations per move, Dirichlet noise at the root, and temperature sampling early on.
   - It trains on a replay buffer with value MSE plus policy cross-entropy, using Adam.
   - A candidate is promoted to champion only if it wins at least 55% against the current champion.
-  - The champion is exported to `js/az-weights.js`. State in `training/` can be resumed.
+  - The champion is exported to `js/az-weights.js`. State in `ai/` can be resumed.
 - **In the browser**, the search runs in Web Workers on all cores (`js/az-worker.js`) with a time budget per decision.
 
 ## Testing

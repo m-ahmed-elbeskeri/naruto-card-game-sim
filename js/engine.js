@@ -402,6 +402,7 @@
       const P = this.p(pi), sp = s.card.support;
       const fromHand = P.hand.includes(s);
       if (!P.supports.includes(s) && !(fromHand && this.active === pi)) return;
+      if (this.chain.some(l => l.sup === s)) return;
       await this.payChakra(pi, sp.cost);
       const link = { pi, sup: s, negated: false };
       this.chain.push(link);
@@ -427,6 +428,7 @@
         const P = this.p(pi);
         const pool = P.supports.concat(this.house.handSupports && this.active === pi ? P.hand.filter(c => c.card.support) : []);
         const opts = pool.filter(s => {
+          if (this.chain.some(l => l.sup === s)) return false; // already activated and waiting to resolve
           const t = s.card.support.timing;
           if (this.faceUpChakra(pi) < s.card.support.cost) return false;
           let okT = false;

@@ -274,7 +274,7 @@
   function expand(node, net, g, dpi, D, rootNoise, rng) {
     const s = stateFeat(g, dpi, D);
     const acts = D.cands.map(c => actFeat(g, dpi, D, c));
-    const out = net.forward(s, acts);
+    const out = net ? net.forward(s, acts) : { v: 0, priors: new Float32Array(acts.length).fill(1 / acts.length) };
     let P = out.priors;
     if (rootNoise) {
       const a = rootNoise.alpha, eps = rootNoise.eps, gam = [];
@@ -304,20 +304,25 @@
 
   // one simulation inside one sampled world
   async function simulate(spec, pi, world, net, cfg) {
-    let atRoot = true, node = world.root, leaf = null;
+    let atRoot = true, node = world.root, leaf = null, rollout = null;
     const path = [];
     const onDecision = (kind, g, dpi, x) => {
+      // past the leaf: finish the game with the fast heuristic policy (AlphaGo-style rollout)
+      if (rollout) return kind === 'main' ? rollout.takeMain(g, dpi, x) : kind === 'respond' ? rollout.respond(g, dpi, x) : rollout.choose(g, x);
       const D = describe(kind, g, dpi, x);
       if (atRoot) {
         atRoot = false;
-        determinize(g, pi, NS.mulberry32(world.seed));
+        if (!cfg.cheat) determinize(g, pi, NS.mulberry32(world.seed));
         g.rng.set(world.seed ^ 0x5bd1e995);
       }
       if (D.cands.length === 1) return D.cands[0].ret;
       if (!node.expanded) {
         const v = expand(node, net, g, dpi, D, node === world.root && cfg.noise ? cfg.noise : null, NS.mulberry32(world.seed + 17));
         leaf = dpi === pi ? v : -v;
-        throw STOP();
+        if (!cfg.rollout) throw STOP();
+        world.sims = (world.sims || 0) + 1;
+        rollout = new NS.AI.AIController('kage', { fast: true, rand: NS.mulberry32(world.seed * 31 + world.sims) });
+        return onDecision(kind, g, dpi, x);
       }
       const k = select(node, pi, cfg.cpuct);
       path.push([node, k]);
@@ -333,7 +338,9 @@
     g.noSnap = true;
     await g.resume(spec.snap, spec.log);
     let v = leaf;
-    if (v == null) v = g.over ? (g.winner === pi ? 1 : -1) : 0;
+    const z = g.over ? (g.winner === pi ? 1 : -1) : 0;
+    if (v == null) v = z;
+    else if (rollout) v = (1 - cfg.rollout) * v + cfg.rollout * z;
     for (const [nd, k] of path) { nd.N[k]++; nd.W[k] += v; nd.n++; }
     return v;
   }

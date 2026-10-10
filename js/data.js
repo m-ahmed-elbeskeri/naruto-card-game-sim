@@ -30,8 +30,8 @@
     logoNaruto: B + '/images/welcome/logo_naruto_en.webp?v1',
     kishimoto: B + '/images/top/comment_en.webp',
     video: B + '/video/pv_en.mp4',
-    chakraFace: { url: 'https://exburst.dev/nrtb/cards/hd/C-001.webp', full: true },
-    summonFace: { url: 'https://exburst.dev/nrtb/cards/hd/S-001.webp', full: true },
+    chakraFace: { url: 'cards/hd/C-001.webp', full: true },
+    summonFace: { url: 'cards/hd/S-001.webp', full: true },
   };
 
   // mode: 'face' = real official card face (text printed on it),
@@ -240,9 +240,8 @@
     },
   ];
 
-  // real card faces (HD scans) from the ExBurst card database
-  const EXB = 'https://exburst.dev/nrtb/cards/';
-  C.forEach(c => { c.art = { url: EXB + (c.id === 'N-020' ? 'sd/' : 'hd/') + c.id + '.webp', full: true }; });
+  // real card faces (scans from the ExBurst card database), hosted with the game
+  C.forEach(c => { c.art = { url: 'cards/hd/' + c.id + '.webp', full: true }; });
   NS.CARD_DATA = C;
   NS.TIMING = TIMING;
   NS.STARTERS = STARTERS;

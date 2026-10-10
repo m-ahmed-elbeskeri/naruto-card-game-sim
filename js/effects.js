@@ -37,7 +37,7 @@
     'N-003': async c => {
       if (!space(c)) return;
       const P = c.g.p(c.pi);
-      const pool = P.deck.concat(P.trash).filter(x => x.card.name === 'Naruto Uzumaki' && x.card.type === 'character');
+      const pool = P.deck.concat(P.trash).filter(x => x.card.name === 'Naruto Uzumaki' && x.card.type !== 'leader'); // any [Naruto Uzumaki], EX included
       if (!pool.length) return;
       const pick = await c.g.choose({ player: c.pi, kind: 'card', options: pool, prompt: 'Summon up to 1 [Naruto Uzumaki] from your deck or trash (effects negated)', optional: true, ai: x => x.card.pow + x.card.hp });
       if (!pick) return;

@@ -1,0 +1,12 @@
+[19:41:23] start: 15 threads, dims {"S":271,"A":76,"n":22}
+[19:41:23] imitation: 3000 heuristic games
+[19:41:34] imitation samples 120000
+[19:42:00] imitation train 0 {"vl":"0.668","pl":"0.939"}
+[19:42:54] imitation train 1000 {"vl":"0.464","pl":"0.758"}
+[19:44:17] imitation train 2000 {"vl":"0.345","pl":"0.720"}
+[19:45:31] imitation train 3000 {"vl":"0.271","pl":"0.703"}
+[19:46:34] imitation train 4000 {"vl":"0.220","pl":"0.691"}
+[19:47:10] imitation train 5000 {"vl":"0.184","pl":"0.678"}
+[19:48:07] gen 0 vs Kage heuristic: 66.3%
+[20:03:08] iter 1: selfplay 379s (avg 15.2 turns, buffer 43034) train 131s loss v=0.313 p=1.041 | vs best 51.2%
+[20:25:11] iter 2: selfplay 1151s (avg 14.5 turns, buffer 86687) train 55s loss v=0.320 p=1.122 | vs best 63.7% -> NEW CHAMPION gen 1, vs Kage 56.3%

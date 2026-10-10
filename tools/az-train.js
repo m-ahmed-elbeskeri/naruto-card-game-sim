@@ -1,6 +1,6 @@
 // AlphaZero-style training for the NARUTO CARD GAME bot.
 //   node tools/az-train.js [iterations]
-// State lives in training/ (resumable). The current champion is exported to js/az-weights.js.
+// State lives in ai/ (resumable). The current champion is exported to js/az-weights.js.
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const fs = require('fs'), path = require('path'), os = require('os');
 const { NS, newGame } = require('./az-common');
@@ -19,7 +19,7 @@ const CFG = {
   imitationGames: 3000, imitationSteps: 6000,
 };
 if (process.env.AZ_CFG) Object.assign(CFG, JSON.parse(process.env.AZ_CFG));
-const DIR = process.env.AZ_DIR || path.join(__dirname, '..', 'training');
+const DIR = process.env.AZ_DIR || path.join(__dirname, '..', 'ai');
 
 // ======================= worker =======================
 if (!isMainThread) {

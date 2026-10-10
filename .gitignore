@@ -8,3 +8,4 @@ backgrounds/*.webm
 .deploy/
 training/
 training-run.log
+cards/
