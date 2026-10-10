@@ -78,7 +78,9 @@
         return fromIdx ? fromIdx(k) : (k < 0 ? null : options[k]);
       }
       const r = await ask();
-      this.log.push(r == null ? -1 : toIdx(r));
+      const k = r == null ? -1 : toIdx(r);
+      this.log.push(k);
+      if (this.onDecision) this.onDecision(k); // online play forwards local decisions from here
       return r;
     }
 

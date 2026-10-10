@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=1791639193">
+<link rel="stylesheet" href="css/style.css?v=1791639820">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%23f07c14'/><path d='M50 22a28 28 0 1 0 28 28' stroke='white' stroke-width='10' fill='none'/></svg>">
 </head>
 <body>
@@ -36,6 +36,7 @@
         <button class="btn primary" data-go="tutorial">Tutorial</button>
         <button class="btn" data-go="setup-ai">Battle vs AI</button>
         <button class="btn" data-go="setup-hot">Local 2-Player</button>
+        <button class="btn" data-go="online">Online Match</button>
         <button class="btn" data-go="builder">Deck Builder</button>
         <button class="btn" data-go="gallery">Revealed Cards</button>
         <button class="btn" data-go="rules">How to Play</button>
@@ -61,6 +62,29 @@
           <div class="field"><label>Matchup</label><div id="matchup" style="font-size:18px;line-height:1.5"></div></div>
           <div style="flex:1"></div>
           <button class="btn primary" id="startBtn" style="text-align:center">Start Battle <i data-icon="play"></i></button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-online" class="screen">
+      <button class="btn small ghost back-btn" data-go="title" id="onBack"><i data-icon="back"></i> Back</button>
+      <h1 class="h-title" style="position:absolute;left:170px;top:18px">Online Match</h1>
+      <div class="wrap">
+        <div class="panel" style="display:flex;flex-direction:column;min-height:0;padding:14px">
+          <div class="on-hint">Pick the deck you will play</div>
+          <div class="deck-grid" id="onDecks"></div>
+        </div>
+        <div class="panel setup-side">
+          <div class="field"><label>Your name</label><input id="onName" maxlength="16"></div>
+          <button class="btn primary" id="onQuick" style="text-align:center">Quick Match</button>
+          <button class="btn" id="onCreate" style="text-align:center">Create Private Room</button>
+          <div class="field"><label>Or join with a room code</label>
+            <div class="on-join"><input id="onCode" maxlength="5" placeholder="ABCDE" autocomplete="off" spellcheck="false"><button class="btn" id="onJoin">Join</button></div>
+          </div>
+          <div class="on-status" id="onStatus"></div>
+          <button class="btn small ghost" id="onCancel" style="display:none;text-align:center">Cancel</button>
+          <div style="flex:1"></div>
+          <div class="on-note">Direct connection between the two browsers. Quick Match uses the standard rules; in a private room the host's House Rules apply. Both players need the same version of the site.</div>
         </div>
       </div>
     </section>
@@ -96,18 +120,19 @@
 <div class="handoff" id="handoff"></div>
 <div class="result" id="result"></div>
 
-<script src="js/data.js?v=1791639193"></script>
-<script src="js/engine.js?v=1791639193"></script>
-<script src="js/effects.js?v=1791639193"></script>
-<script src="js/cards.js?v=1791639193"></script>
-<script src="js/ai.js?v=1791639193"></script>
-<script src="js/az.js?v=1791639193"></script>
+<script src="js/data.js?v=1791639820"></script>
+<script src="js/engine.js?v=1791639820"></script>
+<script src="js/effects.js?v=1791639820"></script>
+<script src="js/cards.js?v=1791639820"></script>
+<script src="js/ai.js?v=1791639820"></script>
+<script src="js/az.js?v=1791639820"></script>
 <script src="js/icons.js"></script>
-<script src="js/fx.js?v=1791639193"></script>
-<script src="js/audio.js?v=1791639193"></script>
-<script src="js/ui.js?v=1791639193"></script>
-<script src="js/screens.js?v=1791639193"></script>
-<script src="js/tutorial.js?v=1791639193"></script>
-<script src="js/main.js?v=1791639193"></script>
+<script src="js/fx.js?v=1791639820"></script>
+<script src="js/audio.js?v=1791639820"></script>
+<script src="js/ui.js?v=1791639820"></script>
+<script src="js/net.js?v=1791639820"></script>
+<script src="js/screens.js?v=1791639820"></script>
+<script src="js/tutorial.js?v=1791639820"></script>
+<script src="js/main.js?v=1791639820"></script>
 </body>
 </html>

@@ -164,22 +164,23 @@
   }
   function confirmQuit() {
     const close = NS.View.modal(`<h2>Leave the match?</h2><p>The current game will be abandoned.</p><div class="row-btns"><button class="btn primary" id="qy">Quit</button><button class="btn" id="qn">Keep playing</button></div>`, m => {
-      $('#qy', m).onclick = () => { close(); if (game) game.abort(); game = null; $('#result').classList.remove('show'); show('title'); NS.Audio.playTrack('title'); };
+      $('#qy', m).onclick = () => { close(); if (NS.Net) NS.Net.leave(); if (game) game.abort(); game = null; $('#result').classList.remove('show'); show('title'); NS.Audio.playTrack('title'); };
       $('#qn', m).onclick = () => close();
     });
   }
   function showResult(g, d, ui) {
     const w = d.winner;
-    const humanWin = ui.opts.hotseat ? true : w === 0;
+    const humanWin = ui.opts.hotseat ? true : w === ui.viewPi;
+    const online = !!ui.opts.online;
     const r = $('#result');
     r.className = 'result show ' + (humanWin ? 'win' : 'lose');
     r.innerHTML = `<div class="r-card">${NS.View.cardHTML(g.p(w).leader.card, { w: 230 })}</div>
       <div class="r-title">${ui.opts.hotseat ? esc(g.p(w).name) + ' wins' : humanWin ? 'Victory' : 'Defeat'}</div>
       <div class="r-sub">${esc(g.p(0).name)} ${g.p(0).leader.life} Life · ${esc(g.p(1).name)} ${g.p(1).leader.life} Life · ${g.turn} turns</div>
-      <div class="row-btns"><button class="btn primary" id="rA">Rematch</button><button class="btn" id="rM">Main menu</button><button class="btn ghost" id="rB">View board</button></div>`;
+      <div class="row-btns">${online ? '<button class="btn primary" id="rA">Online lobby</button>' : '<button class="btn primary" id="rA">Rematch</button>'}<button class="btn" id="rM">Main menu</button><button class="btn ghost" id="rB">View board</button></div>`;
     if (humanWin) { NS.FX.confetti({ colors: ['#f07c14', '#ffd23a', '#fff', '#e2267c', '#1ea0cf'] }); NS.Audio.jingle('victory'); } else NS.Audio.jingle('defeat');
-    $('#rA').onclick = () => { r.classList.remove('show'); startGame(); };
-    $('#rM').onclick = () => { r.classList.remove('show'); show('title'); NS.Audio.playTrack('title'); };
+    $('#rA').onclick = () => { r.classList.remove('show'); if (online) { NS.Net.leave(); NS.Audio.playTrack('title'); return NS.Net.open(); } startGame(); };
+    $('#rM').onclick = () => { r.classList.remove('show'); if (online) NS.Net.leave(); show('title'); NS.Audio.playTrack('title'); };
     $('#rB').onclick = () => r.classList.remove('show');
   }
 
@@ -333,7 +334,7 @@
   function init() {
     document.body.classList.add('on-title');
     NS.house = Object.assign({}, NS.HOUSE_DEFAULTS, store.get('house', {}));
-    buildTitle(); buildRules(); bindSetup(); bindBuilder();
+    buildTitle(); buildRules(); bindSetup(); bindBuilder(); if (NS.Net) NS.Net.init();
     bindPreview($('#gPool')); bindPreview($('#bPool'));
     document.addEventListener('click', e => {
       const b = e.target.closest('[data-go]'); if (!b) return;
@@ -343,11 +344,12 @@
       if (go === 'tutorial') NS.Tutorial.start();
       else if (go === 'setup-ai') openSetup(false);
       else if (go === 'setup-hot') openSetup(true);
+      else if (go === 'online') NS.Net.open();
       else if (go === 'builder') openBuilder();
       else if (go === 'gallery') openGallery();
       else if (go === 'settings') openSettings();
       else show(go);
     });
   }
-  NS.Screens = { init, show, confirmQuit, showResult, store, setGame(g, u) { if (game) game.abort(); game = g; ui = u; } };
+  NS.Screens = { init, show, confirmQuit, showResult, store, decks: allDecks, deckById, setGame(g, u) { if (game) game.abort(); game = g; ui = u; } };
 })();
