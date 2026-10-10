@@ -631,8 +631,9 @@
             if (d.attack && d.attack.attacker) { const ae = this.el(d.attack.attacker.uid); if (ae) to = this.center(ae); }
             else if (['N-004', 'N-015'].includes(d.sup.card.id)) { const r = $('#stage').getBoundingClientRect(); to = { x: r.left + r.width * .48, y: r.top + r.height * .39 }; }
             if (d.sup.card.id === 'N-010') { const le = this.el(g.p(d.player).leader.uid); if (le) to = this.center(le); }
-            const ms = NS.FX.jutsuFX(d.sup.card.id, d.sup.card.id === 'N-010' ? to : from, to);
-            await wait(ms);
+            // Shikamaru's Checkmate plays when the attack is interrupted, so his old shadow effect is only the Low FX fallback
+            const own = d.sup.card.id === 'N-008' && d.attack && NS.FXGL && NS.FXGL.has(d.sup.card);
+            if (!own) { const ms = NS.FX.jutsuFX(d.sup.card.id, d.sup.card.id === 'N-010' ? to : from, to); await wait(ms); }
           }
           await wait(150);
           break;
@@ -705,11 +706,13 @@
             if (ae && te) {
               const a = this.center(ae), tg = this.center(te), land = NS.FXGL.checkmate(a, tg, se ? this.center(se) : null, ae.getBoundingClientRect().width / 150);
               if (land) {
+                // the attacker charges while the piece falls, then is thrown back to its slot when it lands
+                const sc = this.sc() || 1, [ux, uy] = this.local(ae, (tg.x - a.x) / sc, (tg.y - a.y) / sc), mv = (f, rot, s) => `translate(${ux * f}px,${uy * f}px) rotate(${rot}deg) scale(${s})`;
+                ae.style.zIndex = 40;
+                ae.animate([{ transform: mv(0, 0, 1) }, { transform: mv(.36, 0, 1.12), offset: .3, easing: 'cubic-bezier(.2,.9,.3,1)' }, { transform: mv(-.16, 16, 1.04), offset: .5 }, { transform: mv(.04, -6, 1), offset: .74 }, { transform: mv(0, 0, 1) }], { duration: land / .3 * S(), easing: 'cubic-bezier(.5,0,.8,.4)', composite: 'add' }).finished.catch(() => { }).then(() => { ae.style.zIndex = ''; });
                 await wait(land);
                 this.hideArrow(); NS.FX.shake(11);
-                const ang = Math.atan2(a.y - tg.y, a.x - tg.x), [lx, ly] = this.local(ae, Math.cos(ang) * 54, Math.sin(ang) * 54);
-                ae.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${lx}px,${ly}px) rotate(9deg)`, offset: .22 }, { transform: `translate(${lx * .5}px,${ly * .5}px) rotate(-5deg)`, offset: .55 }, { transform: 'translate(0,0)' }], { duration: 620 * S(), easing: 'cubic-bezier(.2,.8,.3,1)', composite: 'add' });
-                await wait(520);
+                await wait(land / .3 - land);
               }
             }
           }
