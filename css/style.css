@@ -489,10 +489,18 @@ body.lowfx .keyart { animation: none !important; }
 body.lowfx .nc.ex { animation: none; }
 body.lowfx .nc .ex-rim { animation: none; }
 
-/* response panel: trash peek buttons, wide trash view; card picker source labels */
-.modal-back.resp .row-btns.peek { margin-top: 10px; padding-top: 10px; border-top: 1px solid #2a2a32; justify-content: flex-start; gap: 8px; }
-.modal-back.resp.wide .modal { max-width: 900px; }
-.modal-back.resp.wide .cards-row { flex-wrap: wrap; max-height: 60vh; overflow-y: auto; }
+/* response panel: eye toggle hides it so the board can be inspected; card picker source labels */
+.modal-back.resp .modal { position: relative; }
+.resp-eye { position: absolute; top: 10px; right: 10px; width: 38px; height: 38px; display: grid; place-items: center; cursor: pointer; color: #ddd; background: #1d1d24; border: 1px solid #3a3a44; }
+.resp-eye:hover { background: var(--orange); color: #111; border-color: var(--orange2); }
+.resp-eye svg, .resp-pill svg { width: 20px; height: 20px; }
+.resp-pill { position: fixed; left: 18px; top: 50%; transform: translateY(-50%); z-index: 70; display: flex; flex-direction: column; gap: 6px; }
+.resp-pill button { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; font-family: var(--display); font-size: 15px; letter-spacing: 2px; text-transform: uppercase; color: #fff; background: #16161c; border: 1px solid #3a3a44; box-shadow: 0 8px 24px rgba(0, 0, 0, .6); }
+.resp-pill .rp-show { border-color: #ff3a2a; border-left: 4px solid #ff3a2a; animation: respPulse 1.6s ease-in-out infinite; }
+.resp-pill .rp-show:hover { background: #ff3a2a; color: #111; }
+.resp-pill .rp-skip { justify-content: center; color: #ccc; font-size: 13px; }
+.resp-pill .rp-skip:hover { background: #2a2a34; color: #fff; }
+@keyframes respPulse { 50% { box-shadow: 0 8px 24px rgba(0, 0, 0, .6), 0 0 0 4px rgba(255, 58, 42, .28); } }
 .pickable .lbl.src { font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; font-size: 12px; }
 .pickable .lbl.src.trash { color: #ff8a6a; }
 .pickable .lbl.src.deck { color: #7fc4ff; }

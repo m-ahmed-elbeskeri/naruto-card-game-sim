@@ -20,7 +20,7 @@
     if (id !== 'game') {
       document.querySelectorAll('.coach').forEach(e => e.remove());
       document.querySelectorAll('.coach-focus').forEach(e => e.classList.remove('coach-focus'));
-      document.querySelectorAll('.cutin, .phase-banner, .speedlines, .atk-overlay, .outcome, .afterimage').forEach(e => e.remove());
+      document.querySelectorAll('.cutin, .phase-banner, .speedlines, .atk-overlay, .outcome, .afterimage, .resp-pill').forEach(e => e.remove());
       $('#modalBack').classList.remove('show');
     }
     NS.View.hidePreview();

@@ -472,18 +472,24 @@
       NS.Audio.play('edge');
       return new Promise(res => {
         let close;
-        const trashBtns = [1 - this.viewPi, this.viewPi].map(pi => `<button class="btn small" data-trash="${pi}">${pi === this.viewPi ? 'Your' : 'Opponent'} trash (${g.p(pi).trash.length})</button>`).join('');
+        const done = v => { const pill = document.querySelector('.resp-pill'); if (pill) pill.remove(); close(); res(v); };
         const main = () => {
-          close = modal(`<h2>${win.kind === 'attack' ? 'Incoming Attack!' : win.kind === 'support' ? 'Support Activated!' : 'Support Cut-in'}</h2><p>${ctx}</p><div class="cards-row">${win.options.map((s, i) => `<div class="pickable" data-i="${i}">${cardHTML(s.card, { w: 170 })}<div class="lbl">${esc(s.card.support.name)} · ${s.card.support.cost} Chakra</div></div>`).join('')}</div><div class="row-btns">${win.noSkip ? '' : '<button class="btn" id="noResp">No response</button>'}</div><div class="row-btns peek">${trashBtns}</div>`, m => {
-            $$('.pickable', m).forEach(b => b.onclick = () => { close(); NS.Audio.play('click'); res(win.options[+b.dataset.i]); });
-            const nr = $('#noResp', m); if (nr) nr.onclick = () => { close(); res(null); };
-            $$('[data-trash]', m).forEach(b => b.onclick = () => peek(+b.dataset.trash));
+          const pill = document.querySelector('.resp-pill'); if (pill) pill.remove();
+          close = modal(`<button class="resp-eye" id="respHide" title="Hide this panel to look at the board">${NS.icon('eye')}</button><h2>${win.kind === 'attack' ? 'Incoming Attack!' : win.kind === 'support' ? 'Support Activated!' : 'Support Cut-in'}</h2><p>${ctx}</p><div class="cards-row">${win.options.map((s, i) => `<div class="pickable" data-i="${i}">${cardHTML(s.card, { w: 170 })}<div class="lbl">${esc(s.card.support.name)} · ${s.card.support.cost} Chakra</div></div>`).join('')}</div><div class="row-btns">${win.noSkip ? '' : '<button class="btn" id="noResp">No response</button>'}</div>`, m => {
+            $$('.pickable', m).forEach(b => b.onclick = () => { NS.Audio.play('click'); done(win.options[+b.dataset.i]); });
+            const nr = $('#noResp', m); if (nr) nr.onclick = () => done(null);
+            $('#respHide', m).onclick = hide;
           }, 'resp');
         };
-        // look through a trash pile, then come back to the decision
-        const peek = pi => {
-          const T = g.p(pi);
-          close = modal(`<h2>${esc(T.name)} — Trash (${T.trash.length})</h2><div class="cards-row">${T.trash.slice().reverse().map(c => cardHTML(c.card, { w: 150 })).join('') || '<i>Empty</i>'}</div><div class="row-btns"><button class="btn primary" id="peekBack">Back to response</button></div>`, m => { $('#peekBack', m).onclick = () => main(); }, 'resp wide');
+        // eye toggle: tuck the panel away so the whole board (trash piles included) can be inspected
+        const hide = () => {
+          close();
+          const pill = document.createElement('div');
+          pill.className = 'resp-pill';
+          pill.innerHTML = `<button class="rp-show">${NS.icon('eyeOff')}<span>Show response</span></button>${win.noSkip ? '' : '<button class="rp-skip">No response</button>'}`;
+          pill.querySelector('.rp-show').onclick = e => { e.stopPropagation(); NS.Audio.play('click'); main(); };
+          const sk = pill.querySelector('.rp-skip'); if (sk) sk.onclick = e => { e.stopPropagation(); done(null); };
+          document.body.appendChild(pill);
         };
         main();
       });

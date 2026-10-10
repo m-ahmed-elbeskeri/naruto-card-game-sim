@@ -5,6 +5,8 @@
   const NS = window.NTCG = window.NTCG || {};
   const P = {
     menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+    eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    eyeOff: '<path d="M3 3l18 18"/><path d="M10.6 5.1A9.6 9.6 0 0112 5c6.4 0 10 7 10 7a17 17 0 01-3.2 4M6.5 6.6A16.6 16.6 0 002 12s3.6 7 10 7a9.7 9.7 0 004.3-1"/><path d="M9.9 9.9a3 3 0 004.2 4.2"/>',
     music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
     fast: '<path d="M4 5l8 7-8 7zM12 5l8 7-8 7z"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
