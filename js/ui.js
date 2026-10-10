@@ -229,6 +229,7 @@
         const s = P.supports[i];
         if (!s) { h += `<div class="slot" style="width:76px;height:106px;border:1px dashed rgba(240,124,20,.18);border-radius:4px"></div>`; continue; }
         const mine = pi === this.viewPi;
+        if (g.chain.some(l => l.sup === s)) { h += `<div class="slot ${side} sup live" data-k="${s.iid}" data-sup="${s.iid}">${cardHTML(s.card, { w: 76 })}</div>`; continue; }
         h += `<div class="slot ${side} sup" data-k="${s.iid}" data-sup="${s.iid}">${backHTML('', 76)}${mine ? `<div class="peek">${cardHTML(s.card, { w: 64 })}</div>` : ''}</div>`;
       }
       h += `</div>`;
@@ -322,7 +323,7 @@
           return showPreview(u.card, e, bits.join('<br>'), { pow: g.pow(u), dmg: g.dmg(u) });
         }
       }
-      if (sup) { const s = this.findSup(sup.dataset.sup); if (s && s.owner === this.viewPi) return showPreview(s.card, e, `Face-down in your Support Area. Activate for <b>${s.card.support.cost}</b> Chakra.`); }
+      if (sup) { const s = this.findSup(sup.dataset.sup); if (s && g.chain.some(l => l.sup === s)) return showPreview(s.card, e, 'Activated. Waiting to resolve.'); if (s && s.owner === this.viewPi) return showPreview(s.card, e, `Face-down in your Support Area. Activate for <b>${s.card.support.cost}</b> Chakra.`); }
       if (pile) { const pi = +pile.dataset.pile.split('-')[1]; const t = g.p(pi).trash; if (t.length) return showPreview(t[t.length - 1].card, e, `Trash: ${t.length} cards (click to view)`); }
       const ck = e.target.closest('[data-ck]'); if (ck) return showPreview(CHAKRA_CARD, e, `Face-up Chakra: <b>${g.faceUpChakra(+ck.dataset.ck[0])}</b>/5`);
       if (e.target.closest('[data-k^=SUM]')) return showPreview(SUMMON_CARD, e);
@@ -478,10 +479,13 @@
       NS.Audio.play('edge');
       return new Promise(res => {
         let close;
+        this.render({ noFlip: true }); // activated Supports show face-up on the board while you decide
+        const trig = win.kind === 'support' ? win.link.sup.card : null;
+        const trigHTML = trig ? `<div class="resp-trig">${cardHTML(trig, { w: 86 })}<span>Opponent's card<br><b>${esc(trig.support.name)}</b><br><i>hover to read</i></span></div>` : '';
         const done = v => { const pill = document.querySelector('.resp-pill'); if (pill) pill.remove(); close(); res(v); };
         const main = () => {
           const pill = document.querySelector('.resp-pill'); if (pill) pill.remove();
-          close = modal(`<button class="resp-eye" id="respHide" title="Hide this panel to look at the board">${NS.icon('eye')}</button><h2>${win.kind === 'attack' ? 'Incoming Attack!' : win.kind === 'support' ? 'Support Activated!' : 'Support Cut-in'}</h2><p>${ctx}</p><div class="cards-row">${win.options.map((s, i) => `<div class="pickable" data-i="${i}">${cardHTML(s.card, { w: 170 })}<div class="lbl">${esc(s.card.support.name)} · ${s.card.support.cost} Chakra</div></div>`).join('')}</div><div class="row-btns">${win.noSkip ? '' : '<button class="btn" id="noResp">No response</button>'}</div>`, m => {
+          close = modal(`<button class="resp-eye" id="respHide" title="Hide this panel to look at the board">${NS.icon('eye')}</button><h2>${win.kind === 'attack' ? 'Incoming Attack!' : win.kind === 'support' ? 'Support Activated!' : 'Support Cut-in'}</h2><p>${ctx}</p>${trigHTML}<div class="cards-row">${win.options.map((s, i) => `<div class="pickable" data-i="${i}">${cardHTML(s.card, { w: 170 })}<div class="lbl">${esc(s.card.support.name)} · ${s.card.support.cost} Chakra</div></div>`).join('')}</div><div class="row-btns">${win.noSkip ? '' : '<button class="btn" id="noResp">No response</button>'}</div>`, m => {
             $$('.pickable', m).forEach(b => b.onclick = () => { NS.Audio.play('click'); done(win.options[+b.dataset.i]); });
             const nr = $('#noResp', m); if (nr) nr.onclick = () => done(null);
             $('#respHide', m).onclick = hide;
@@ -492,7 +496,7 @@
           close();
           const pill = document.createElement('div');
           pill.className = 'resp-pill';
-          pill.innerHTML = `<button class="rp-show">${NS.icon('eyeOff')}<span>Show response</span></button>${win.noSkip ? '' : '<button class="rp-skip">No response</button>'}`;
+          pill.innerHTML = `${trigHTML}<button class="rp-show">${NS.icon('eyeOff')}<span>Show response</span></button>${win.noSkip ? '' : '<button class="rp-skip">No response</button>'}`;
           pill.querySelector('.rp-show').onclick = e => { e.stopPropagation(); NS.Audio.play('click'); main(); };
           const sk = pill.querySelector('.rp-skip'); if (sk) sk.onclick = e => { e.stopPropagation(); done(null); };
           document.body.appendChild(pill);
@@ -776,7 +780,7 @@
 
   // hover any card inside a pop-up (mulligan, choices, trash, responses) to inspect it
   document.addEventListener('mousemove', e => {
-    const m = e.target.closest && e.target.closest('#modal');
+    const m = e.target.closest && (e.target.closest('#modal') || e.target.closest('.resp-pill'));
     if (!m) { if (e.target.closest && e.target.closest('#modalBack')) hidePreview(); return; }
     const el = e.target.closest('[data-card]');
     if (!el) return hidePreview();

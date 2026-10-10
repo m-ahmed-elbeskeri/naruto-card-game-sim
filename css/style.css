@@ -522,3 +522,11 @@ body.lowfx .nc .ex-rim::before { animation: none; }
 .on-code { display: inline-block; margin: 2px 0 4px; font-family: var(--display); font-size: 40px; letter-spacing: 10px; color: var(--orange2); user-select: all; }
 .on-note { font-size: 12px; line-height: 1.5; color: var(--dim); }
 #screen-online button:disabled, #screen-online input:disabled { opacity: .45; cursor: default; }
+
+/* the opponent's activated Support: face-up on the board, and shown in the response panel / pill */
+.slot.sup.live .nc { box-shadow: 0 0 0 2px #ff3a2a, 0 0 18px rgba(255, 58, 42, .75); }
+.resp-trig { display: flex; align-items: center; gap: 12px; margin: 8px 0 4px; padding: 8px 10px; background: #0f0f14; border: 1px solid #2a2a32; border-left: 3px solid #ff3a2a; }
+.resp-trig span { font-size: 12px; line-height: 1.5; letter-spacing: 1px; text-transform: uppercase; color: var(--dim); }
+.resp-trig span b { color: #ffb86a; font-size: 14px; letter-spacing: .5px; text-transform: none; }
+.resp-trig span i { font-style: normal; font-size: 11px; }
+.resp-pill .resp-trig { margin: 0; box-shadow: 0 8px 24px rgba(0, 0, 0, .6); background: #16161c; }
