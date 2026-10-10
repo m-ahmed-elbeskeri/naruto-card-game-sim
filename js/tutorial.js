@@ -18,14 +18,15 @@
     { t: 'info', focus: '[data-zone="support-0"]', text: 'The <b>Support Area</b> holds up to 5 face-down cards. Each one hides a jutsu you trigger later by paying Chakra. Shikamaru\'s <i>Shadow Possession Jutsu</i> costs 1 Chakra and fires <b>when your opponent attacks</b>.' },
     { t: 'do', focus: '#endBtn', text: 'That\'s all for your first turn. Click <b>End Turn</b> and watch Sasuke.', expect: a => a.kind === 'end' },
     { t: 'info', focus: '[data-zone="chars-1"]', text: 'Sasuke summoned <b>Jugo</b> and set a face-down Support. Watch out for that hidden card! It\'s your turn: you stood up and drew 2.' },
-    { t: 'do', focus: '[data-k="L0"]', text: 'Click your <b>Leader</b> and use its ability: flip 1 Chakra to give a Character <b>+3 power</b>.', expect: a => a.kind === 'leaderAbility' },
+    { t: 'do', focus: '[data-zone="chars-0"]', text: '<b>Minato</b> has been on the field since your first turn, so he can attack now. Click <b>Minato</b>, choose <b>Attack</b>, then click <b>Sasuke\'s Leader</b>.', expect: a => a.kind === 'attack' && a.attacker.card && a.attacker.card.id === 'N-007' && a.target.isLeader },
+    { t: 'info', focus: '[data-zone="chars-1"]', text: 'Sasuke\'s face-down card was <b>Karin</b>: she summoned herself and <b>gained 2 Life</b> before your hit landed. Supports can cut in when someone attacks, summons, or activates an effect. Count your rival\'s face-down cards!' },
+    { t: 'do', focus: '[data-k="L0"]', text: 'Minato is <b>rested</b> now, but he can still be useful. Click your <b>Leader</b> and use its ability: flip 1 Chakra to give a Character <b>+3 power</b>.', expect: a => a.kind === 'leaderAbility' },
     { t: 'choose', text: 'Give the +3 power to <b>Minato</b>.', pick: u => u.card && u.card.id === 'N-007' },
     { t: 'info', focus: '[data-zone="chars-0"]', text: 'Minato now has <b>11 power</b>, which unlocks <b>EX Characters</b>. <b>Gamabunta</b> needs "1 of your Characters with 10 or more power" put in your trash. EX summons don\'t use the Summon card and aren\'t limited to one per turn.' },
-    { t: 'do', focus: '[data-zone="hand"]', text: 'Click <b>Gamabunta</b> and choose <b>EX Summon</b>. Minato goes to the trash to call the Chief Toad!', expect: a => a.kind === 'ex' && a.card.card.id === 'N-005' },
+    { t: 'do', focus: '[data-zone="hand"]', text: 'Click <b>Gamabunta</b> and choose <b>EX Summon</b>. Minato has already attacked, so trading him in costs you nothing.', expect: a => a.kind === 'ex' && a.card.card.id === 'N-005' },
     { t: 'choose', text: 'Gamabunta\'s <span class="kw on">On Summon</span>: bring <b>Minato</b> back from your trash!', pick: c => c.card && c.card.id === 'N-007' },
-    { t: 'info', focus: '[data-zone="chars-0"]', text: 'Classic combo: you got a 10-power EX Character and kept Minato. Both were just summoned, so they can\'t attack this turn. Your Leader can, though.' },
+    { t: 'info', focus: '[data-zone="chars-0"]', text: 'That\'s the trick: <b>attack first, then tribute</b>. You got a 10-power EX Character, and Minato is back and <b>standing</b> again. Both were just summoned, so they can\'t attack this turn. Your Leader can, though.' },
     { t: 'do', focus: '[data-k="L0"]', text: 'Click your <b>Leader</b>, choose <b>Attack</b>, then click <b>Sasuke\'s Leader</b>.', expect: a => a.kind === 'attack' && a.attacker.isLeader && a.target.isLeader },
-    { t: 'info', focus: '[data-zone="chars-1"]', text: 'Sasuke\'s face-down card was <b>Karin</b>: she summoned herself and <b>gained 2 Life</b> before your hit landed. Supports can cut in when someone attacks, summons, or activates an effect. Count your rival\'s face-down cards!' },
     { t: 'do', focus: '#endBtn', text: 'Click <b>End Turn</b>. Sasuke will attack now, and you\'re ready for him.', expect: a => a.kind === 'end' },
     { t: 'respond', text: '<b>Jugo</b> is attacking your Leader! Flip <b>Shikamaru</b>\'s <i>Shadow Possession Jutsu</i> to stop the attack.', pick: s => s.card.id === 'N-008' },
     { t: 'info', focus: '[data-zone="chars-0"]', text: '<b>ATTACK CANCEL!</b> You paid 1 Chakra, and Shikamaru jumped onto the field. On your own turn you can even activate Supports <b>straight from your hand</b>.' },
@@ -91,7 +92,7 @@
           return a;
         },
         async respond(g, pi, win) {
-          await D.runInfo();
+          // no coach text mid-attack: the next lesson waits until the action has finished
           const s = D.step();
           if (D.done) return base.respond(g, pi, win);
           if (!s || s.t !== 'respond') return null;
