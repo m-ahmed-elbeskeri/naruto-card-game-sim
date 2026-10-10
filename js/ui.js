@@ -67,7 +67,8 @@
   }
   function showPreview(card, ev, extra, live) {
     const pv = $('#preview');
-    pv.innerHTML = cardHTML(card, { w: 300 }) + textPanel(card, extra);
+    const key = (card.id || card.type) + '|' + (extra || '');
+    if (pv._key !== key) { pv._key = key; pv.innerHTML = cardHTML(card, { w: 300 }) + textPanel(card, extra); }
     pv.classList.add('show');
     const W = 650;
     let x = ev.clientX > window.innerWidth / 2 ? ev.clientX - W - 24 : ev.clientX + 24;
@@ -75,7 +76,7 @@
     const pop = document.querySelector('.popover');
     if (pop) { const r = pop.getBoundingClientRect(); x = r.left - W - 16 >= 8 ? r.left - W - 16 : r.right + 16; }
     const y = Math.max(8, Math.min(window.innerHeight - 430, ev.clientY - 210));
-    pv.style.left = Math.max(8, x) + 'px'; pv.style.top = y + 'px';
+    pv.style.transform = `translate(${Math.round(Math.max(8, x))}px,${Math.round(y)}px)`;
     const n = pv.querySelector('.nc');
     if (n) { const fx = ev.clientX / window.innerWidth, fy = ev.clientY / window.innerHeight; n.style.setProperty('--ry', ((fx - .5) * 16) + 'deg'); n.style.setProperty('--rx', ((.5 - fy) * 10) + 'deg'); n.style.setProperty('--gx', fx * 100 + '%'); n.style.setProperty('--gy', fy * 100 + '%'); }
   }
@@ -126,7 +127,12 @@
       $('#sndBtn').onclick = () => { NS.Audio.setMusic(!NS.Audio.musicOn); NS.settings.save({ music: NS.Audio.musicOn }); };
       $('#spdBtn').onclick = () => { NS.settings.cycleSpeed(); this.toast(`Animation speed: ${NS.settings.speed}`); };
       $('#quitBtn').onclick = () => NS.Screens.confirmQuit();
-      this.root.addEventListener('mousemove', e => this.onHover(e));
+      this.root.addEventListener('mousemove', e => {
+        this._hv = e;
+        if (this._hvq) return;
+        this._hvq = true;
+        requestAnimationFrame(() => { this._hvq = false; this.onHover(this._hv); });
+      });
       this.root.addEventListener('mouseleave', hidePreview);
       this.root.addEventListener('click', e => this.onClick(e));
       this.root.addEventListener('contextmenu', e => { e.preventDefault(); this.cancel(); });
@@ -154,15 +160,15 @@
       o = o || {};
       const g = this.g; if (!g) return;
       const before = new Map();
-      $$('[data-k]', this.root).forEach(e => before.set(e.dataset.k, e.getBoundingClientRect()));
+      if (!o.noFlip) $$('[data-k]', this.root).forEach(e => before.set(e.dataset.k, e.getBoundingClientRect()));
       const me = this.viewPi, op = 1 - me;
       let h = '';
       h += this.sideHTML(op, true) + this.sideHTML(me, false);
       $('#layer').innerHTML = h;
       // FLIP
-      $$('[data-k]', this.root).forEach(e => {
+      if (!o.noFlip) $$('[data-k]', this.root).forEach(e => {
         const b = before.get(e.dataset.k);
-        if (!b || o.noFlip) return;
+        if (!b) return;
         const a = e.getBoundingClientRect();
         const dx = (b.left + b.width / 2 - a.left - a.width / 2) / this.sc(), dy = (b.top + b.height / 2 - a.top - a.height / 2) / this.sc();
         if (Math.abs(dx) + Math.abs(dy) < 3) return;

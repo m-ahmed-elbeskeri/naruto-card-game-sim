@@ -126,8 +126,8 @@ body.on-title .t-wall { display: block; }
 /* rested cards are turned 90deg clockwise, so their right edge becomes the visual bottom edge:
    anchor the stat bar there and turn it back so it reads horizontally along the lower edge */
 .slot.rested .statbar { left: calc(100% + 3px); top: 50%; bottom: auto; transform: translate(-50%, -50%) rotate(-90deg); }
-.hand .nc.r-SR::after, #preview .nc.r-SR::after, #modal .nc.r-SR::after, #preview .nc.r-L::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; mix-blend-mode: soft-light; background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .85) 45%, transparent 60%); background-size: 300% 300%; animation: sheen 5s ease-in-out infinite; }
-@keyframes sheen { 0% { background-position: 100% 0; } 50%, 100% { background-position: -100% 0; } }
+.hand .nc.r-SR::after, #preview .nc.r-SR::after, #modal .nc.r-SR::after, #preview .nc.r-L::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; mix-blend-mode: soft-light; background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .85) 50%, transparent 65%); transform: translateX(-120%); animation: sheen 5s ease-in-out infinite; }
+@keyframes sheen { 0% { transform: translateX(120%); } 50%, 100% { transform: translateX(-120%); } }
 /* card backs, rebuilt from the official swirl + logo */
 .nback { --w: 150px; position: relative; width: var(--w); height: calc(var(--w) * 1.397); border-radius: calc(var(--w) * .045); overflow: hidden; flex: none; background: #e9e8ee center/260% auto no-repeat; box-shadow: 0 .3em .8em rgba(0, 0, 0, .55), inset 0 0 0 calc(var(--w) * .03) #fff; }
 .nback .lg { position: absolute; left: 12%; right: 12%; top: 50%; transform: translateY(-50%) rotate(-8deg); }
@@ -160,7 +160,7 @@ body.on-title .t-wall { display: block; }
 .slot.can-act .nc { box-shadow: 0 0 0 3px var(--orange), 0 0 22px rgba(240, 124, 20, .7); cursor: pointer; }
 .slot.targetable { animation: pulse 1s infinite; cursor: crosshair; }
 .slot.targetable .nc, .slot.targetable .nback { box-shadow: 0 0 0 4px #ff3b3b, 0 0 26px rgba(255, 60, 60, .9) !important; }
-@keyframes pulse { 50% { filter: brightness(1.2); } }
+@keyframes pulse { 50% { scale: 1.05; } }
 .slot.hidden-sup .nback { cursor: default; }
 .slot.can-act .nback { box-shadow: 0 0 0 3px var(--orange), 0 0 22px rgba(240, 124, 20, .8); cursor: pointer; }
 .slot .peek { position: absolute; inset: 6px; opacity: .0; transition: opacity .2s; pointer-events: none; }
@@ -220,7 +220,7 @@ body.on-title .t-wall { display: block; }
 @keyframes toast { 0% { opacity: 0; } 8% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
 
 /* ---------- preview / modal / overlays ---------- */
-#preview { position: fixed; z-index: 95; pointer-events: none; display: none; }
+#preview { position: fixed; left: 0; top: 0; z-index: 95; pointer-events: none; display: none; will-change: transform; }
 #preview.show { display: flex; gap: 12px; align-items: flex-start; }
 #preview .pv-text { width: 330px; padding: 12px 14px; background: rgba(12, 12, 16, .96); border: 1px solid #333; border-top: 3px solid var(--orange); font-size: 14px; line-height: 1.45; }
 #preview .pv-text h4 { margin: 0; font-family: var(--display); font-size: 22px; letter-spacing: 1px; }
@@ -486,15 +486,13 @@ body.lowfx .keyart { animation: none !important; }
 @keyframes rushPulse { 50% { box-shadow: 0 0 20px rgba(90, 200, 255, 1); } }
 
 /* EX Characters: gold animated rim, outer glow and tag everywhere */
-.nc.ex { filter: drop-shadow(0 0 calc(var(--w) * .06) rgba(255, 200, 60, .85)) drop-shadow(0 0 calc(var(--w) * .02) #fff3b0); animation: exGlow 2.2s ease-in-out infinite; }
-@keyframes exGlow { 50% { filter: drop-shadow(0 0 calc(var(--w) * .1) rgba(255, 180, 40, 1)) drop-shadow(0 0 calc(var(--w) * .03) #fff); } }
-.hand .hc.dim .nc.ex { filter: brightness(.6) drop-shadow(0 0 8px rgba(255, 200, 60, .7)); animation: none; }
-.nc .ex-rim { position: absolute; inset: 0; z-index: 4; pointer-events: none; border-radius: inherit; padding: calc(var(--w) * .025); background: conic-gradient(from var(--exa, 0deg), #fff3b0, #ffb300, #ff6a00, #ffd23a, #fff3b0, #ffb300, #fff3b0); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: exSpin 3s linear infinite; }
-@property --exa { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
-@keyframes exSpin { to { --exa: 360deg; } }
+.nc.ex, .slot .nc.ex, .leader-box .nc.ex, .hand .nc.ex { box-shadow: 0 10px 22px rgba(0, 0, 0, .7), 0 0 calc(var(--w) * .1) rgba(255, 190, 50, .9), 0 0 calc(var(--w) * .03) #fff3b0; }
+.hand .hc.dim .nc.ex { filter: brightness(.6); }
+.nc .ex-rim { position: absolute; inset: 0; z-index: 4; pointer-events: none; border-radius: inherit; padding: calc(var(--w) * .025); overflow: hidden; -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.nc .ex-rim::before { content: ''; position: absolute; inset: -50%; background: conic-gradient(#fff3b0, #ffb300, #ff6a00, #ffd23a, #fff3b0, #ffb300, #fff3b0); animation: exSpin 3s linear infinite; will-change: transform; }
+@keyframes exSpin { to { transform: rotate(360deg); } }
 .nc .ex-tag { position: absolute; left: 50%; top: calc(var(--w) * .02); transform: translateX(-50%); z-index: 5; padding: 0 calc(var(--w) * .06); font-family: var(--display); font-weight: 700; font-size: calc(var(--w) * .11); letter-spacing: .08em; color: #3a1a00; background: linear-gradient(180deg, #fff6c8, #ffc23a 55%, #e08a00); border: 1px solid #fff; box-shadow: 0 0 calc(var(--w) * .06) rgba(255, 190, 40, .9); border-radius: 3px; }
-body.lowfx .nc.ex { animation: none; }
-body.lowfx .nc .ex-rim { animation: none; }
+body.lowfx .nc .ex-rim::before { animation: none; }
 
 /* response panel: eye toggle hides it so the board can be inspected; card picker source labels */
 .modal-back.resp .modal { position: relative; }

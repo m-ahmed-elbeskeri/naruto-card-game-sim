@@ -164,7 +164,7 @@
   // ---- main loop ------------------------------------------------
   function loop() {
     requestAnimationFrame(loop);
-    if (!ctx) return;
+    if (!ctx || document.hidden) return;
     ctx.clearRect(0, 0, W, H);
 
     const lowfx = document.body.classList.contains('lowfx');
