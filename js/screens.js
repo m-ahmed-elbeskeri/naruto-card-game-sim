@@ -24,6 +24,7 @@
       $('#modalBack').classList.remove('show');
     }
     NS.View.hidePreview();
+    if (id !== 'game' && NS.FXGL) NS.FXGL.stop();
   }
 
   // ---------------- title ----------------

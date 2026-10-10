@@ -549,3 +549,7 @@ body.lowfx .nc .ex-rim::before { animation: none; }
 @keyframes auraSub { from { opacity: 0; letter-spacing: .8em; } }
 @keyframes auraOut { to { opacity: 0; transform: translate(-50%, -95%); } }
 body.lowfx .aura-text .au { display: none; }
+
+/* premium summon layer (WebGL): light adds onto the board; one negative frame on impact */
+#fxgl { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 61; display: none; }
+#stage.negframe { filter: invert(1) grayscale(1) contrast(2.2); }

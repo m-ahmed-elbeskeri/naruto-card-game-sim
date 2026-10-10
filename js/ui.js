@@ -572,6 +572,8 @@
         case 'summon': {
           this.render();
           const el = this.el(d.unit.uid);
+          // signature summon (WebGL light layer); falls through to the standard seal when unavailable
+          if (el && NS.FXGL && NS.FXGL.has(d.unit.card)) { const fxp = NS.FXGL.summon(d.unit.card, el); if (fxp) { await fxp; await wait(260); break; } }
           if (el) {
             el.animate([{ transform: 'translateY(-60px) scale(1.4)', opacity: 0, filter: 'brightness(3)' }, { transform: 'none', opacity: 1, filter: 'none' }], { duration: 480 * S(), easing: 'cubic-bezier(.2,1.3,.4,1)' });
             const c = this.center(el);
