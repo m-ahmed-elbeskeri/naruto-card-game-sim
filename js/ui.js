@@ -204,10 +204,10 @@
     hideArrow() { if (this.arrow) { const el = this.arrow.el; el.classList.add('out'); setTimeout(() => el.remove(), 250); this.arrow = null; } }
     outcome(el, text, cls) {
       if (!el) return;
-      const c = this.center(el), o = document.createElement('div');
-      o.className = 'outcome ' + (cls || ''); o.textContent = text;
-      o.style.left = c.x + 'px'; o.style.top = c.y + 'px';
-      document.body.appendChild(o); setTimeout(() => o.remove(), 1500);
+      const c = this.center(el);
+      const kind = cls === 'ko' ? 'ko' : cls === 'dmg' ? 'dmg' : 'cut';
+      const sub = cls === 'ko' ? '撃破' : cls === 'dmg' ? '直撃' : /INTERRUPT/.test(text) ? '阻止' : '耐';
+      NS.FX.auraText(c.x, c.y, text, kind, { size: cls === 'ko' ? 66 : cls === 'dmg' ? 54 : 40, sub, hold: 1150 });
     }
     afterimages(a, t) {
       const p = this.center(a), q = this.center(t), r = a.getBoundingClientRect();
@@ -641,7 +641,7 @@
         case 'buff': {
           this.render({ noFlip: true });
           const el = this.el(d.unit.uid);
-          if (el) { const c = this.center(el); NS.FX.floatText(c.x, c.y - 40, d.text, '#ffd23a', 30); NS.FX.chakra(c.x, c.y, { color: '#ffb347', count: 30 }); }
+          if (el) { const c = this.center(el); NS.FX.floatText(c.x, c.y - 40, d.text, '#ffd23a', 34, 'pow', '強化'); NS.FX.chakra(c.x, c.y, { color: '#ffb347', count: 30 }); }
           snd('power');
           await wait(420);
           break;
@@ -659,7 +659,7 @@
             const p = this.center(a2);
             this.showArrow(d.attacker, d.target, label, kind);
             t2.classList.add('targeted');
-            NS.FX.floatText(p.x, p.y - 60, 'ATTACK!!', '#ff5a3a', 42);
+            NS.FX.floatText(p.x, p.y - 60, 'ATTACK!!', '#ff5a3a', 42, 'dmg', '攻撃');
             NS.FX.speedLines(500, '#ffffff');
             snd('whoosh');
             await this.lunge(a2, t2, 0.45);
@@ -738,7 +738,7 @@
           snd('poof'); await wait(380); this.render();
           break;
         }
-        case 'immune': { const el = this.el(d.unit.uid); if (el) { const c = this.center(el); NS.FX.ring(c.x, c.y, { color: '#6ac8ff', max: 110, width: 10 }); NS.FX.floatText(c.x, c.y - 30, 'NO EFFECT', '#6ac8ff', 28); } await wait(400); break; }
+        case 'immune': { const el = this.el(d.unit.uid); if (el) { const c = this.center(el); NS.FX.ring(c.x, c.y, { color: '#6ac8ff', max: 110, width: 10 }); NS.FX.floatText(c.x, c.y - 30, 'NO EFFECT', '#6ac8ff', 34, 'cut', '無効'); } await wait(400); break; }
         case 'withstand': { this.render({ noFlip: true }); const el = this.el(d.target.uid); this.outcome(el, `${d.left} HP LEFT`, 'blocked'); await wait(450); break; }
         case 'fizzle': this.hideArrow(); this.atkUid = null; this.render(); await wait(200); break;
         case 'genjutsu': {

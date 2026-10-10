@@ -325,15 +325,25 @@
     });
   }
 
-  function floatText(x, y, text, color, size) {
+  // Chakra-aura lettering: glowing manga letters that rise one by one over a flicker of chakra flame.
+  // kind: pow | dmg | ko | cut | heal   opts: { size, sub (kanji caption), hold (ms) }
+  function auraText(x, y, text, kind, opts) {
+    opts = opts || {};
     const el = document.createElement('div');
-    el.className = 'float-text';
-    el.textContent = text;
+    el.className = 'aura-text ' + (kind || 'pow');
     el.style.left = x + 'px'; el.style.top = y + 'px';
-    el.style.color = color || '#fff';
-    if (size) el.style.fontSize = size + 'px';
+    el.style.fontSize = (opts.size || 46) + 'px';
+    const hold = opts.hold || 1050;
+    el.style.setProperty('--hold', hold + 'ms');
+    const esc = c => (c === '<' ? '&lt;' : c === '&' ? '&amp;' : c);
+    el.innerHTML = `<span class="au"></span><span class="mn">${String(text).split('').map((ch, i) => `<i${'+-−×'.includes(ch) ? ' class="sym"' : ''} style="--i:${i}">${esc(ch)}</i>`).join('')}</span>${opts.sub ? `<span class="sb">${opts.sub}</span>` : ''}`;
     document.body.appendChild(el);
-    setTimeout(() => el.remove(), 1400);
+    setTimeout(() => el.remove(), hold + 450);
+    return el;
+  }
+  function floatText(x, y, text, color, size, kind, sub) {
+    if (!kind) kind = color === '#ffd23a' ? 'pow' : color === '#ff5a3a' ? 'dmg' : 'cut';
+    auraText(x, y, text, kind, { size: size ? Math.round(size * 1.15) : 38, sub });
   }
 
   function centerOf(el) {
@@ -753,13 +763,7 @@
   }
   // big damage number with pop
   function damage(x, y, n, color, isHeal) {
-    const el = document.createElement('div');
-    el.className = 'dmg-num' + (isHeal ? ' heal' : '');
-    el.style.left = x + 'px'; el.style.top = y + 'px';
-    el.style.color = color || '#ff4a3a';
-    el.textContent = n;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 1300);
+    auraText(x, y, n, isHeal ? 'heal' : 'dmg', { size: 64, sub: isHeal ? '回復' : '' });
   }
   // slash streak across a line
   function slashLine(x1, y1, x2, y2, color) {
@@ -772,5 +776,5 @@
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 400);
   }
-  NS.FX = { summonSeal, puff, sparks, shock, chroma, whiteout, rasengan, chidori, fireball, shadowBind, serpents, heal, sharingan, jutsuFX, glowSprite, speedLines, impactFrame, punch, shatter, seal, pillar, stream, damage, slashLine, init, burst, smoke, chakra, ring, lightning, fire, petals, shuriken, confetti, shake, flash, cutIn, banner, floatText, centerOf, jutsuFor, setQuality: q => quality = q };
+  NS.FX = { auraText, summonSeal, puff, sparks, shock, chroma, whiteout, rasengan, chidori, fireball, shadowBind, serpents, heal, sharingan, jutsuFX, glowSprite, speedLines, impactFrame, punch, shatter, seal, pillar, stream, damage, slashLine, init, burst, smoke, chakra, ring, lightning, fire, petals, shuriken, confetti, shake, flash, cutIn, banner, floatText, centerOf, jutsuFor, setQuality: q => quality = q };
 })();
