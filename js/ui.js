@@ -234,14 +234,14 @@
         const sick = u.summonedTurn === g.turn && g.active === pi && !g.hasRush(u);
         const flag = u.flags.cantAttackTurn >= g.turn ? 'GENJUTSU' : u.flags.immuneSupportTurn === g.turn ? 'SHIELDED' : u.negated ? 'NEGATED' : '';
         const rush = u.summonedTurn === g.turn && g.active === pi && g.hasRush(u) && !u.rested;
-        h += `<div class="slot ${side} ${u.rested ? 'rested' : ''}" data-k="${u.uid}" data-unit="${u.uid}">${cardHTML(u.card, { w: 120, statbar: true, live: { pow: g.pow(u), dmg: g.dmg(u), hp: g.hpLeft(u) } })}${flag ? `<div class="flag">${flag}</div>` : ''}${rush && !flag ? `<div class="flag rush">${NS.icon('fast')} RUSH</div>` : ''}</div>`;
+        h += `<div class="slot ${side} ${u.rested ? 'rested' : ''} ${this.atkUid === u.uid ? 'atk' : ''}" data-k="${u.uid}" data-unit="${u.uid}">${cardHTML(u.card, { w: 120, statbar: true, live: { pow: g.pow(u), dmg: g.dmg(u), hp: g.hpLeft(u) } })}${flag ? `<div class="flag">${flag}</div>` : ''}${rush && !flag ? `<div class="flag rush">${NS.icon('fast')} RUSH</div>` : ''}</div>`;
       }
       h += `</div>`;
       // leader, life, summon, chakra
       const L = P.leader;
       const lY = top ? 8 : 684, lifeY = top ? 14 : 790, sumY = top ? 140 : 684, ckY = top ? 238 : 602;
       const lifePct = Math.max(0, Math.min(100, L.life / 15 * 100)), ghostPct = Math.max(lifePct, Math.min(100, ((this.ghost && this.ghost[pi] != null ? this.ghost[pi] : L.life) / 15) * 100));
-      h += `<div class="leader-box ${g.active === pi ? 'active' : ''}" style="left:1436px;top:${lY}px;width:140px"><div class="slot ${side} ${L.rested ? 'rested' : ''}" data-k="${L.uid}" data-unit="${L.uid}">${cardHTML(L.card, { w: 140, statbar: true, life: L.life, live: { pow: g.pow(L), dmg: g.dmg(L) } })}</div></div>`;
+      h += `<div class="leader-box ${g.active === pi ? 'active' : ''}" style="left:1436px;top:${lY}px;width:140px"><div class="slot ${side} ${L.rested ? 'rested' : ''} ${this.atkUid === L.uid ? 'atk' : ''}" data-k="${L.uid}" data-unit="${L.uid}">${cardHTML(L.card, { w: 140, statbar: true, life: L.life, live: { pow: g.pow(L), dmg: g.dmg(L) } })}</div></div>`;
       h += `<div class="leader-box" style="left:1348px;top:${lifeY}px;width:72px"><div class="life ${L.life <= 5 ? 'low' : ''}" style="position:static;width:72px" data-life="${pi}" data-zone="life-${pi}"><small>LIFE</small><b>${L.life}</b></div><div class="pname" style="font-size:13px">${esc(P.name)}</div></div>`;
       h += `<div class="slot ${P.summonRested ? 'rested' : ''} ${side}" data-k="SUM${pi}" style="position:absolute;left:1356px;top:${sumY}px">${cardHTML(SUMMON_CARD, { w: 58 })}</div>`;
       h += `<div class="chakra-row" data-zone="chakra-${pi}" style="left:1348px;top:${ckY}px">${P.chakra.map((up, i) => `<div class="ck" data-ck="${pi}-${i}">${up ? cardHTML(CHAKRA_CARD, { w: 42 }) : backHTML('chakra', 42)}</div>`).join('')}</div>`;
@@ -638,6 +638,7 @@
         }
         case 'attack': {
           const a = this.el(d.attacker.uid), t = this.el(d.target.uid);
+          this.atkUid = d.attacker.uid; // stays standing until the hit lands, then turns to rested
           this.render({ noFlip: true });
           const a2 = this.el(d.attacker.uid);
           const t2 = this.el(d.target.uid);
@@ -662,6 +663,7 @@
           { const te = this.el(d.attack.target.uid); this.outcome(te, 'INTERRUPTED', 'blocked'); }
           NS.FX.shake(6);
           await NS.FX.banner('Attack Cancel!!', 'Interrupted by a Support', { hold: 800, cls: 'red' });
+          this.atkUid = null;
           this.render();
           break;
         }
@@ -669,6 +671,7 @@
           const a = this.el(d.attacker.uid), t = this.el(d.target.uid);
           this.hideArrow();
           if (a && t) { this.afterimages(a, t); await this.lunge(a, t, 0.8, true); }
+          this.atkUid = null; if (a) a.classList.remove('atk');
           if (t) {
             const c = this.center(t);
             if (a) { const p = this.center(a); NS.FX.slashLine(p.x, p.y, c.x + (c.x - p.x) * 0.3, c.y + (c.y - p.y) * 0.3, '#ffb347'); }
@@ -681,7 +684,8 @@
             NS.FX.punch(c.x, c.y, 0.035);
             const ang = a ? Math.atan2(c.y - this.center(a).y, c.x - this.center(a).x) : 0, kx = Math.cos(ang) * 22, ky = Math.sin(ang) * 22;
             t.classList.remove('hitflash'); void t.offsetWidth; t.classList.add('hitflash');
-            t.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${kx}px,${ky}px) rotate(${kx > 0 ? 4 : -4}deg)`, offset: .25 }, { transform: `translate(${-kx * .2}px,${-ky * .2}px)`, offset: .6 }, { transform: 'translate(0,0)' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.3,1)', composite: 'add' });
+            const [lx, ly] = this.local(t, kx, ky);
+            t.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${lx}px,${ly}px) rotate(${kx > 0 ? 4 : -4}deg)`, offset: .25 }, { transform: `translate(${-lx * .2}px,${-ly * .2}px)`, offset: .6 }, { transform: 'translate(0,0)' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.3,1)', composite: 'add' });
             if (d.target.isLeader) this.outcome(t, `−${d.amount} LIFE`, 'dmg');
           }
           NS.FX.shake(d.target.isLeader ? 12 : 8);
@@ -726,7 +730,7 @@
         }
         case 'immune': { const el = this.el(d.unit.uid); if (el) { const c = this.center(el); NS.FX.ring(c.x, c.y, { color: '#6ac8ff', max: 110, width: 10 }); NS.FX.floatText(c.x, c.y - 30, 'NO EFFECT', '#6ac8ff', 28); } await wait(400); break; }
         case 'withstand': { this.render({ noFlip: true }); const el = this.el(d.target.uid); this.outcome(el, `${d.left} HP LEFT`, 'blocked'); await wait(450); break; }
-        case 'fizzle': this.hideArrow(); this.render(); await wait(200); break;
+        case 'fizzle': this.hideArrow(); this.atkUid = null; this.render(); await wait(200); break;
         case 'genjutsu': {
           const el = this.el(d.unit.uid);
           if (el) { const c = this.center(el); NS.FX.ring(c.x, c.y, { color: '#ff2a2a', max: 180, width: 12 }); NS.FX.burst(c.x, c.y, { colors: ['#ff2a2a', '#1a0000'], count: 40 }); }
@@ -739,9 +743,17 @@
         default: this.render();
       }
     }
+    // Screen-space offset -> the element's own (possibly rotated/scaled) space. Animations here use
+    // composite:'add', which applies the offset after the element's base transform (rested = rotated 90deg).
+    local(el, x, y) {
+      const m = new DOMMatrix(getComputedStyle(el).transform);
+      const det = m.a * m.d - m.b * m.c;
+      if (!det) return [x, y];
+      return [(m.d * x - m.c * y) / det, (-m.b * x + m.a * y) / det];
+    }
     async lunge(a, t, frac, back) {
       const p = this.center(a), q = this.center(t);
-      const dx = (q.x - p.x) / this.sc() * frac, dy = (q.y - p.y) / this.sc() * frac;
+      const [dx, dy] = this.local(a, (q.x - p.x) / this.sc() * frac, (q.y - p.y) / this.sc() * frac);
       a.style.zIndex = 40;
       const kf = back ? [{ transform: 'translate(0,0)' }, { transform: `translate(${dx}px,${dy}px) scale(1.12)`, offset: .45 }, { transform: 'translate(0,0)' }] : [{ transform: 'translate(0,0)' }, { transform: `translate(${-dx * 0.15}px,${-dy * 0.15}px) scale(1.08)` }, { transform: 'translate(0,0)' }];
       await a.animate(kf, { duration: (back ? 420 : 300) * S(), easing: 'cubic-bezier(.4,0,.2,1)', composite: 'add' }).finished.catch(() => { });
