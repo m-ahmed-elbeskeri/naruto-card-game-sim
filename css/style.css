@@ -152,7 +152,9 @@ body.on-title .t-wall { display: block; }
 .side-opp .slot.rested { transform: rotate(-90deg) scale(.86); }
 /* the attacker stays upright while it strikes, then turns to rested */
 .slot.rested.atk, .side-opp .slot.rested.atk { transform: none; }
-.slot.rested.atk .statbar { left: 50%; top: auto; bottom: -13px; transform: translateX(-50%); }
+/* opponent Characters turn the other way (-90deg): their left edge is the visual bottom edge */
+.side-opp .slot.rested .statbar { left: -3px; transform: translate(-50%, -50%) rotate(90deg); }
+.slot.rested.atk .statbar, .side-opp .slot.rested.atk .statbar { left: 50%; top: auto; bottom: -13px; transform: translateX(-50%); }
 .slot .sick { position: absolute; left: 50%; bottom: -10px; transform: translateX(-50%); z-index: 5; font-size: 10px; font-weight: 900; letter-spacing: 1px; background: #111; color: var(--dim); padding: 1px 6px; border: 1px solid #444; white-space: nowrap; }
 .slot .flag { position: absolute; left: 50%; top: -10px; transform: translateX(-50%); z-index: 5; font-size: 10px; font-weight: 900; letter-spacing: 1px; background: #b3262e; color: #fff; padding: 1px 6px; white-space: nowrap; }
 .slot.can-act .nc { box-shadow: 0 0 0 3px var(--orange), 0 0 22px rgba(240, 124, 20, .7); cursor: pointer; }

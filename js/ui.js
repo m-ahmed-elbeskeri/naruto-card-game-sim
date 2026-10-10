@@ -372,7 +372,7 @@
         case 'leaderAbility': return [NS.LEADER[P.leader.card.id].label, P.leader.card.id === 'N-001' ? 1 : ''];
         case 'recovery': return ['[Recovery] — rest Leader, refill all Chakra', ''];
         case 'charAbility': return [NS.ABILITY[a.unit.card.id].label, ''];
-        case '_attack': return ['Attack…', ''];
+        case '_attack': return ['Attack', ''];
       }
       return [a.kind, ''];
     }
