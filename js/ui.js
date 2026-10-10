@@ -70,7 +70,10 @@
     pv.innerHTML = cardHTML(card, { w: 300 }) + textPanel(card, extra);
     pv.classList.add('show');
     const W = 650;
-    const x = ev.clientX > window.innerWidth / 2 ? ev.clientX - W - 24 : ev.clientX + 24;
+    let x = ev.clientX > window.innerWidth / 2 ? ev.clientX - W - 24 : ev.clientX + 24;
+    // an action menu is open: keep the preview on the far side of it so the two never overlap
+    const pop = document.querySelector('.popover');
+    if (pop) { const r = pop.getBoundingClientRect(); x = r.left - W - 16 >= 8 ? r.left - W - 16 : r.right + 16; }
     const y = Math.max(8, Math.min(window.innerHeight - 430, ev.clientY - 210));
     pv.style.left = Math.max(8, x) + 'px'; pv.style.top = y + 'px';
     const n = pv.querySelector('.nc');
@@ -468,10 +471,21 @@
       else ctx = `Opponent activated <b style="color:#ffb86a">${esc(win.link.sup.card.support.name)}</b> (${esc(win.link.sup.card.name)}). Respond?`;
       NS.Audio.play('edge');
       return new Promise(res => {
-        const close = modal(`<h2>${win.kind === 'attack' ? 'Incoming Attack!' : win.kind === 'support' ? 'Support Activated!' : 'Support Cut-in'}</h2><p>${ctx}</p><div class="cards-row">${win.options.map((s, i) => `<div class="pickable" data-i="${i}">${cardHTML(s.card, { w: 170 })}<div class="lbl">${esc(s.card.support.name)} · ${s.card.support.cost} Chakra</div></div>`).join('')}</div><div class="row-btns">${win.noSkip ? '' : '<button class="btn" id="noResp">No response</button>'}</div>`, m => {
-          $$('.pickable', m).forEach(b => b.onclick = () => { close(); NS.Audio.play('click'); res(win.options[+b.dataset.i]); });
-          const nr = $('#noResp', m); if (nr) nr.onclick = () => { close(); res(null); };
-        }, 'resp');
+        let close;
+        const trashBtns = [1 - this.viewPi, this.viewPi].map(pi => `<button class="btn small" data-trash="${pi}">${pi === this.viewPi ? 'Your' : 'Opponent'} trash (${g.p(pi).trash.length})</button>`).join('');
+        const main = () => {
+          close = modal(`<h2>${win.kind === 'attack' ? 'Incoming Attack!' : win.kind === 'support' ? 'Support Activated!' : 'Support Cut-in'}</h2><p>${ctx}</p><div class="cards-row">${win.options.map((s, i) => `<div class="pickable" data-i="${i}">${cardHTML(s.card, { w: 170 })}<div class="lbl">${esc(s.card.support.name)} · ${s.card.support.cost} Chakra</div></div>`).join('')}</div><div class="row-btns">${win.noSkip ? '' : '<button class="btn" id="noResp">No response</button>'}</div><div class="row-btns peek">${trashBtns}</div>`, m => {
+            $$('.pickable', m).forEach(b => b.onclick = () => { close(); NS.Audio.play('click'); res(win.options[+b.dataset.i]); });
+            const nr = $('#noResp', m); if (nr) nr.onclick = () => { close(); res(null); };
+            $$('[data-trash]', m).forEach(b => b.onclick = () => peek(+b.dataset.trash));
+          }, 'resp');
+        };
+        // look through a trash pile, then come back to the decision
+        const peek = pi => {
+          const T = g.p(pi);
+          close = modal(`<h2>${esc(T.name)} — Trash (${T.trash.length})</h2><div class="cards-row">${T.trash.slice().reverse().map(c => cardHTML(c.card, { w: 150 })).join('') || '<i>Empty</i>'}</div><div class="row-btns"><button class="btn primary" id="peekBack">Back to response</button></div>`, m => { $('#peekBack', m).onclick = () => main(); }, 'resp wide');
+        };
+        main();
       });
     }
     humanChoose(req) {
@@ -492,7 +506,9 @@
           return;
         }
         if (req.kind === 'card') {
-          const close = modal(`<h2>Choose a Card</h2><p>${esc(req.prompt)}</p><div class="cards-row">${req.options.map((c, i) => `<div class="pickable" data-i="${i}">${cardHTML(c.card, { w: 170 })}</div>`).join('')}</div><div class="row-btns">${req.optional ? '<button class="btn" id="sk">Skip</button>' : ''}</div>`, m => {
+          const Q = this.g.p(req.player);
+          const from = c => Q.trash.includes(c) ? ['trash', 'From trash'] : Q.deck.includes(c) ? ['deck', 'From deck'] : Q.hand.includes(c) ? ['hand', 'From hand'] : ['', ''];
+          const close = modal(`<h2>Choose a Card</h2><p>${esc(req.prompt)}</p><div class="cards-row">${req.options.map((c, i) => { const [k, t] = from(c); return `<div class="pickable" data-i="${i}">${cardHTML(c.card, { w: 170 })}${t ? `<div class="lbl src ${k}">${t}</div>` : ''}</div>`; }).join('')}</div><div class="row-btns">${req.optional ? '<button class="btn" id="sk">Skip</button>' : ''}</div>`, m => {
             $$('.pickable', m).forEach(b => b.onclick = () => { close(); this.resolveChoice(req.options[+b.dataset.i]); });
             const sk = $('#sk', m); if (sk) sk.onclick = () => { close(); this.resolveChoice(null); };
           });

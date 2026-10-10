@@ -488,3 +488,12 @@ body.lowfx .keyart { animation: none !important; }
 .nc .ex-tag { position: absolute; left: 50%; top: calc(var(--w) * .02); transform: translateX(-50%); z-index: 5; padding: 0 calc(var(--w) * .06); font-family: var(--display); font-weight: 700; font-size: calc(var(--w) * .11); letter-spacing: .08em; color: #3a1a00; background: linear-gradient(180deg, #fff6c8, #ffc23a 55%, #e08a00); border: 1px solid #fff; box-shadow: 0 0 calc(var(--w) * .06) rgba(255, 190, 40, .9); border-radius: 3px; }
 body.lowfx .nc.ex { animation: none; }
 body.lowfx .nc .ex-rim { animation: none; }
+
+/* response panel: trash peek buttons, wide trash view; card picker source labels */
+.modal-back.resp .row-btns.peek { margin-top: 10px; padding-top: 10px; border-top: 1px solid #2a2a32; justify-content: flex-start; gap: 8px; }
+.modal-back.resp.wide .modal { max-width: 900px; }
+.modal-back.resp.wide .cards-row { flex-wrap: wrap; max-height: 60vh; overflow-y: auto; }
+.pickable .lbl.src { font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; font-size: 12px; }
+.pickable .lbl.src.trash { color: #ff8a6a; }
+.pickable .lbl.src.deck { color: #7fc4ff; }
+.pickable .lbl.src.hand { color: #ffd27a; }
