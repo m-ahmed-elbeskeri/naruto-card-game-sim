@@ -187,9 +187,7 @@
     // the engine logs every decision as an index; ours are sent, theirs are awaited
     const next = () => S.queue.length ? Promise.resolve(S.queue.shift()) : new Promise(r => { S.waiter = r; });
     const theirs = async pick => {
-      const hint = setTimeout(() => { if (S && !S.over) ui.showPrompt(`Waiting for ${esc(S.g.p(1 - me).name)}…`); }, 1200);
       const m = await next();
-      clearTimeout(hint); ui.hidePrompt();
       if (m.h !== hash(S.g)) desync();
       return pick(m.k);
     };
