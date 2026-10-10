@@ -153,11 +153,11 @@
       return [O.leader].concat(O.chars.filter(c => !this.house.attackRestedOnly || c.rested));
     }
     faceUpChakra(pi) { return this.p(pi).chakra.filter(Boolean).length; }
-    async payChakra(pi, n) {
+    async payChakra(pi, n, to) { // `to`: key of the card being paid for (UI only)
       const P = this.p(pi);
       let paid = 0;
       for (let i = 4; i >= 0 && paid < n; i--) if (P.chakra[i]) { P.chakra[i] = false; paid++; }
-      if (paid) await this.emit('chakra', { player: pi, amount: -paid });
+      if (paid) await this.emit('chakra', { player: pi, amount: -paid, to });
       return paid === n;
     }
     hpLeft(u) { return u.isLeader ? u.life : Math.max(0, (u.card.hp || 0) - (u.damage || 0)); }
@@ -405,7 +405,7 @@
       const fromHand = P.hand.includes(s);
       if (!P.supports.includes(s) && !(fromHand && this.active === pi)) return;
       if (this.chain.some(l => l.sup === s)) return;
-      await this.payChakra(pi, sp.cost);
+      await this.payChakra(pi, sp.cost, s.iid);
       const link = { pi, sup: s, negated: false };
       this.chain.push(link);
       this.say(`${P.name} ${fromHand ? 'activates from hand' : 'flips'} ${s.card.name}: ${sp.name}!`, 'support');

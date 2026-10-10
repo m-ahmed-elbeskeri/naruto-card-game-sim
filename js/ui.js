@@ -617,8 +617,7 @@
         }
         case 'supportFlip': {
           const el = this.el(d.sup.iid);
-          const ckr = this.root.querySelector(`[data-ck="${d.player}-0"]`);
-          if (el && ckr) { NS.FX.stream(this.center(ckr), this.center(el), '#ffb347'); await wait(300); }
+          this.lastSup = d.sup.card.id;
           if (el) {
             el.innerHTML = cardHTML(d.sup.card, { w: 76 });
             el.animate([{ transform: 'rotateY(90deg) scale(1.4)' }, { transform: 'scale(1.3)' }, { transform: 'none' }], { duration: 500 * S() });
@@ -640,8 +639,23 @@
         }
         case 'supportEnd': this.render(); await wait(200); break;
         case 'chakra': {
-          this.render({ noFlip: true });
-          if (d.amount < 0) { snd('chakra'); for (let i = 0; i < 5; i++) { const e = this.root.querySelector(`[data-ck="${d.player}-${i}"]`); if (e && !g.p(d.player).chakra[i]) { const c = this.center(e); NS.FX.burst(c.x, c.y, { colors: ['#f07c14', '#ffd23a'], count: 10, speed: 3 }); } } }
+          if (d.amount < 0) {
+            snd('chakra');
+            // the newly spent cards are the lowest-numbered face-down ones; they are spent from the right
+            const P = g.p(d.player), first = P.chakra.indexOf(false), cards = [];
+            for (let i = Math.min(4, first - d.amount - 1); i >= first && first >= 0; i--) { const e = this.root.querySelector(`[data-ck="${d.player}-${i}"]`); if (e) { const r = e.getBoundingClientRect(); cards.push({ x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height }); } }
+            const dest = () => (d.to && this.el(d.to)) || this.el(P.leader.uid), te = dest();
+            const st = cards.length && te && NS.FXGL && NS.FXGL.chakra ? NS.FXGL.chakra(cards, this.center(te)) : null;
+            if (st) { // chakra streams from the spent cards into the card being paid for
+              await wait(140); this.render({ noFlip: true });
+              await wait(st.hit - 140 + (cards.length - 1) * st.gap);
+              const t2 = dest(); if (t2) t2.animate([{ filter: 'brightness(1.75) saturate(1.3)' }, { filter: 'none' }], { duration: 420 * S(), easing: 'ease-out' });
+              await wait(160);
+              break;
+            }
+            this.render({ noFlip: true });
+            cards.forEach(c => NS.FX.burst(c.x, c.y, { colors: ['#f07c14', '#ffd23a'], count: 10, speed: 3 }));
+          } else this.render({ noFlip: true });
           await wait(220);
           break;
         }
@@ -685,6 +699,21 @@
           break;
         }
         case 'interrupted': {
+          if (this.lastSup === 'N-008' && NS.FXGL && NS.FXGL.checkmate) { // Shadow Possession: a shogi piece lands in the attacker's path
+            const ae = this.el(d.attack.attacker.uid), te = this.el(d.attack.target.uid);
+            const sh = g.p(1 - d.attack.attacker.owner).chars.filter(u => u.card.id === 'N-008').pop(), se = sh && this.el(sh.uid);
+            if (ae && te) {
+              const a = this.center(ae), tg = this.center(te), land = NS.FXGL.checkmate(a, tg, se ? this.center(se) : null, ae.getBoundingClientRect().width / 150);
+              if (land) {
+                await wait(land);
+                this.hideArrow(); NS.FX.shake(11);
+                const ang = Math.atan2(a.y - tg.y, a.x - tg.x), [lx, ly] = this.local(ae, Math.cos(ang) * 54, Math.sin(ang) * 54);
+                ae.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${lx}px,${ly}px) rotate(9deg)`, offset: .22 }, { transform: `translate(${lx * .5}px,${ly * .5}px) rotate(-5deg)`, offset: .55 }, { transform: 'translate(0,0)' }], { duration: 620 * S(), easing: 'cubic-bezier(.2,.8,.3,1)', composite: 'add' });
+                await wait(520);
+              }
+            }
+          }
+          this.lastSup = null;
           this.hideArrow();
           { const te = this.el(d.attack.target.uid); this.outcome(te, 'INTERRUPTED', 'blocked'); }
           NS.FX.shake(6);

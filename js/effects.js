@@ -91,7 +91,7 @@
         const ai = u => help(g, c.pi)(u) + (u.owner === c.pi && g.pow(u) < 10 && g.pow(u) + 3 >= 10 ? 6 : 0) + (u.owner === c.pi && g.canAttack(u) ? 3 : 0);
         const t = await pickUnit(c, allChars(g), 'Naruto: choose 1 Character to get +3 power this turn', { must: true, ai });
         if (!t) return;
-        await c.g.payChakra(c.pi, 1);
+        await c.g.payChakra(c.pi, 1, c.g.p(c.pi).leader.uid);
         t.buffs.push({ pow: 3, until: 'turn' });
         c.g.say(`${t.card.name} gets +3 power!`, 'power');
         await c.g.emit('buff', { unit: t, text: '+3 POW' });

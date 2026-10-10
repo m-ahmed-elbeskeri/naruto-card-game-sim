@@ -12,7 +12,7 @@
   const CX = 640, CY = 380, CW = 250, CH = CW * 831 / 600, FLOOR = CY + CH / 2 + 14;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const seg = (t, a, b) => clamp((t - a) / (b - a), 0, 1);
-  const easeOut = k => 1 - Math.pow(1 - k, 3), easeIn = k => k * k * k;
+  const easeOut = k => 1 - Math.pow(1 - k, 3), easeIn = k => k * k * k, easeIO = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
   const bell = k => Math.sin(clamp(k, 0, 1) * Math.PI);
   function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
@@ -409,6 +409,61 @@ void main(){
     arrive(e, P, t, T, o);
   });
 
+
+  // ---------- shadow ink (Shikamaru): black shapes with a thin glowing rim ----------
+  const RIM = '#b9a8ff', INK = '#030206';
+  function inkShape(c, e, path, a, rim) {
+    if (a <= 0) return;
+    e.save(); e.globalCompositeOperation = 'lighter'; e.globalAlpha = clamp(a * (rim == null ? .55 : rim), 0, 1); e.strokeStyle = RIM; e.lineWidth = 3; e.lineJoin = 'round'; path(e); e.stroke(); e.restore();
+    e.save(); e.globalAlpha = clamp(a, 0, 1); e.fillStyle = '#000'; path(e); e.fill(); e.restore();
+    c.save(); c.globalAlpha = clamp(a, 0, 1); c.fillStyle = INK; path(c); c.fill(); c.restore();
+  }
+  // tapered, writhing tendril grown to fraction k of the way from (x1,y1) to (x2,y2)
+  function tendril(c, e, x1, y1, x2, y2, k, o) {
+    o = o || {}; if (k <= 0) return;
+    k = Math.min(1, k); const n = 30, dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len, Lp = [], Rp = [];
+    for (let i = 0; i <= n; i++) {
+      const u = i / n * k, off = Math.sin(u * (o.freq || 9) + (o.ph || 0) - (o.t || 0) / (o.sp || 260)) * (o.amp || 0) * Math.sin(u * Math.PI);
+      const px = x1 + dx * u + nx * off, py = y1 + dy * u + ny * off, w = (o.w || 12) * (1 - (i / n) * (o.taper == null ? .85 : o.taper)) / 2;
+      Lp.push([px + nx * w, py + ny * w]); Rp.push([px - nx * w, py - ny * w]);
+    }
+    inkShape(c, e, q => { q.beginPath(); Lp.forEach((p, i) => i ? q.lineTo(p[0], p[1]) : q.moveTo(p[0], p[1])); for (let i = Rp.length - 1; i >= 0; i--) q.lineTo(Rp[i][0], Rp[i][1]); q.closePath(); }, o.a == null ? 1 : o.a, o.rim);
+  }
+  function inkPool(c, e, x, y, rx, ry, t, a) {
+    if (rx <= 1 || ry <= 1) return;
+    inkShape(c, e, q => { q.beginPath(); for (let i = 0; i <= 96; i++) { const an = i / 96 * 6.2832, w = 1 + .06 * Math.sin(an * 5 + t / 300) + .035 * Math.sin(an * 8 - t / 210); const px = x + Math.cos(an) * rx * w, py = y + Math.sin(an) * ry * w; i ? q.lineTo(px, py) : q.moveTo(px, py); } q.closePath(); }, a, .5);
+  }
+  function inkSpikes(c, e, x, y, t, t0, n, len) {
+    const r = rng(9);
+    for (let i = 0; i < n; i++) { const a = i / n * 6.2832 + r() * .3, l = len * (.5 + r() * .7), g = easeOut(seg(t, t0, t0 + 130)), f = 1 - seg(t, t0 + 200, t0 + 440 + r() * 150), w = 22 * (.6 + r() * .6); if (g <= 0 || f <= 0) continue;
+      tendril(c, e, x + Math.cos(a) * 30, y + Math.sin(a) * 12, x + Math.cos(a) * l, y + Math.sin(a) * l * .55, g, { w, taper: 1, a: f, rim: .95 }); }
+  }
+  function polyPart(pts, f0, f1) {
+    const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    const tot = L[L.length - 1], at = d => { for (let i = 1; i < pts.length; i++) if (d <= L[i] || i === pts.length - 1) { const u = clamp((d - L[i - 1]) / ((L[i] - L[i - 1]) || 1), 0, 1); return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * u, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * u]; } };
+    const d0 = f0 * tot, d1 = f1 * tot, out = [at(d0)]; for (let i = 1; i < pts.length - 1; i++) if (L[i] > d0 && L[i] < d1) out.push(pts[i]); out.push(at(d1)); return { pts: out, L, tot };
+  }
+  // ---------- Two Hundred Moves (Shikamaru): lines of play plot themselves across the board and all end on the slot ----------
+  const PLAYS = [[[-20, 120], [300, 200], [380, 470]], [[1300, 90], [980, 260], [900, 520]], [[-20, 640], [250, 700], [470, 330]], [[1300, 700], [1010, 640], [820, 300]], [[420, -20], [520, 130], [330, 300]], [[900, -20], [760, 110], [960, 380]], [[640, 820], [560, 700], [640, 620]]];
+  const moves = o => mk(1000, 2400, [[0, 'hidden'], [820, 'whoosh'], [1000, 'impact']], o, (b, e, P, t, img, o, T) => {
+    const col = easeIn(seg(t, 820, T));
+    e.save(); e.globalCompositeOperation = 'lighter'; e.lineJoin = 'round'; e.lineCap = 'round';
+    PLAYS.forEach((pl, i) => {
+      const pts = pl.concat([[CX, CY]]), k = easeIO(seg(t, i * 70, 620 + i * 70)); if (k <= 0 || t >= T) return;
+      const part = polyPart(pts, col, Math.max(col, k)); e.globalAlpha = .55 + .45 * col; e.strokeStyle = col > 0 ? '#ffffff' : RIM; e.lineWidth = 2 + 2.5 * col; e.setLineDash(col > 0 ? [] : [11, 9]);
+      e.beginPath(); part.pts.forEach((p, j) => j ? e.lineTo(p[0], p[1]) : e.moveTo(p[0], p[1])); e.stroke(); e.setLineDash([]);
+      const head = part.pts[part.pts.length - 1]; glow(e, head[0], head[1], 26, '#ffffff', k < 1 ? 1 : .4);
+      for (let j = 1; j < pts.length - 1; j++) { const f = part.L[j] / part.tot; if (k < f || col > f) continue; const p = pts[j], since = seg(k, f, f + .16);
+        e.save(); e.translate(p[0], p[1]); e.rotate(.785); e.globalAlpha = 1; e.strokeStyle = RIM; e.lineWidth = 2; e.strokeRect(-7, -7, 14, 14); e.restore();
+        e.globalAlpha = (1 - since) * .9; e.strokeStyle = RIM; e.lineWidth = 2; e.beginPath(); e.arc(p[0], p[1], 10 + 34 * since, 0, 6.2832); e.stroke();
+        e.globalAlpha = .75; e.fillStyle = RIM; e.font = '900 17px "Zen Kaku Gothic New", serif'; e.textAlign = 'left'; e.fillText('一二三四五六七八九十'[(i + j * 3) % 10], p[0] + 15, p[1] - 10); }
+    });
+    e.restore();
+    if (t >= T) { const pk = easeOut(seg(t, T, T + 220)) * (1 - seg(t, T + 350, T + 680)); inkPool(b, e, CX, FLOOR, 270 * pk, 78 * pk, t, 1); inkSpikes(b, e, CX, FLOOR, t, T + 40, 12, 300); }
+    arrive(e, P, t, T, o);
+    if (t >= T) { P.card.burn = 1; P.card.s = 1.3 - .3 * easeOut(seg(t, T, T + 170)); P.card.y = CY; } // stamped down, not burned in
+  });
+
   const EFFECTS = {
     'N-007': thunderGod,
     // Chidori users
@@ -435,7 +490,7 @@ void main(){
     'N-020': swirl({ kind: 'petal', col: '#ff8fc0', hot: '#ffe0ee', item: '#ff9cc8', edge: [1, .5, .72], pow: .85, flash: .22 }),
     'N-010': swirl({ kind: 'petal', col: '#ff4d5e', hot: '#ffc2c8', item: '#e23a4c', edge: [1, .3, .35], pow: .85, flash: .22 }),
     'N-021': swirl({ kind: 'drop', col: '#4fc3ff', hot: '#d8f3ff', edge: [.3, .75, 1], pow: .9, flash: .22 }),
-    'N-008': swirl({ kind: 'shadow', col: '#8a6cff', hot: '#cfc4ff', edge: [.5, .4, .9], pow: .85, flash: .18, rise: 36 }),
+    'N-008': moves({ col: RIM, hot: '#ffffff', edge: [.62, .5, 1], pow: 1, neg: true, flash: .4, fl: [.82, .78, 1] }),
   };
 
   // ---------------- player ----------------
@@ -483,7 +538,95 @@ void main(){
     setTimeout(reveal, (fx.reveal + 600) * speed);
     return promise;
   }
+
+  // ---------------- board-space effects (not tied to one card): drawn in screen pixels ----------------
+  // Runs draw(b, e, P, t) for `dur` ms on the same layer. Returns false when the layer is unavailable.
+  function overlay(dur, cues, draw) {
+    if (document.body.classList.contains('lowfx') || !ensure()) return false;
+    resize();
+    const id = ++run, speed = Math.max(.45, NS.settings ? NS.settings.speedMul() : 1), M = { k: sc, pt: (x, y) => [x * sc, y * sc] }, fired = new Set();
+    cv.style.display = 'block';
+    let t0 = null;
+    const frame = now => {
+      if (id !== run) return;
+      if (t0 == null) t0 = now;
+      const t = NS.FXGL._freeze != null ? NS.FXGL._freeze : (now - t0) / speed;
+      cues.forEach(([at, name], i) => { if (t >= at && !fired.has(i)) { fired.add(i); NS.Audio.play(name); } });
+      const P = { waves: [], aberr: 0, exposure: 1.15, flash: [1, 1, 1, 0], edge: GOLD, card: { x: 0, y: 0, s: 1, sx: 1, burn: 1, white: 0, a: 0 } };
+      bc.setTransform(1, 0, 0, 1, 0, 0); bc.clearRect(0, 0, Wp, Hp); bc.globalAlpha = 1; bc.globalCompositeOperation = 'source-over'; bc.setTransform(sc, 0, 0, sc, 0, 0);
+      ec.setTransform(1, 0, 0, 1, 0, 0); ec.globalAlpha = 1; ec.globalCompositeOperation = 'source-over'; ec.fillStyle = '#000'; ec.fillRect(0, 0, Wp, Hp); ec.setTransform(sc, 0, 0, sc, 0, 0);
+      try { draw(bc, ec, P, Math.min(t, dur)); render(P, M, null); } catch (err) { console.warn('FXGL frame failed:', err); run++; }
+      if (t >= dur || id !== run) { if (id === run || run === id + 1) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); cv.style.display = 'none'; } return; }
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+    return true;
+  }
+  // Chakra use: each spent Chakra card flares and its chakra pours along an arc into the card being paid for.
+  // cards: [{x, y, w, h}] in the order they are spent, to: {x, y}. Returns the timings (ms before speed scaling) or null.
+  const OR = '#ff9a2e';
+  function chakra(cards, to) {
+    const GAP = 130, HIT = 340;
+    const ok = overlay((cards.length - 1) * GAP + 780, [], (b, e, P, t) => {
+      e.globalCompositeOperation = 'lighter'; e.lineCap = 'round';
+      cards.forEach((c, i) => {
+        const dt = t - i * GAP; if (dt < 0) return;
+        const u = c.w / 76, fl = bell(seg(dt, 0, 280));
+        glow(e, c.x, c.y, 110 * u, 'rgba(255,150,40,.6)', fl);
+        if (fl > 0) { e.globalAlpha = .75 * fl; e.fillStyle = '#fff'; e.fillRect(c.x - c.w / 2, c.y - c.h / 2, c.w, c.h); }
+        const dx = to.x - c.x, dy = to.y - c.y, d = Math.hypot(dx, dy) || 1, side = i % 2 ? -1 : 1, mx = (c.x + to.x) / 2 - dy / d * d * .22 * side, my = (c.y + to.y) / 2 + dx / d * d * .22 * side, r = rng(300 + i);
+        const bez = (cx, cy, k) => { const m = 1 - k; return [m * m * c.x + 2 * m * k * cx + k * k * to.x, m * m * c.y + 2 * m * k * cy + k * k * to.y]; };
+        for (let n = 0; n < 34; n++) {
+          const dl = r() * 170, life = 250 + r() * 110, ox = (r() - .5) * 60 * u, oy = (r() - .5) * 60 * u, w = Math.max(1.3, (1.5 + r() * 3) * u), hot = r() < .3, k = (dt - 40 - dl) / life; if (k <= 0 || k >= 1) continue;
+          const kk = easeIO(k), p1 = bez(mx + ox, my + oy, kk), p0 = bez(mx + ox, my + oy, Math.max(0, kk - .09));
+          e.globalAlpha = bell(k) * .95; e.strokeStyle = hot ? '#ffffff' : OR; e.lineWidth = w; e.beginPath(); e.moveTo(p0[0], p0[1]); e.lineTo(p1[0], p1[1]); e.stroke();
+        }
+        const h = dt - HIT; if (h < 0) return;
+        glow(e, to.x, to.y, 170 * u, 'rgba(255,150,40,.5)', bell(seg(h, 0, 420)) * .7);
+        ringE(e, to.x, to.y, (34 + 120 * easeOut(seg(h, 0, 400))) * u, Math.max(1.5, 5 * u) * (1 - seg(h, 0, 400)), OR, 1 - seg(h, 0, 400));
+        sparks(e, t, { seed: 80 + i, t0: i * GAP + HIT, x: to.x, y: to.y, n: 22, speed: 460 * u, life: 380, color: OR, w: Math.max(1.3, 2 * u) });
+      });
+    });
+    return ok ? { gap: GAP, hit: HIT } : null;
+  }
+  // Checkmate (Shadow Possession Jutsu): the board becomes a shogi board and the king lands in the attacker's path.
+  // at: attacker, tg: target, from: Shikamaru (optional), all {x, y}; k: board scale (card width / 150). Returns the landing time or 0.
+  function shogiPiece(c, x, y, s, a, kan) {
+    if (a <= 0 || s <= 0) return; c.save(); c.translate(x, y); c.scale(s, s); c.globalAlpha = clamp(a, 0, 1);
+    const g = c.createLinearGradient(0, -74, 0, 70); g.addColorStop(0, '#f1dca6'); g.addColorStop(1, '#c2935a'); c.fillStyle = g; c.strokeStyle = '#3d2710'; c.lineWidth = 3; c.lineJoin = 'round';
+    c.beginPath(); c.moveTo(0, -76); c.lineTo(45, -50); c.lineTo(58, 70); c.lineTo(-58, 70); c.lineTo(-45, -50); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#170d05'; c.font = '56px "Yuji Boku", "Zen Kaku Gothic New", serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(kan, 0, 6); c.restore();
+  }
+  function shogiGrid(b, e, cell, n, t, T1, fade) {
+    const reach = easeOut(seg(t, 0, 420)) * (n + .5) * cell; if (reach <= 0 || fade <= 0) return;
+    for (const [c, col, lw, al] of [[b, '#000', 3, .5 * fade], [e, RIM, 1.3, .22 * fade]]) {
+      c.save(); if (c === e) c.globalCompositeOperation = 'lighter'; c.globalAlpha = al; c.strokeStyle = col; c.lineWidth = lw; c.beginPath();
+      for (let i = -n; i <= n + 1; i++) { const d = (i - .5) * cell; if (Math.abs(d) > reach) continue; const h = Math.sqrt(reach * reach - d * d) * .98; c.moveTo(d, -h); c.lineTo(d, h); c.moveTo(-h, d); c.lineTo(h, d); }
+      c.stroke(); c.restore();
+    }
+    e.save(); e.globalCompositeOperation = 'lighter'; e.fillStyle = RIM;
+    for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) { const d = Math.max(Math.abs(i), Math.abs(j)), k = seg(t, T1 + d * 44, T1 + d * 44 + 280); if (k <= 0 || k >= 1) continue; e.globalAlpha = bell(k) * .15 * fade / (1 + d * .25); e.fillRect((i - .5) * cell + 2, (j - .5) * cell + 2, cell - 4, cell - 4); }
+    e.restore();
+  }
+  function checkmate(at, tg, from, k) {
+    const mx = (at.x + tg.x) / 2, my = (at.y + tg.y) / 2, T = 300;
+    const ok = overlay(1500, [[0, 'whoosh'], [T, 'impact']], (b, e, P, t) => {
+      const fade = 1 - seg(t, 1000, 1500), fk = seg(t, 0, T);
+      for (const c of [b, e]) { c.translate(mx, my); c.scale(k, k); }
+      shogiGrid(b, e, 78, 7, t, T, fade * .9);
+      if (from) tendril(b, e, (from.x - mx) / k, (from.y - my) / k, 0, 30, easeOut(fk) * (1 - seg(t, 900, 1200)), { w: 16, taper: .5, amp: 22, freq: 8, t, sp: 170 });
+      glow(b, 0, 8, 130 - 50 * easeIn(fk), 'rgba(0,0,0,.6)', .7 * fk * fade);
+      shogiPiece(b, 0, t >= T ? 0 : -60 * (1 - easeIn(fk)), t >= T ? 1.25 : 3.4 - 2.15 * easeIn(fk), seg(t, 0, 90) * fade, '玉');
+      if (t < T) return;
+      const q = seg(t, T, T + 760);
+      e.save(); e.globalCompositeOperation = 'lighter'; e.globalAlpha = (1 - q) * .5; e.fillStyle = RIM; e.font = (190 + 90 * easeOut(q)) + 'px "Yuji Boku", "Zen Kaku Gothic New", serif'; e.textAlign = 'center'; e.textBaseline = 'middle'; e.fillText('詰', 0, 0); e.restore();
+      wave(P, t, T, mx, my, 640 * k, 44 * k, 620); P.flash = [.9, .86, 1, (1 - seg(t, T, T + 200)) * .14];
+      sparks(e, t, { seed: 5, t0: T, x: 0, y: 0, n: 90, speed: 1000, life: 520, color: '#f1dca6', w: 2.2 });
+    });
+    return ok ? T : 0;
+  }
+
   function stop() { run++; if (cv) cv.style.display = 'none'; }
 
-  NS.FXGL = { summon, has, stop };
+  NS.FXGL = { summon, has, stop, chakra, checkmate };
 })();
