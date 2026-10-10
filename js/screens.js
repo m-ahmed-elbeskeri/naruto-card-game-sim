@@ -170,16 +170,41 @@
     });
   }
   function showResult(g, d, ui) {
-    const w = d.winner;
-    const humanWin = ui.opts.hotseat ? true : w === ui.viewPi;
+    const w = d.winner, hot = !!ui.opts.hotseat;
+    const humanWin = hot ? true : w === ui.viewPi;
     const online = !!ui.opts.online;
+    const me = hot ? w : ui.viewPi, op = 1 - me, L = g.p(1 - w);
+    const W = g.p(w).leader.card;
+    const title = hot ? 'Winner' : humanWin ? 'Victory' : 'Defeat';
+    const why = L.leader.life <= 0 ? `${esc(L.name)}'s Leader was defeated` : L.deck.length === 0 ? `${esc(L.name)} ran out of cards` : `${esc(g.p(w).name)} wins the match`;
+    const st = ui.stats || [{}, {}];
+    const secs = Math.max(0, Math.round((Date.now() - (ui.t0 || Date.now())) / 1000));
+    const rows = [['Life left', i => Math.max(0, g.p(i).leader.life)], ['Attack damage', i => st[i].dmg || 0], ['Attacks', i => st[i].atk || 0], ['Characters summoned', i => st[i].sum || 0], ['Characters lost', i => st[i].lost || 0], ['Supports used', i => st[i].sup || 0]];
+    const side = i => `<div class="r-side ${i === w ? 'won' : ''}"><i style="${NS.View.portraitCSS(g.p(i).leader.card, 1.5)}"></i><b>${esc(g.p(i).name)}</b><span>${i === w ? 'Winner' : 'Defeated'}</span></div>`;
     const r = $('#result');
     r.className = 'result show ' + (humanWin ? 'win' : 'lose');
-    r.innerHTML = `<div class="r-card">${NS.View.cardHTML(g.p(w).leader.card, { w: 230 })}</div>
-      <div class="r-title">${ui.opts.hotseat ? esc(g.p(w).name) + ' wins' : humanWin ? 'Victory' : 'Defeat'}</div>
-      <div class="r-sub">${esc(g.p(0).name)} ${g.p(0).leader.life} Life · ${esc(g.p(1).name)} ${g.p(1).leader.life} Life · ${g.turn} turns</div>
-      <div class="row-btns">${online ? '<button class="btn primary" id="rA">Online lobby</button>' : '<button class="btn primary" id="rA">Rematch</button>'}<button class="btn" id="rM">Main menu</button><button class="btn ghost" id="rB">View board</button></div>`;
-    if (humanWin) { NS.FX.confetti({ colors: ['#f07c14', '#ffd23a', '#fff', '#e2267c', '#1ea0cf'] }); NS.Audio.jingle('victory'); } else NS.Audio.jingle('defeat');
+    r.innerHTML = `<div class="r-art" style="${NS.View.portraitCSS(W, 1.15)}"></div><div class="r-shade"></div><div class="r-band"></div>
+      <div class="r-kanji">${humanWin ? '勝利' : '敗北'}</div>
+      <div class="r-motes">${Array.from({ length: 16 }, (_, i) => `<i style="--x:${(i * 61 + 7) % 100};--d:${(i * 37 % 50) / 10};--t:${5 + (i * 13 % 40) / 10};--s:${3 + i % 4}"></i>`).join('')}</div>
+      <div class="r-body">
+        <div class="r-cap">Match result <em>·</em> Turn ${g.turn} <em>·</em> ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}</div>
+        <div class="r-title">${title.split('').map((c, i) => `<i style="--i:${i}">${c}</i>`).join('')}</div>
+        <div class="r-sub">${hot ? esc(g.p(w).name) + ' · ' : ''}${why}</div>
+        <div class="r-stats">
+          <div class="r-head">${side(me)}<div class="r-vs">VS</div>${side(op)}</div>
+          ${rows.map(([lbl, f], k) => `<div class="r-row" style="--k:${k}"><b data-n="${f(me)}">0</b><span>${lbl}</span><b data-n="${f(op)}">0</b></div>`).join('')}
+        </div>
+        <div class="row-btns">${online ? '<button class="btn primary" id="rA">Online lobby</button>' : '<button class="btn primary" id="rA">Rematch</button>'}<button class="btn" id="rM">Main menu</button><button class="btn ghost" id="rB">View board</button></div>
+      </div>`;
+    NS.Audio.jingle(humanWin ? 'victory' : 'defeat');
+    // count the numbers up once the table has slid in
+    const t0 = performance.now() + 900, nums = $$('.r-row b', r);
+    (function tick(t) {
+      if (!r.classList.contains('show') || !nums[0].isConnected) return;
+      const k = Math.min(1, Math.max(0, (t - t0) / 700)), e = 1 - Math.pow(1 - k, 3);
+      nums.forEach(n => { n.textContent = Math.round(+n.dataset.n * e); });
+      if (k < 1) requestAnimationFrame(tick);
+    })(performance.now());
     $('#rA').onclick = () => { r.classList.remove('show'); if (online) { NS.Net.leave(); NS.Audio.playTrack('title'); return NS.Net.open(); } startGame(); };
     $('#rM').onclick = () => { r.classList.remove('show'); if (online) NS.Net.leave(); show('title'); NS.Audio.playTrack('title'); };
     $('#rB').onclick = () => r.classList.remove('show');

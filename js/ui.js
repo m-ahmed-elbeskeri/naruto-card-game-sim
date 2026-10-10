@@ -101,7 +101,16 @@
       this.acts = [];
       this.build();
     }
-    setGame(g) { this.g = g; }
+    setGame(g) { this.g = g; this.t0 = Date.now(); this.stats = [0, 1].map(() => ({ dmg: 0, sum: 0, lost: 0, sup: 0, atk: 0 })); }
+    // match tally shown on the result screen
+    tally(type, d) {
+      const s = this.stats; if (!s) return;
+      if (type === 'hit' && d.target.isLeader) s[d.attacker.owner].dmg += d.amount;
+      else if (type === 'summon') s[d.player].sum++;
+      else if (type === 'ko') s[d.unit.owner].lost++;
+      else if (type === 'supportFlip') s[d.player].sup++;
+      else if (type === 'attack') s[d.player].atk++;
+    }
     me() { return this.viewPi; }
     sc() { return NS.stageScale || 1; }
     toStage(x, y) { const r = $('#stage').getBoundingClientRect(); return { x: (x - r.left) / this.sc(), y: (y - r.top) / this.sc() }; }
@@ -545,6 +554,7 @@
     async onEvent(type, d, g) {
       const snd = n => NS.Audio.play(n);
       const mine = pi => pi === this.viewPi;
+      this.tally(type, d);
       switch (type) {
         case 'coin': this.render({ noFlip: true }); snd('taiko'); await NS.FX.banner(esc(g.p(d.player).name), 'goes first', { hold: 1000 }); break;
         case 'dealt': this.render(); snd('draw'); await wait(400); break;
