@@ -125,7 +125,7 @@
       };
       return {
         async takeMain(g, pi, acts) {
-          await D.runInfo();
+          // no coach text here: lessons about the rival's turn are shown after he has actually played it
           if (D.done) return ai.takeMain(g, pi, acts);
           await NS.wait(650 * NS.settings.speedMul());
           const plan = plans[g.p(pi).turns] || [];
