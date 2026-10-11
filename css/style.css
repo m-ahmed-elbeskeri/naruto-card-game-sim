@@ -593,3 +593,16 @@ body.lowfx .aura-text .au { display: none; }
 /* premium summon layer (WebGL): light adds onto the board; one negative frame on impact */
 #fxgl { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 61; display: none; }
 #stage.negframe { filter: invert(1) grayscale(1) contrast(2.2); }
+
+/* a support played from hand: shown large in the middle of the screen */
+.hand-reveal { position: fixed; inset: 0; z-index: 74; pointer-events: none; transition: opacity .2s; }
+.hand-reveal.out { opacity: 0; }
+.hand-reveal.out .hr-card { transform: scale(.9); transition: transform .2s ease-in; }
+.hand-reveal .hr-veil { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 47%, rgba(8, 8, 11, .3) 0%, rgba(8, 8, 11, .8) 62%); animation: fadeIn .22s both; }
+.hand-reveal .hr-box { position: absolute; left: 50%; top: 48%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.hand-reveal .hr-card { position: relative; filter: drop-shadow(0 18px 28px rgba(0, 0, 0, .75)); }
+.hand-reveal .hr-card i { position: absolute; left: 50%; top: 50%; width: 190%; height: 150%; transform: translate(-50%, -50%); background: radial-gradient(ellipse, rgba(255, 165, 60, .5) 0%, rgba(240, 124, 20, .18) 38%, transparent 66%); animation: fadeIn .4s .2s both; }
+.hand-reveal .hr-card .nc { position: relative; box-shadow: 0 0 0 2px rgba(255, 190, 110, .9), 0 0 26px rgba(240, 124, 20, .8); }
+.hand-reveal .hr-cap { font-family: var(--display); font-size: 17px; letter-spacing: .28em; text-transform: uppercase; color: #fff; text-shadow: 0 2px 6px #000; animation: resUp .3s .2s ease-out both; }
+.hand-reveal .hr-cap em { font-style: normal; color: var(--orange2); }
+.hand-reveal .hr-name { padding: 6px 26px; font-family: var(--display); font-weight: 700; font-size: 30px; letter-spacing: .1em; text-transform: uppercase; color: #111; background: var(--orange); border: 2px solid var(--orange2); transform: skewX(-8deg); animation: resUp .3s .3s ease-out both; }

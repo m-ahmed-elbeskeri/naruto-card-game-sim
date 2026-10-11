@@ -210,6 +210,28 @@
       r.style.left = q.x + 'px'; r.style.top = q.y + 'px'; r.style.width = r.style.height = Math.max(tr.width, tr.height) * 0.9 + 'px';
       const chip = A.el.querySelector('.atk-chip'); chip.style.left = mx + 'px'; chip.style.top = (my + (q.y > p.y ? 10 : -10)) + 'px';
     }
+    // the attack marker goes as soon as the attacker or its target has left the field
+    dropArrow(uid) { if (this.arrow && (this.arrow.a === uid || this.arrow.t === uid)) this.hideArrow(); if (this.atkUid === uid) this.atkUid = null; }
+    // a support played from hand is shown large in the middle of the screen
+    async handReveal(d, g) {
+      const card = d.sup.card, src = this.el(d.sup.iid), st = $('#stage').getBoundingClientRect(), own = d.player === this.viewPi;
+      const from = src ? this.center(src) : { x: st.left + st.width / 2, y: own ? st.bottom + 80 : st.top - 80 };
+      if (src) src.style.visibility = 'hidden';
+      const w = Math.round(Math.max(190, Math.min(330, innerHeight * .46 * 600 / 831)));
+      const o = document.createElement('div');
+      o.className = 'hand-reveal';
+      o.innerHTML = `<div class="hr-veil"></div><div class="hr-box"><div class="hr-cap">${esc(g.p(d.player).name)} <em>activates from hand</em></div><div class="hr-card"><i></i>${cardHTML(card, { w })}</div><div class="hr-name">${esc(card.support.name)}</div></div>`;
+      document.body.appendChild(o);
+      const cd = o.querySelector('.hr-card'), r = cd.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      cd.animate([{ transform: `translate(${from.x - cx}px,${from.y - cy}px) scale(.22) rotate(${own ? -14 : 14}deg)`, opacity: .4 }, { transform: 'scale(1.07)', opacity: 1, offset: .72 }, { transform: 'none' }], { duration: 380 * S(), easing: 'cubic-bezier(.2,.9,.3,1)' });
+      await wait(300);
+      NS.FX.burst(cx, cy, { colors: ['#ffb347', '#fff', '#ffd23a'], count: 46, speed: 9 }); NS.FX.shock(cx, cy, { color: '255,170,60', max: 320 });
+      await wait(900);
+      o.classList.add('out');
+      await wait(220);
+      o.remove();
+      return { x: cx, y: cy };
+    }
     hideArrow() { if (this.arrow) { const el = this.arrow.el; el.classList.add('out'); setTimeout(() => el.remove(), 250); this.arrow = null; } }
     outcome(el, text, cls) {
       if (!el) return;
@@ -618,15 +640,19 @@
         case 'supportFlip': {
           const el = this.el(d.sup.iid);
           this.lastSup = d.sup.card.id;
-          if (el) {
-            el.innerHTML = cardHTML(d.sup.card, { w: 76 });
-            el.animate([{ transform: 'rotateY(90deg) scale(1.4)' }, { transform: 'scale(1.3)' }, { transform: 'none' }], { duration: 500 * S() });
-            const c = this.center(el); NS.FX.burst(c.x, c.y, { colors: ['#ffb347', '#fff'], count: 40 });
-          }
+          let shown = null;
           snd('reveal');
-          if (NS.settings.cutins) await NS.FX.cutIn({ title: d.sup.card.support.name, sub: `${d.sup.card.name} · Support`, color: '#f07c14', artStyle: portraitCSS(d.sup.card), side: mine(d.player) ? 'left' : 'right', hold: 950 });
-          if (el) {
-            const from = this.center(el);
+          if (d.fromHand) shown = await this.handReveal(d, g);
+          else {
+            if (el) {
+              el.innerHTML = cardHTML(d.sup.card, { w: 76 });
+              el.animate([{ transform: 'rotateY(90deg) scale(1.4)' }, { transform: 'scale(1.3)' }, { transform: 'none' }], { duration: 500 * S() });
+              const c = this.center(el); NS.FX.burst(c.x, c.y, { colors: ['#ffb347', '#fff'], count: 40 });
+            }
+            if (NS.settings.cutins) await NS.FX.cutIn({ title: d.sup.card.support.name, sub: `${d.sup.card.name} · Support`, color: '#f07c14', artStyle: portraitCSS(d.sup.card), side: mine(d.player) ? 'left' : 'right', hold: 950 });
+          }
+          if (el || shown) {
+            const from = shown || this.center(el);
             let to = from;
             if (d.attack && d.attack.attacker) { const ae = this.el(d.attack.attacker.uid); if (ae) to = this.center(ae); }
             else if (['N-004', 'N-015'].includes(d.sup.card.id)) { const r = $('#stage').getBoundingClientRect(); to = { x: r.left + r.width * .48, y: r.top + r.height * .39 }; }
@@ -763,24 +789,37 @@
           await wait(420);
           break;
         }
-        case 'ko': {
+        case 'ko': { // the card leaves its slot at once and flies to the trash
           const el = this.el(d.unit.uid);
+          this.dropArrow(d.unit.uid);
+          let fly = null;
           if (el) {
-            const c = this.center(el);
-            NS.FX.burst(c.x, c.y, { colors: ['#ff4a4a', '#fff', '#555'], count: 50, speed: 7 });
-            NS.FX.puff(c.x, c.y, { count: 14 });
-            NS.FX.sparks(c.x, c.y, { colors: ['#fff', '#ff6a4a', '#ffd23a'], count: 40, speed: 11 });
+            const c = this.center(el), face = el.querySelector('.nc') || el;
+            NS.FX.burst(c.x, c.y, { colors: ['#ff4a4a', '#fff', '#555'], count: 36, speed: 7 });
+            NS.FX.sparks(c.x, c.y, { colors: ['#fff', '#ff6a4a', '#ffd23a'], count: 30, speed: 11 });
             NS.FX.shock(c.x, c.y, { color: '255,80,60', max: 180 });
             this.outcome(el, 'K.O.!', 'ko');
-            NS.FX.shatter(el);
-            el.style.visibility = 'hidden';
+            fly = { r: face.getBoundingClientRect(), html: face.outerHTML };
           }
           NS.FX.shake(9); snd('shatter'); snd('defeat');
-          await wait(520);
           this.render();
+          const pile = this.root.querySelector(`[data-pile="trash-${d.unit.owner}"]`), top = pile && pile.querySelector('.nc');
+          if (fly && pile) {
+            const r = fly.r, pr = (top || pile).getBoundingClientRect(), gh = document.createElement('div');
+            gh.className = 'shard'; gh.innerHTML = fly.html;
+            gh.style.left = r.left + 'px'; gh.style.top = r.top + 'px'; gh.style.width = r.width + 'px'; gh.style.height = r.height + 'px';
+            document.body.appendChild(gh);
+            if (top) top.style.visibility = 'hidden';
+            const dx = pr.left + pr.width / 2 - (r.left + r.width / 2), dy = pr.top + pr.height / 2 - (r.top + r.height / 2);
+            await gh.animate([{ transform: 'none', filter: 'brightness(2.4) saturate(.4)' }, { transform: `translate(${dx}px,${dy}px) scale(${pr.width / r.width},${pr.height / r.height})`, filter: 'brightness(.8)' }], { duration: 230 * S(), easing: 'cubic-bezier(.5,0,.3,1)' }).finished.catch(() => { });
+            gh.remove();
+            if (top && top.isConnected) top.style.visibility = '';
+            if (pile.isConnected) pile.animate([{ transform: 'scale(1.12)' }, { transform: 'none' }], { duration: 180, easing: 'ease-out' });
+          } else await wait(120);
           break;
         }
         case 'bounce': {
+          this.dropArrow(d.unit.uid);
           const el = this.el(d.unit.uid);
           if (el) { const c = this.center(el); NS.FX.smoke(c.x, c.y, { count: 20 }); el.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(80px) scale(.6)' }], { duration: 380 * S(), fill: 'forwards' }); }
           snd('poof'); await wait(380); this.render();

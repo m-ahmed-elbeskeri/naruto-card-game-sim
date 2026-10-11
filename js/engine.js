@@ -366,9 +366,10 @@
     async toTrash(u, how) {
       const P = this.p(u.owner);
       if (!P.chars.includes(u)) return false;
-      await this.emit(how === 'tribute' ? 'tribute' : 'ko', { unit: u });
+      // the card is in the trash before the UI is told, so it can show it there straight away
       P.chars.splice(P.chars.indexOf(u), 1);
       P.trash.push({ iid: u.iid, card: u.card, owner: u.owner });
+      await this.emit(how === 'tribute' ? 'tribute' : 'ko', { unit: u });
       return true;
     }
     immune(u, viaSupportOf) { return viaSupportOf != null && viaSupportOf !== u.owner && u.flags.immuneSupportTurn === this.turn; }
