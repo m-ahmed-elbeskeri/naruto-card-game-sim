@@ -705,7 +705,7 @@
         }
         case 'attack': {
           const a = this.el(d.attacker.uid), t = this.el(d.target.uid);
-          this.atkUid = d.attacker.uid; // stays standing until the hit lands, then turns to rested
+          this.atkUid = d.attacker.uid; // marks the attacker; it turns to rested as soon as the attack is declared
           this.render({ noFlip: true });
           const a2 = this.el(d.attacker.uid);
           const t2 = this.el(d.target.uid);
