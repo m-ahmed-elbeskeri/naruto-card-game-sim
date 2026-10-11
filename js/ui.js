@@ -65,22 +65,29 @@
     if (card.type === 'summoncard') body = '<p>You may rest this card to summon a Character card. Stands up again in your Refresh Phase.</p>';
     return `<div class="pv-text"><h4>${esc(card.name)}</h4><div class="meta">${card.type === 'ex' ? 'EX Character' : card.type === 'leader' ? 'Leader' : card.type === 'character' ? 'Character' : ''} ${card.color ? '· ' + card.color.toUpperCase() : ''} ${card.id && card.type !== 'chakra' ? '· ' + (card.unnumbered ? 'demo (no number)' : card.id) : ''} ${card.traits ? '· ' + esc(card.traits.join(' / ')) : ''}</div>${stats ? `<div class="st">${stats}</div>` : ''}${body}${extra ? `<p>${extra}</p>` : ''}${conf ? `<div class="conf">${conf}. Pre-release — details may change.</div>` : ''}</div>`;
   }
-  function showPreview(card, ev, extra, live) {
+  // The card inspector is docked: a fixed column at the left edge (or the right edge when the pointer is over the
+  // left side of the screen), with the action menu directly under it. Nothing follows the pointer.
+  const DOCK_W = 300;
+  function showPreview(card, ev, extra, live, force) {
     const pv = $('#preview');
-    const key = (card.id || card.type) + '|' + (extra || '');
-    if (pv._key !== key) { pv._key = key; pv.innerHTML = cardHTML(card, { w: 300 }) + textPanel(card, extra); }
-    pv.classList.add('show');
-    const W = 650;
-    let x = ev.clientX > window.innerWidth / 2 ? ev.clientX - W - 24 : ev.clientX + 24;
-    // an action menu is open: keep the preview on the far side of it so the two never overlap
-    const pop = document.querySelector('.popover');
-    if (pop) { const r = pop.getBoundingClientRect(); x = r.left - W - 16 >= 8 ? r.left - W - 16 : r.right + 16; }
-    const y = Math.max(8, Math.min(window.innerHeight - 430, ev.clientY - 210));
-    pv.style.transform = `translate(${Math.round(Math.max(8, x))}px,${Math.round(y)}px)`;
+    if (pv._lock && !force) return; // an action menu is open: keep showing the card it belongs to
+    const w = Math.round(Math.max(180, Math.min(DOCK_W, window.innerHeight * .4 * 600 / 831)));
+    const key = (card.id || card.type) + '|' + (extra || '') + '|' + w, right = ev.clientX < window.innerWidth * .27;
+    const fresh = pv._key !== key || pv._right !== right || !pv.classList.contains('show');
+    if (pv._key !== key) { pv._key = key; pv.innerHTML = cardHTML(card, { w }) + textPanel(card, extra); }
+    pv._right = right; pv.classList.add('show');
+    if (fresh) layoutDock();
     const n = pv.querySelector('.nc');
     if (n) { const fx = ev.clientX / window.innerWidth, fy = ev.clientY / window.innerHeight; n.style.setProperty('--ry', ((fx - .5) * 16) + 'deg'); n.style.setProperty('--rx', ((.5 - fy) * 10) + 'deg'); n.style.setProperty('--gx', fx * 100 + '%'); n.style.setProperty('--gy', fy * 100 + '%'); }
   }
-  function hidePreview() { $('#preview').classList.remove('show'); }
+  function layoutDock() {
+    const pv = $('#preview'), pop = document.querySelector('.popover');
+    const ph = pv.classList.contains('show') ? pv.offsetHeight : 0, oh = pop ? pop.offsetHeight : 0, gap = ph && oh ? 8 : 0;
+    const x = pv._right ? window.innerWidth - DOCK_W - 12 : 12, y = Math.max(8, Math.round((window.innerHeight - ph - gap - oh) / 2));
+    pv.style.transform = `translate(${x}px,${y}px)`;
+    if (pop) { pop.style.left = x + 'px'; pop.style.top = Math.max(8, Math.min(window.innerHeight - oh - 8, y + ph + gap)) + 'px'; }
+  }
+  function hidePreview(force) { const pv = $('#preview'); if (pv._lock && !force) return; pv._lock = false; pv.classList.remove('show'); }
   function modal(html, onMount, cls) {
     const back = $('#modalBack'), m = $('#modal');
     m.innerHTML = html;
@@ -378,7 +385,7 @@
       if (pile) return this.showTrash(+pile.dataset.pile.split('-')[1]);
       if (this.state === 'main') {
         const hand = e.target.closest('[data-hand]');
-        if (hand) { const acts = this.acts.filter(a => a.card && a.card.iid === hand.dataset.hand); if (acts.length) return this.pop(acts, e, acts[0].card.card.name); return; }
+        if (hand) { const acts = this.acts.filter(a => a.card && a.card.iid === hand.dataset.hand); if (acts.length) return this.pop(acts, e, acts[0].card.card.name, acts[0].card.card); return; }
         const unit = e.target.closest('[data-unit]');
         if (unit) {
           const u = this.findUnit(unit.dataset.unit);
@@ -388,11 +395,11 @@
             const atk = acts.filter(a => a.kind === 'attack');
             if (atk.length) menu.push({ kind: '_attack', attacker: u, list: atk });
             acts.filter(a => a.kind !== 'attack').forEach(a => menu.push(a));
-            return this.pop(menu, e, u.isLeader ? 'Leader' : u.card.name);
+            return this.pop(menu, e, u.isLeader ? 'Leader' : u.card.name, u.card);
           }
         }
         const sup = e.target.closest('[data-sup]');
-        if (sup) { const acts = this.acts.filter(a => a.kind === 'support' && a.sup.iid === sup.dataset.sup); if (acts.length) return this.pop(acts, e, 'Support'); }
+        if (sup) { const acts = this.acts.filter(a => a.kind === 'support' && a.sup.iid === sup.dataset.sup); if (acts.length) return this.pop(acts, e, 'Support', acts[0].sup.card); }
       }
       if (this.state === 'target') {
         const unit = e.target.closest('[data-unit]');
@@ -418,15 +425,16 @@
       }
       return [a.kind, ''];
     }
-    pop(acts, e, title) {
-      const pos = this.toStage(e.clientX, e.clientY);
+    pop(acts, e, title, card) {
       const pv = document.createElement('div');
       pv.className = 'popover';
       pv.innerHTML = `<div class="pv-title">${esc(title)}</div>` + acts.map((a, i) => { const [l, c] = this.label(a); return `<button data-i="${i}"><span>${esc(l)}</span>${c !== '' ? `<span class="cost">${c}</span>` : ''}</button>`; }).join('') + `<button class="cancel">Cancel</button>`;
-      pv.style.left = Math.min(1600 - 280, pos.x + 8) + 'px';
-      const fromHand = e.target.closest && e.target.closest('[data-hand]');
-      pv.style.top = (fromHand ? 700 - acts.length * 44 - 50 : Math.max(8, Math.min(900 - 40 - acts.length * 44, pos.y - 20))) + 'px';
-      this.root.appendChild(pv);
+      document.body.appendChild(pv);
+      // docked under the card inspector, which stays on the clicked card while the menu is open
+      const P = $('#preview');
+      if (card && !P.classList.contains('show')) showPreview(card, e, '', null, true);
+      P._right = e.clientX < window.innerWidth * .27; P._lock = true;
+      layoutDock();
       pv.addEventListener('click', ev => {
         ev.stopPropagation();
         const b = ev.target.closest('button'); if (!b) return;
@@ -445,7 +453,7 @@
       });
       this.popEl = pv;
     }
-    closePop() { if (this.popEl) { this.popEl.remove(); this.popEl = null; } }
+    closePop() { if (this.popEl) { this.popEl.remove(); this.popEl = null; hidePreview(true); } }
     cancel() { this.closePop(); if (this.state === 'target') { this.state = 'main'; this.hidePrompt(); this.highlight(); } }
     showPrompt(t, optional, onSkip) {
       const p = $('#prompt');

@@ -23,7 +23,7 @@
       document.querySelectorAll('.cutin, .phase-banner, .speedlines, .atk-overlay, .outcome, .afterimage, .resp-pill').forEach(e => e.remove());
       $('#modalBack').classList.remove('show');
     }
-    NS.View.hidePreview();
+    document.querySelectorAll('.popover').forEach(e => e.remove()); NS.View.hidePreview(true);
     if (id !== 'game' && NS.FXGL) NS.FXGL.stop();
   }
 
