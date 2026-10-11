@@ -1,0 +1,92 @@
+name: Train Hokage
+
+# One run = one training iteration: parallel self-play jobs, then one job that trains on their games,
+# tests the result against the current champion and the Kage heuristic, and commits ai/.
+# With `remaining` above 1 the run starts the next iteration itself.
+on:
+  workflow_dispatch:
+    inputs:
+      remaining:
+        description: Iterations to run (each one starts the next)
+        default: '6'
+      shards:
+        description: Parallel self-play jobs
+        default: '8'
+      minutes:
+        description: Self-play minutes per job
+        default: '20'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: train-hokage
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - id: m
+        run: echo "matrix=$(seq 1 "$SHARDS" | jq -cs .)" >> "$GITHUB_OUTPUT"
+        env:
+          SHARDS: ${{ inputs.shards }}
+
+  selfplay:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node tools/az-ci.js selfplay minutes="$MINUTES" out="sp-${{ matrix.shard }}.bin.gz"
+        env:
+          MINUTES: ${{ inputs.minutes }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sp-${{ matrix.shard }}
+          path: sp-*.bin.gz
+          retention-days: 2
+
+  learn:
+    needs: selfplay
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          path: sp
+          pattern: sp-*
+          merge-multiple: true
+      - run: node --max-old-space-size=12000 tools/az-ci.js learn in=sp
+      - name: Commit the result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ai
+          git commit -m "Hokage training: $(tail -n 1 ai/log.txt | cut -c23-90)" || exit 0
+          git pull --rebase
+          git push
+      - name: Start the next iteration
+        if: ${{ inputs.remaining > 1 }}
+        run: gh workflow run train.yml -f remaining=$(( REMAINING - 1 )) -f shards="$SHARDS" -f minutes="$MINUTES"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REMAINING: ${{ inputs.remaining }}
+          SHARDS: ${{ inputs.shards }}
+          MINUTES: ${{ inputs.minutes }}
