@@ -712,5 +712,6 @@ void main(){
 
   function stop() { run++; if (cv) cv.style.display = 'none'; }
 
-  NS.FXGL = { summon, has, stop, chakra, checkmate, activate, seal, flameJet };
+  const ready = () => !document.body.classList.contains('lowfx') && ensure(); // can a board-space effect play right now?
+  NS.FXGL = { summon, has, stop, chakra, checkmate, activate, seal, flameJet, ready, _k: { overlay, glow, line, beam, sparks, motes, ringE, wave, rng, seg, clamp, easeOut, easeIn, easeIO, bell } };
 })();

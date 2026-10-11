@@ -19,7 +19,7 @@
     const top = P.deck[0];
     if (!top) return null;
     c.g.say(`${P.name} reveals the top card of their deck: ${top.card.name}.`, 'sys');
-    await c.g.emit('revealTop', { player: c.pi, card: top });
+    await c.g.emit('revealTop', { player: c.pi, card: top, by: c.self });
     return top;
   }
   const space = c => c.g.p(c.pi).chars.length < c.g.house.charLimit;
@@ -42,6 +42,7 @@
       const pick = await c.g.choose({ player: c.pi, kind: 'card', options: pool, prompt: 'Summon up to 1 [Naruto Uzumaki] from your deck or trash (effects negated)', optional: true, ai: x => x.card.pow + x.card.hp });
       if (!pick) return;
       const fromDeck = P.deck.includes(pick);
+      await c.g.emit('jutsu', { id: 'N-003', player: c.pi, src: c.self });
       await c.g.summon(c.pi, pick, fromDeck ? 'deck' : 'trash', { negated: true });
       if (fromDeck) NS.shuffle(P.deck, c.g.rng);
     },
@@ -50,7 +51,7 @@
       const P = c.g.p(c.pi);
       const pool = P.trash.filter(x => x.card.type === 'character' && ['Naruto Uzumaki', 'Jiraiya', 'Minato Namikaze'].includes(x.card.name));
       const pick = await c.g.choose({ player: c.pi, kind: 'card', options: pool, prompt: 'Gamabunta: summon a non-EX Naruto, Jiraiya or Minato from your trash', optional: false, ai: x => x.card.pow + x.card.hp });
-      if (pick) await c.g.summon(c.pi, pick, 'trash');
+      if (pick) { await c.g.emit('jutsu', { id: 'N-005', player: c.pi, src: c.self }); await c.g.summon(c.pi, pick, 'trash'); }
     },
     'N-013': async c => {
       const g = c.g;
@@ -60,16 +61,16 @@
       if (t && top && hasTrait(top.card, 'Uchiha Clan')) {
         t.flags.cantAttackTurn = g.turn + 1;
         g.say(`Tsukuyomi! ${g.unitName(t)} cannot attack during the next turn.`, 'support');
-        await g.emit('genjutsu', { unit: t });
+        await g.emit('genjutsu', { unit: t, by: c.self });
       } else if (top) g.say(`Not an Uchiha — the genjutsu fails.`, 'sys');
     },
     'N-014': async c => {
       const t = await pickUnit(c, allChars(c.g).filter(u => u !== c.self), 'EX Sasuke: choose 1 Character to K.O.', { must: false });
-      if (t) await c.g.ko(t, null);
+      if (t) { await c.g.emit('jutsu', { id: 'N-014', player: c.pi, src: c.self, targets: [t] }); await c.g.ko(t, null); }
     },
     'N-022': async c => {
       const top = await revealTop(c);
-      if (top && top.card.type === 'character' && space(c)) await c.g.summon(c.pi, top, 'deck');
+      if (top && top.card.type === 'character' && space(c)) { await c.g.emit('jutsu', { id: 'N-022', player: c.pi, src: c.self }); await c.g.summon(c.pi, top, 'deck'); }
     },
   };
 
@@ -92,6 +93,7 @@
         const t = await pickUnit(c, allChars(g), 'Naruto: choose 1 Character to get +3 power this turn', { must: true, ai });
         if (!t) return;
         await c.g.payChakra(c.pi, 1, c.g.p(c.pi).leader.uid);
+        await c.g.emit('jutsu', { id: 'N-001', player: c.pi, src: c.g.p(c.pi).leader, targets: [t] });
         t.buffs.push({ pow: 3, until: 'turn' });
         c.g.say(`${t.card.name} gets +3 power!`, 'power');
         await c.g.emit('buff', { unit: t, text: '+3 POW' });
@@ -103,6 +105,7 @@
       run: async c => {
         const P = c.g.p(c.pi);
         P.once['N-012'] = true;
+        await c.g.emit('jutsu', { id: 'N-012', player: c.pi, src: P.leader });
         await c.g.draw(c.pi, 1);
         const k = await c.g.choose({ player: c.pi, kind: 'card', options: P.hand.slice(), prompt: 'Place 1 card from your hand on top of your deck', optional: false, zone: 'hand', ai: x => -NS.AI.cardValue(c.g, c.pi, x) });
         if (k) { P.hand.splice(P.hand.indexOf(k), 1); P.deck.unshift(k); await c.g.emit('toDeck', { player: c.pi }); }
@@ -117,7 +120,9 @@
       usable: (g, pi, u) => !g.p(pi).once['N-011:' + u.uid] && g.hasName(pi, 'Shikamaru Nara') && g.hasName(pi, 'Choji Akimichi'),
       run: async c => {
         c.g.p(c.pi).once['N-011:' + c.self.uid] = true;
-        for (const u of c.g.p(c.pi).chars.filter(u => ['Ino Yamanaka', 'Shikamaru Nara', 'Choji Akimichi'].includes(u.card.name))) {
+        const team = c.g.p(c.pi).chars.filter(u => ['Ino Yamanaka', 'Shikamaru Nara', 'Choji Akimichi'].includes(u.card.name));
+        await c.g.emit('jutsu', { id: 'N-011', player: c.pi, src: c.self, targets: team });
+        for (const u of team) {
           u.buffs.push({ pow: 5, dmg: 1, rush: true, until: 'turn' });
           await c.g.emit('buff', { unit: u, text: '+5 POW +1 DMG RUSH' });
         }
@@ -142,11 +147,15 @@
   };
   const koAll = {
     usable: (g, pi, s, w) => w.kind === 'main' && allChars(g).length > 0,
-    resolve: async c => { for (const u of allChars(c.g).slice()) await c.g.ko(u, c.pi); },
+    resolve: async c => {
+      const all = allChars(c.g).slice();
+      if (all.length) await c.g.emit('jutsu', { id: c.sup.card.id, player: c.pi, sup: c.sup, targets: all });
+      for (const u of all) await c.g.ko(u, c.pi);
+    },
   };
   const negate = extra => ({
     usable: (g, pi, s, w) => w.kind === 'support' && w.link && w.link.pi !== pi,
-    resolve: async c => { if (c.win && c.win.link) c.win.link.negated = true; await extra(c); },
+    resolve: async c => { if (c.win && c.win.link) { c.win.link.negated = true; await c.g.emit('jutsu', { id: c.sup.card.id, player: c.pi, sup: c.sup, link: c.win.link }); } await extra(c); },
   });
 
   NS.SUPPORTS = {
@@ -164,24 +173,25 @@
     'N-010': {
       usable: (g, pi, s, w) => w.kind === 'attack',
       resolve: async c => {
-        if (c.g.p(c.pi).chars.length < c.g.house.charLimit) await c.g.summon(c.pi, c.sup, 'support');
+        const u = c.g.p(c.pi).chars.length < c.g.house.charLimit ? await c.g.summon(c.pi, c.sup, 'support') : null;
+        await c.g.emit('jutsu', { id: 'N-010', player: c.pi, src: u, sup: c.sup, targets: [c.g.p(c.pi).leader] });
         await c.g.changeLife(c.pi, 2);
       },
     },
     'N-020': {
       usable: (g, pi, s, w) => w.kind === 'attack' && allChars(g).length > 0,
-      resolve: async c => { const t = await pickUnit(c, allChars(c.g), 'Cha! Return 1 Character to its owner\'s hand', { must: true }); if (t) await c.g.bounce(t, c.pi); },
+      resolve: async c => { const t = await pickUnit(c, allChars(c.g), 'Cha! Return 1 Character to its owner\'s hand', { must: true }); if (t) { await c.g.emit('jutsu', { id: 'N-020', player: c.pi, sup: c.sup, targets: [t] }); await c.g.bounce(t, c.pi); } },
     },
     'N-018': {
       usable: (g, pi, s, w) => w.kind === 'attack' && allChars(g).some(u => u.card.type !== 'ex'),
-      resolve: async c => { const t = await pickUnit(c, allChars(c.g).filter(u => u.card.type !== 'ex'), 'Air Palm: choose 1 non-EX Character to K.O.', { must: true }); if (t) await c.g.ko(t, c.pi); },
+      resolve: async c => { const t = await pickUnit(c, allChars(c.g).filter(u => u.card.type !== 'ex'), 'Air Palm: choose 1 non-EX Character to K.O.', { must: true }); if (t) { await c.g.emit('jutsu', { id: 'N-018', player: c.pi, sup: c.sup, targets: [t] }); await c.g.ko(t, c.pi); } },
     },
     'N-002': {
       usable: (g, pi) => allChars(g).length > 0 && g.p(pi).chars.length < g.house.charLimit,
       resolve: async c => {
         const t = await pickUnit(c, allChars(c.g), 'Expansion Jutsu: choose 1 Character to double its power', { must: true, ai: help(c.g, c.pi) });
-        await c.g.summon(c.pi, c.sup, 'support');
-        if (t) { t.buffs.push({ double: true, until: 'turn' }); await c.g.emit('buff', { unit: t, text: 'POW ×2' }); }
+        const u = await c.g.summon(c.pi, c.sup, 'support');
+        if (t) { await c.g.emit('jutsu', { id: 'N-002', player: c.pi, src: u, sup: c.sup, targets: [t] }); t.buffs.push({ double: true, until: 'turn' }); await c.g.emit('buff', { unit: t, text: 'POW ×2' }); }
       },
     },
     'N-021': {
@@ -191,7 +201,7 @@
         const t = opts.length ? await pickUnit(c, opts, 'Water Transformation: choose 1 Character to shield from opponent Supports', { must: true, ai: help(c.g, c.pi) }) : null;
         const u = await c.g.summon(c.pi, c.sup, 'support');
         const target = t || u;
-        if (target) { target.flags.immuneSupportTurn = c.g.turn; await c.g.emit('buff', { unit: target, text: 'SHIELDED' }); }
+        if (target) { await c.g.emit('jutsu', { id: 'N-021', player: c.pi, src: u, sup: c.sup, targets: [target] }); target.flags.immuneSupportTurn = c.g.turn; await c.g.emit('buff', { unit: target, text: 'SHIELDED' }); }
       },
     },
     'N-009': negate(async c => c.g.changeLife(c.pi, -2)),

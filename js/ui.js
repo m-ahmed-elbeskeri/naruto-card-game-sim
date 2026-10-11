@@ -582,6 +582,56 @@
     // EVENTS → ANIMATION
     // =====================================================================
     center(el) { return NS.FX.centerOf(el); }
+    fxj() { return !!(NS.FXJ && NS.FXGL && NS.FXGL.ready()); }
+    // A card effect's own animation, played when the effect resolves: after its targets are chosen and before the result is applied
+    async jutsu(d, g) {
+      if (d.id === 'N-005') { this.sumFx = 'toad'; return; } // Gamabunta and Manda: the card they summon arrives by Summoning Jutsu
+      if (d.id === 'N-022') { this.sumFx = 'snake'; return; }
+      if (!this.fxj()) return;
+      const J = NS.FXJ, u = this.sc() * .8, st = $('#stage').getBoundingClientRect(), mine = d.player === this.viewPi;
+      const cen = { x: st.left + st.width / 2, y: st.top + st.height / 2 };
+      const se = (d.src && this.el(d.src.uid)) || (d.sup && this.el(d.sup.iid)), from = se ? this.center(se) : { x: cen.x, y: mine ? st.bottom - 120 : st.top + 120 };
+      const els = (d.targets || []).map(x => this.el(x.uid)).filter(Boolean), pts = els.map(e => this.center(e)), to = pts[0];
+      const struck = (el, f) => { if (el && el.isConnected) el.animate([{ filter: 'brightness(2.6)' }, { filter: f || 'brightness(.35)' }], { duration: 260 * S(), fill: 'forwards' }); }; // stays marked until it is K.O.'d
+      let r = null;
+      switch (d.id) {
+        case 'N-015': case 'N-004': if (!pts.length) break; r = d.id === 'N-015' ? J.chidoriStream(from, pts, u) : J.rasengan(from, pts, cen, u); if (r) { await wait(r.hit); els.forEach(e => struck(e)); await wait(240); } break;
+        case 'N-017': if (!pts.length) break; r = J.shadowSnake(from, pts, u); if (r) { for (let i = 0; i < els.length; i++) { await wait(i ? r.gap : r.hit); NS.FX.shake(8); struck(els[i], 'brightness(.4) hue-rotate(240deg)'); } await wait(320); } break;
+        case 'N-018': case 'N-014': if (!to) break; r = d.id === 'N-018' ? J.airPalm(from, to, u) : J.chidori(from, to, u); if (r) { await wait(r.hit); struck(els[0]); await wait(240); } break;
+        case 'N-020': if (!to) break; r = J.innerSakura(from, to, cen, u); if (r) await wait(r.hit + 80); break;
+        case 'N-009': case 'N-016': { // the opposing support that is being negated
+          const le = d.link && this.el(d.link.sup.iid), tp = le ? this.center(le) : { x: cen.x, y: mine ? st.top + st.height * .3 : st.top + st.height * .7 };
+          r = d.id === 'N-009' ? J.lightningBlade(from, tp, u) : J.kotoAmatsukami(from, tp, u);
+          if (r) { await wait(r.hit); if (le && le.isConnected) le.animate([{ filter: 'brightness(2.2)' }, { filter: 'brightness(.4) grayscale(1)' }], { duration: 320 * S(), fill: 'forwards' }); await wait(d.id === 'N-009' ? 300 : 520); }
+          break;
+        }
+        case 'N-002': if (!to) break; r = J.expansion(to, u); if (r) { els[0].animate([{ scale: 1 }, { scale: 1.5, offset: .3 }, { scale: 1.3, offset: .75 }, { scale: 1 }], { duration: 1100 * S(), easing: 'ease-out' }); await wait(560); } break;
+        case 'N-021': if (!to) break; r = J.waterTransform(from, to, u); if (r) await wait(r.hit); break;
+        case 'N-010': if (!to) break; r = J.biteMe(from, to, u); if (r) await wait(r.hit - 200); break;
+        case 'N-001': if (!to) break; r = J.chakraShare(from, to, u); if (r) await wait(r.hit); break;
+        case 'N-012': { const dk = $(`[data-pile="deck-${d.player}"]`); if (!dk) break; r = J.foresight(this.center(dk), u); if (r) await wait(r.hit); break; }
+        case 'N-011': if (!pts.length) break; r = J.formation(pts, d.targets.filter(x => this.el(x.uid)).map(x => ({ 'Ino Yamanaka': '猪', 'Shikamaru Nara': '鹿', 'Choji Akimichi': '蝶' })[x.card.name]), u); if (r) await wait(r.hit); break;
+        case 'N-003': this.sumFx = 'clone'; r = J.crossSeal(from, u); if (r) await wait(r.hit); break;
+      }
+    }
+    // Minato: Flying Thunder God the first time in a turn that he has the 10 power that gives him [Rush]
+    async minato(g) {
+      if (!this.fxj()) return;
+      this.ftg = this.ftg || new Set();
+      for (const m of g.p(g.active).chars) {
+        if (m.card.id !== 'N-007' || m.negated || this.ftg.has(m.uid) || g.pow(m) < 10) continue;
+        this.ftg.add(m.uid);
+        const el = this.el(m.uid); if (!el) continue;
+        const c = this.center(el), st = $('#stage').getBoundingClientRect(), u = this.sc() * .8, dx = c.x > st.left + st.width / 2 ? -230 : 230;
+        const r = NS.FXJ.thunderGod(c, { x: c.x + dx * u, y: Math.min(st.bottom - 60, c.y + 150 * u) }, u); if (!r) return;
+        await wait(r.out);
+        const hide = el.animate([{ opacity: 0 }, { opacity: 0 }], { duration: (r.back - r.out) * S(), fill: 'forwards' });
+        await wait(r.back - r.out); hide.cancel();
+        if (el.isConnected) el.animate([{ filter: 'brightness(3)' }, { filter: 'none' }], { duration: 260 * S() });
+        NS.FX.floatText(c.x, c.y - 40, 'RUSH', '#ffe066', 34, 'pow', '飛雷神');
+        await wait(380);
+      }
+    }
     async onEvent(type, d, g) {
       const snd = n => NS.Audio.play(n);
       const mine = pi => pi === this.viewPi;
@@ -591,11 +641,13 @@
         case 'dealt': this.render(); snd('draw'); await wait(400); break;
         case 'mulligan': this.render(); break;
         case 'turn': {
+          this.ftg = new Set(); this.sumFx = null;
           this.render({ noFlip: true });
           if (g.p(d.player).turns <= 1 && !g.house.firstRoundAttacks && this.opts.humans[d.player] && d.player === this.viewPi) setTimeout(() => this.toast('First turn: neither player can attack on their first turn, even with Rush'), 900 * S());
           snd('taiko');
           if (mine(d.player) && this.opts.humans[d.player]) NS.Audio.jingle('turn');
           await NS.FX.banner(mine(d.player) && this.opts.humans[d.player] ? 'Your Turn' : `${esc(g.p(d.player).name)}'s Turn`, `Turn ${d.turn}`, { hold: 750, cls: mine(d.player) ? '' : 'blue' });
+          await this.minato(g);
           break;
         }
         case 'refresh': this.render(); await wait(250); break;
@@ -613,6 +665,11 @@
         case 'summon': {
           this.render();
           const el = this.el(d.unit.uid);
+          const sf = this.sumFx; this.sumFx = null;
+          if (el && sf && this.fxj()) { // summoned by a card effect: it arrives the way that effect brings it in
+            const c = this.center(el), r = sf === 'clone' ? NS.FXJ.poof(c, this.sc() * .8) : NS.FXJ.summonSeal(c, this.sc() * .8, sf === 'snake');
+            if (r) { const hide = el.animate([{ opacity: 0 }, { opacity: 0 }], { duration: r.hit * S(), fill: 'forwards' }); await wait(r.hit); hide.cancel(); if (el.isConnected) el.animate([{ transform: 'scale(.6)', filter: 'brightness(3)' }, { transform: 'none', filter: 'none' }], { duration: 300 * S(), easing: 'cubic-bezier(.2,1.3,.4,1)' }); await wait(520); break; }
+          }
           // signature summon (WebGL light layer); falls through to the standard seal when unavailable
           if (el && NS.FXGL && NS.FXGL.has(d.unit.card)) { const fxp = NS.FXGL.summon(d.unit.card, el); if (fxp) { await fxp; if (d.ex && NS.settings.cutins) await NS.FX.cutIn({ title: d.unit.card.name, sub: 'EX Summon', color: '#ffd23a', artStyle: portraitCSS(d.unit.card), side: mine(d.player) ? 'left' : 'right', hold: 1000 }); await wait(260); break; } }
           if (el) {
@@ -671,14 +728,16 @@
             else if (['N-004', 'N-015'].includes(d.sup.card.id)) { const r = $('#stage').getBoundingClientRect(); to = { x: r.left + r.width * .48, y: r.top + r.height * .39 }; }
             if (d.sup.card.id === 'N-010') { const le = this.el(g.p(d.player).leader.uid); if (le) to = this.center(le); }
             // Shikamaru's Checkmate plays when the attack is interrupted, so his old shadow effect is only the Low FX fallback
-            const own = d.sup.card.id === 'N-006' || (d.sup.card.id === 'N-008' && d.attack && NS.FXGL && NS.FXGL.has(d.sup.card)); // Jiraiya's fire is thrown once the targets are chosen (see 'jutsu')
+            // these play once the effect resolves and its targets are known (see 'jutsu'); the old effects here are the Low FX fallback
+            const later = d.sup.card.id === 'N-006' || (this.fxj() && ['N-004', 'N-015', 'N-017', 'N-018', 'N-020', 'N-009', 'N-016', 'N-002', 'N-021', 'N-010'].includes(d.sup.card.id));
+            const own = later || (d.sup.card.id === 'N-008' && d.attack && NS.FXGL && NS.FXGL.has(d.sup.card));
             if (!own) { const ms = NS.FX.jutsuFX(d.sup.card.id, d.sup.card.id === 'N-010' ? to : from, to); await wait(ms); }
           }
           await wait(150);
           break;
         }
         case 'jutsu': { // a technique aimed at chosen cards, played after the choice and before they are K.O.'d
-          if (d.id !== 'N-006') break;
+          if (d.id !== 'N-006') { await this.jutsu(d, g); break; }
           const se = this.el(d.sup.iid), st = $('#stage').getBoundingClientRect(), from = se ? this.center(se) : { x: st.left + st.width / 2, y: mine(d.player) ? st.bottom - 120 : st.top + 120 };
           const els = d.targets.map(u => this.el(u.uid)).filter(Boolean), pts = els.map(e => this.center(e));
           if (!pts.length) break;
@@ -728,6 +787,7 @@
           if (el) { const c = this.center(el); NS.FX.floatText(c.x, c.y - 40, d.text, '#ffd23a', 34, 'pow', '強化'); el.animate([{ filter: 'brightness(1.9) saturate(1.35)' }, { filter: 'none' }], { duration: 460, easing: 'ease-out' }); }
           snd('power');
           await wait(420);
+          await this.minato(g);
           break;
         }
         case 'attack': {
@@ -860,11 +920,22 @@
         case 'fizzle': this.hideArrow(); this.atkUid = null; this.render(); await wait(200); break;
         case 'genjutsu': {
           const el = this.el(d.unit.uid);
+          if (el && d.by && this.fxj()) { // Tsukuyomi: the board becomes a black-and-white negative under a red moon
+            const st = $('#stage'), be = this.el(d.by.uid), to = this.center(el), r = NS.FXJ.tsukuyomi(be ? this.center(be) : to, to, st.getBoundingClientRect(), this.sc() * .8);
+            if (r) { const neg = 'grayscale(1) invert(.88)', a = r.on / r.dur, z = r.off / r.dur; st.animate([{ filter: 'none', offset: 0 }, { filter: 'none', offset: a - .001 }, { filter: neg, offset: a }, { filter: neg, offset: z }, { filter: 'none', offset: z + .001 }, { filter: 'none', offset: 1 }], { duration: r.dur * S() }); await wait(r.hit); NS.FX.shake(8); this.render({ noFlip: true }); await wait(r.dur - r.hit - 200); break; }
+          }
           if (el) { const c = this.center(el); NS.FX.ring(c.x, c.y, { color: '#ff2a2a', max: 180, width: 12 }); NS.FX.burst(c.x, c.y, { colors: ['#ff2a2a', '#1a0000'], count: 40 }); }
           snd('lightning'); this.render({ noFlip: true }); await wait(500);
           break;
         }
-        case 'revealTop': await this.flashCard(d.card.card, `${esc(g.p(d.player).name)} reveals the top card`); break;
+        case 'revealTop': {
+          if (d.by && d.by.card.id === 'N-019' && this.fxj()) { // Jugo's curse mark calls the card out of the deck
+            const el = this.el(d.by.uid), dk = $(`[data-pile="deck-${d.player}"]`);
+            if (el && dk) { const b = el.getBoundingClientRect(), r = NS.FXJ.curseMark(this.center(el), { w: b.width, h: b.height }, this.center(dk), this.sc() * .8); if (r) await wait(r.hit); }
+          }
+          await this.flashCard(d.card.card, `${esc(g.p(d.player).name)} reveals the top card`);
+          break;
+        }
         case 'toDeck': this.render(); break;
         case 'gameOver': this.render({ noFlip: true }); await wait(500); NS.Screens.showResult(g, d, this); break;
         default: this.render();
