@@ -713,6 +713,9 @@
           if (d.target.isLeader) label = `${NS.icon('swords')} <b>${g.dmg(d.attacker)} DMG</b> ${NS.icon('arrow')} Leader`;
           else { const pw = g.pow(d.attacker), hp = g.hpLeft(d.target); kind = pw >= hp ? 'lethal' : 'weak'; label = `${NS.icon('swords')} POW <b>${pw}</b> vs HP <b>${hp}</b> ${NS.icon('arrow')} ${pw >= hp ? '<b class="ko">K.O.</b>' : `${NS.icon('shield')} survives`}`; }
           if (a2 && t2) {
+            // turn from standing to rested as a wind-up instead of snapping sideways
+            const tf = getComputedStyle(a2).transform;
+            if (tf && tf !== 'none') { a2.style.zIndex = 40; await a2.animate([{ transform: 'none' }, { transform: tf + ' scale(1.14)', offset: .7 }, { transform: tf }], { duration: 300 * S(), easing: 'cubic-bezier(.3,.7,.3,1)' }).finished.catch(() => { }); a2.style.zIndex = ''; }
             const p = this.center(a2);
             this.showArrow(d.attacker, d.target, label, kind);
             t2.classList.add('targeted');
