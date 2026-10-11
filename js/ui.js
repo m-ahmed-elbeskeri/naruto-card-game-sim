@@ -225,7 +225,7 @@
       const cd = o.querySelector('.hr-card'), r = cd.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
       cd.animate([{ transform: `translate(${from.x - cx}px,${from.y - cy}px) scale(.22) rotate(${own ? -14 : 14}deg)`, opacity: .4 }, { transform: 'scale(1.07)', opacity: 1, offset: .72 }, { transform: 'none' }], { duration: 380 * S(), easing: 'cubic-bezier(.2,.9,.3,1)' });
       await wait(300);
-      NS.FX.burst(cx, cy, { colors: ['#ffb347', '#fff', '#ffd23a'], count: 46, speed: 9 }); NS.FX.shock(cx, cy, { color: '255,170,60', max: 320 });
+      if (!(NS.FXGL && NS.FXGL.activate && NS.FXGL.activate({ x: cx, y: cy }, 2.3, 76))) { NS.FX.burst(cx, cy, { colors: ['#ffb347', '#fff', '#ffd23a'], count: 46, speed: 9 }); NS.FX.shock(cx, cy, { color: '255,170,60', max: 320 }); }
       await wait(900);
       o.classList.add('out');
       await wait(220);
@@ -647,7 +647,7 @@
             if (el) {
               el.innerHTML = cardHTML(d.sup.card, { w: 76 });
               el.animate([{ transform: 'rotateY(90deg) scale(1.4)' }, { transform: 'scale(1.3)' }, { transform: 'none' }], { duration: 500 * S() });
-              const c = this.center(el); NS.FX.burst(c.x, c.y, { colors: ['#ffb347', '#fff'], count: 40 });
+              const c = this.center(el); if (!(NS.FXGL && NS.FXGL.activate && NS.FXGL.activate(c, this.sc()))) NS.FX.burst(c.x, c.y, { colors: ['#ffb347', '#fff'], count: 40 });
             }
             if (NS.settings.cutins) await NS.FX.cutIn({ title: d.sup.card.support.name, sub: `${d.sup.card.name} · Support`, color: '#f07c14', artStyle: portraitCSS(d.sup.card), side: mine(d.player) ? 'left' : 'right', hold: 950 });
           }

@@ -510,7 +510,7 @@ void main(){
     const M = { k: k0 * sc, pt: (x, y) => [(ax + (x - CX) * k0) * sc, (ay + (y - CY) * k0) * sc] };
     const setT = c => c.setTransform(M.k, 0, 0, M.k, (ax - CX * k0) * sc, (ay - CY * k0) * sc);
     el.style.opacity = '0';
-    cv.style.display = 'block';
+    cv.style.display = 'block'; cv.style.zIndex = '';
     const fired = new Set(), stage = document.getElementById('stage');
     let t0 = null, landed = false, done;
     const promise = new Promise(res => { done = res; });
@@ -541,11 +541,11 @@ void main(){
 
   // ---------------- board-space effects (not tied to one card): drawn in screen pixels ----------------
   // Runs draw(b, e, P, t) for `dur` ms on the same layer. Returns false when the layer is unavailable.
-  function overlay(dur, cues, draw) {
+  function overlay(dur, cues, draw, z) {
     if (document.body.classList.contains('lowfx') || !ensure()) return false;
     resize();
     const id = ++run, speed = Math.max(.45, NS.settings ? NS.settings.speedMul() : 1), M = { k: sc, pt: (x, y) => [x * sc, y * sc] }, fired = new Set();
-    cv.style.display = 'block';
+    cv.style.display = 'block'; cv.style.zIndex = z || ''; // z: lift the layer above a full-screen panel
     let t0 = null;
     const frame = now => {
       if (id !== run) return;
@@ -589,6 +589,23 @@ void main(){
     });
     return ok ? { gap: GAP, hit: HIT } : null;
   }
+  // Support activation: a flare, two rings, a lens streak and a spray of sparks around the card as it turns over.
+  // u: size relative to a Support Area card; z: optional z-index for the layer.
+  function activate(pt, u, z) {
+    const x = pt.x, y = pt.y;
+    return overlay(820, [], (b, e, P, t) => {
+      e.globalCompositeOperation = 'lighter';
+      const f = 1 - seg(t, 0, 340);
+      glow(e, x, y, 190 * u, 'rgba(255,150,40,.55)', bell(seg(t, 0, 520)) * .8);
+      glow(e, x, y, 62 * u, '#fff3d6', f);
+      line(e, x - 300 * u * easeOut(seg(t, 0, 220)), y, x + 300 * u * easeOut(seg(t, 0, 220)), y, Math.max(1.5, 4 * u) * f, '#ffd9a0', f);
+      line(e, x, y - 130 * u * easeOut(seg(t, 0, 220)), x, y + 130 * u * easeOut(seg(t, 0, 220)), Math.max(1.2, 2.5 * u) * f, '#ffd9a0', f * .8);
+      for (const [d, r0, r1, w] of [[0, 40, 150, 5], [90, 30, 105, 2.5]]) { const k = seg(t, d, d + 440); if (t >= d) ringE(e, x, y, (r0 + (r1 - r0) * easeOut(k)) * u, Math.max(1.2, w * u) * (1 - k), OR, 1 - k); }
+      sparks(e, t, { seed: 61, t0: 0, x, y, n: 80, speed: 640 * u, life: 480, color: OR, w: Math.max(1.4, 2.2 * u) });
+      sparks(e, t, { seed: 62, t0: 60, x, y, n: 26, speed: 300 * u, life: 620, color: '#ffe2b0', a0: 3.6, a1: 5.8, grav: -60 * u, w: Math.max(1.2, 1.6 * u) });
+      wave(P, t, 0, x, y, 230 * u, 12 * u, 380);
+    }, z);
+  }
   // Checkmate (Shadow Possession Jutsu): the board becomes a shogi board and the king lands in the attacker's path.
   // at: attacker, tg: target, from: Shikamaru (optional), all {x, y}; k: board scale (card width / 150). Returns the landing time or 0.
   function shogiPiece(c, x, y, s, a, kan) {
@@ -628,5 +645,5 @@ void main(){
 
   function stop() { run++; if (cv) cv.style.display = 'none'; }
 
-  NS.FXGL = { summon, has, stop, chakra, checkmate };
+  NS.FXGL = { summon, has, stop, chakra, checkmate, activate };
 })();
