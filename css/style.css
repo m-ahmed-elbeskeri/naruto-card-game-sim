@@ -200,7 +200,7 @@ body.on-title .t-wall { display: block; }
 .iconbtn:hover { background: var(--orange); color: #111; }
 .prompt { position: absolute; left: 50%; top: 322px; transform: translateX(-50%); z-index: 40; display: none; align-items: center; gap: 14px; padding: 10px 20px; background: #111; border: 2px solid #ff3b3b; font-size: 17px; font-weight: 700; max-width: 900px; box-shadow: 0 10px 30px rgba(0, 0, 0, .7); }
 .prompt.show { display: flex; }
-.popover { position: fixed; z-index: 96; width: 300px; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 8px; background: #111; border: 2px solid var(--orange); box-shadow: 0 12px 30px rgba(0, 0, 0, .7); }
+.popover { position: fixed; z-index: 96; width: 260px; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 8px; background: #111; border: 2px solid var(--orange); box-shadow: 0 12px 30px rgba(0, 0, 0, .7); }
 .popover .pv-title { font-size: 12px; color: var(--orange); letter-spacing: 2px; text-transform: uppercase; padding: 0 4px 4px; font-weight: 900; }
 .popover button { display: flex; justify-content: space-between; align-items: center; gap: 12px; cursor: pointer; font-size: 15px; font-weight: 700; color: #fff; padding: 8px 10px; border: 1px solid #333; background: #1d1d24; text-align: left; }
 .popover button:hover { background: var(--orange); color: #111; }

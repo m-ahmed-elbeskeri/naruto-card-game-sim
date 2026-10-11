@@ -66,7 +66,7 @@
     return `<div class="pv-text"><h4>${esc(card.name)}</h4><div class="meta">${card.type === 'ex' ? 'EX Character' : card.type === 'leader' ? 'Leader' : card.type === 'character' ? 'Character' : ''} ${card.color ? '· ' + card.color.toUpperCase() : ''} ${card.id && card.type !== 'chakra' ? '· ' + (card.unnumbered ? 'demo (no number)' : card.id) : ''} ${card.traits ? '· ' + esc(card.traits.join(' / ')) : ''}</div>${stats ? `<div class="st">${stats}</div>` : ''}${body}${extra ? `<p>${extra}</p>` : ''}${conf ? `<div class="conf">${conf}. Pre-release — details may change.</div>` : ''}</div>`;
   }
   // The card inspector is docked: a fixed column at the left edge (or the right edge when the pointer is over the
-  // left side of the screen), with the action menu directly under it. Nothing follows the pointer.
+  // left side of the screen). It never follows the pointer. The action menu opens above the clicked card.
   const DOCK_W = 300;
   function showPreview(card, ev, extra, live, force) {
     const pv = $('#preview');
@@ -81,11 +81,9 @@
     if (n) { const fx = ev.clientX / window.innerWidth, fy = ev.clientY / window.innerHeight; n.style.setProperty('--ry', ((fx - .5) * 16) + 'deg'); n.style.setProperty('--rx', ((.5 - fy) * 10) + 'deg'); n.style.setProperty('--gx', fx * 100 + '%'); n.style.setProperty('--gy', fy * 100 + '%'); }
   }
   function layoutDock() {
-    const pv = $('#preview'), pop = document.querySelector('.popover');
-    const ph = pv.classList.contains('show') ? pv.offsetHeight : 0, oh = pop ? pop.offsetHeight : 0, gap = ph && oh ? 8 : 0;
-    const x = pv._right ? window.innerWidth - DOCK_W - 12 : 12, y = Math.max(8, Math.round((window.innerHeight - ph - gap - oh) / 2));
+    const pv = $('#preview'), ph = pv.classList.contains('show') ? pv.offsetHeight : 0;
+    const x = pv._right ? window.innerWidth - DOCK_W - 12 : 12, y = Math.max(8, Math.round((window.innerHeight - ph) / 2));
     pv.style.transform = `translate(${x}px,${y}px)`;
-    if (pop) { pop.style.left = x + 'px'; pop.style.top = Math.max(8, Math.min(window.innerHeight - oh - 8, y + ph + gap)) + 'px'; }
   }
   function hidePreview(force) { const pv = $('#preview'); if (pv._lock && !force) return; pv._lock = false; pv.classList.remove('show'); }
   function modal(html, onMount, cls) {
@@ -430,11 +428,14 @@
       pv.className = 'popover';
       pv.innerHTML = `<div class="pv-title">${esc(title)}</div>` + acts.map((a, i) => { const [l, c] = this.label(a); return `<button data-i="${i}"><span>${esc(l)}</span>${c !== '' ? `<span class="cost">${c}</span>` : ''}</button>`; }).join('') + `<button class="cancel">Cancel</button>`;
       document.body.appendChild(pv);
-      // docked under the card inspector, which stays on the clicked card while the menu is open
+      // the menu sits just above the clicked card (below it when there is no room); the inspector stays on that card
       const P = $('#preview');
       if (card && !P.classList.contains('show')) showPreview(card, e, '', null, true);
-      P._right = e.clientX < window.innerWidth * .27; P._lock = true;
-      layoutDock();
+      P._lock = true;
+      const src = e.target.closest && e.target.closest('[data-hand],[data-unit],[data-sup]'), r = src ? src.getBoundingClientRect() : { left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY, width: 0 };
+      const w = pv.offsetWidth, h = pv.offsetHeight, top = r.top - h - 10;
+      pv.style.left = Math.round(Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2))) + 'px';
+      pv.style.top = Math.round(top >= 8 ? top : Math.min(window.innerHeight - h - 8, r.bottom + 10)) + 'px';
       pv.addEventListener('click', ev => {
         ev.stopPropagation();
         const b = ev.target.closest('button'); if (!b) return;
