@@ -212,7 +212,7 @@
     }
     // the attack marker goes as soon as the attacker or its target has left the field
     dropArrow(uid) { if (this.arrow && (this.arrow.a === uid || this.arrow.t === uid)) this.hideArrow(); if (this.atkUid === uid) this.atkUid = null; }
-    // a support played from hand is shown large in the middle of the screen
+    // an activated support is shown large in the middle of the screen, flying in from the hand or the Support Area
     async handReveal(d, g) {
       const card = d.sup.card, src = this.el(d.sup.iid), st = $('#stage').getBoundingClientRect(), own = d.player === this.viewPi;
       const from = src ? this.center(src) : { x: st.left + st.width / 2, y: own ? st.bottom + 80 : st.top - 80 };
@@ -220,7 +220,7 @@
       const w = Math.round(Math.max(190, Math.min(330, innerHeight * .46 * 600 / 831)));
       const o = document.createElement('div');
       o.className = 'hand-reveal';
-      o.innerHTML = `<div class="hr-veil"></div><div class="hr-box"><div class="hr-cap">${esc(g.p(d.player).name)} <em>activates from hand</em></div><div class="hr-card"><i></i>${cardHTML(card, { w })}</div><div class="hr-name">${esc(card.support.name)}</div></div>`;
+      o.innerHTML = `<div class="hr-veil"></div><div class="hr-box"><div class="hr-cap">${esc(g.p(d.player).name)} <em>${d.fromHand ? 'activates from hand' : 'activates a Support'}</em></div><div class="hr-card"><i></i>${cardHTML(card, { w })}</div><div class="hr-name">${esc(card.support.name)}</div></div>`;
       document.body.appendChild(o);
       const cd = o.querySelector('.hr-card'), r = cd.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
       cd.animate([{ transform: `translate(${from.x - cx}px,${from.y - cy}px) scale(.22) rotate(${own ? -14 : 14}deg)`, opacity: .4 }, { transform: 'scale(1.07)', opacity: 1, offset: .72 }, { transform: 'none' }], { duration: 380 * S(), easing: 'cubic-bezier(.2,.9,.3,1)' });
@@ -642,15 +642,8 @@
           this.lastSup = d.sup.card.id;
           let shown = null;
           snd('reveal');
-          if (d.fromHand) shown = await this.handReveal(d, g);
-          else {
-            if (el) {
-              el.innerHTML = cardHTML(d.sup.card, { w: 76 });
-              el.animate([{ transform: 'rotateY(90deg) scale(1.4)' }, { transform: 'scale(1.3)' }, { transform: 'none' }], { duration: 500 * S() });
-              const c = this.center(el); if (!(NS.FXGL && NS.FXGL.activate && NS.FXGL.activate(c, this.sc()))) NS.FX.burst(c.x, c.y, { colors: ['#ffb347', '#fff'], count: 40 });
-            }
-            if (NS.settings.cutins) await NS.FX.cutIn({ title: d.sup.card.support.name, sub: `${d.sup.card.name} · Support`, color: '#f07c14', artStyle: portraitCSS(d.sup.card), side: mine(d.player) ? 'left' : 'right', hold: 950 });
-          }
+          shown = await this.handReveal(d, g);
+          if (!d.fromHand && el && el.isConnected) { el.innerHTML = cardHTML(d.sup.card, { w: 76 }); el.style.visibility = ''; } // back in its slot, face-up
           if (el || shown) {
             const from = shown || this.center(el);
             let to = from;
