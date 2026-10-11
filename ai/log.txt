@@ -10,3 +10,4 @@
 [19:48:07] gen 0 vs Kage heuristic: 66.3%
 [20:03:08] iter 1: selfplay 379s (avg 15.2 turns, buffer 43034) train 131s loss v=0.313 p=1.041 | vs best 51.2%
 [20:25:11] iter 2: selfplay 1151s (avg 14.5 turns, buffer 86687) train 55s loss v=0.320 p=1.122 | vs best 63.7% -> NEW CHAMPION gen 1, vs Kage 56.3%
+[2026-10-11 12:33:02] iter 3: 600000 samples, train 63s loss v=0.674 p=1.220 | vs champion 67.0% (200 games) | vs Kage 70.5% (200 games) -> NEW CHAMPION gen 2
