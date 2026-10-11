@@ -606,6 +606,28 @@ void main(){
       wave(P, t, 0, x, y, 230 * u, 12 * u, 380);
     }, z);
   }
+  // Seal Stamp: a sealing ring spreads and cools under a card that has just been set face-down.
+  // u: size relative to a 128px-wide card.
+  function sealMark(b, e, r, fade, heat) {
+    for (const [c, col, lw, al] of [[b, '#08060a', 5, .9 * fade], [e, '#ffb52e', 2, heat * fade]]) {
+      if (al <= 0) continue; c.save(); if (c === e) c.globalCompositeOperation = 'lighter'; c.globalAlpha = clamp(al, 0, 1); c.strokeStyle = col; c.fillStyle = col;
+      c.lineWidth = lw; c.beginPath(); c.arc(0, 0, r, 0, 6.2832); c.stroke(); c.lineWidth = lw * .5; c.beginPath(); c.arc(0, 0, r * .8, 0, 6.2832); c.stroke();
+      c.font = '900 ' + Math.round(r * .15) + 'px "Zen Kaku Gothic New", serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      for (let i = 0; i < 12; i++) { const a = i / 12 * 6.2832; c.save(); c.translate(Math.cos(a) * r * .9, Math.sin(a) * r * .9); c.rotate(a + 1.571); c.fillText('封印之術伏兵待機'[i % 8], 0, 0); c.restore(); }
+      c.restore();
+    }
+  }
+  function seal(pt, u) {
+    return overlay(1100, [[0, 'seal']], (b, e, P, t) => {
+      for (const c of [b, e]) { c.translate(pt.x, pt.y); c.scale(u, u); }
+      sealMark(b, e, 112 + 60 * easeOut(seg(t, 0, 320)), 1 - seg(t, 560, 1050), .9 * (1 - seg(t, 0, 800)) + .15);
+      const r = rng(5); // dust kicked out from under the card
+      for (let i = 0; i < 10; i++) { const a = r() * 6.2832, d = 20 + r() * 130, life = 520 + r() * 420, dl = r() * 90, sz = 26 + r() * 40, k = (t - dl) / life; if (k <= 0 || k >= 1) continue; const kk = easeOut(k); glow(b, Math.cos(a) * d * kk, 30 + Math.sin(a) * d * kk * .8 - 18 * kk, sz * (.6 + .9 * kk), 'rgba(206,200,216,.55)', (1 - k) * .4); }
+      e.globalCompositeOperation = 'lighter';
+      sparks(e, t, { seed: 3, t0: 0, x: 0, y: 0, n: 60, speed: 620, life: 460, color: '#ffc266', w: 2 });
+      wave(P, t, 0, pt.x, pt.y, 300 * u, 22 * u, 460);
+    });
+  }
   // Checkmate (Shadow Possession Jutsu): the board becomes a shogi board and the king lands in the attacker's path.
   // at: attacker, tg: target, from: Shikamaru (optional), all {x, y}; k: board scale (card width / 150). Returns the landing time or 0.
   function shogiPiece(c, x, y, s, a, kan) {
@@ -645,5 +667,5 @@ void main(){
 
   function stop() { run++; if (cv) cv.style.display = 'none'; }
 
-  NS.FXGL = { summon, has, stop, chakra, checkmate, activate };
+  NS.FXGL = { summon, has, stop, chakra, checkmate, activate, seal };
 })();

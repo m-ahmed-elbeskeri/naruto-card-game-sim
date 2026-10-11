@@ -629,12 +629,22 @@
           await wait(420);
           break;
         }
-        case 'set': {
+        case 'set': { // Seal Stamp: the card lifts out of the hand, is pressed onto its slot, and a sealing ring spreads under it
+          const src = this.el(d.sup.iid), from = src ? this.center(src) : null; // still in the hand until the redraw
           this.render();
           const el = this.el(d.sup.iid);
-          if (el) { el.animate([{ transform: 'translateY(80px) rotate(10deg)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380 * S(), easing: 'cubic-bezier(.2,1.2,.4,1)' }); const c = this.center(el); NS.FX.smoke(c.x, c.y, { count: 8, color: '#888' }); }
           snd('hidden');
-          await wait(300);
+          if (el) {
+            const c = this.center(el), sc = this.sc() || 1, f = from || { x: c.x, y: c.y + (mine(d.player) ? 300 : -300) * sc };
+            const [dx, dy] = this.local(el, (f.x - c.x) / sc, (f.y - c.y) / sc), [lx, ly] = this.local(el, 0, -30);
+            el.style.zIndex = 40;
+            el.animate([{ transform: `translate(${dx}px,${dy}px)`, opacity: from ? 1 : 0 }, { transform: `translate(${lx}px,${ly}px) scale(1.5)`, opacity: 1, offset: .75, easing: 'cubic-bezier(.6,0,.9,.4)' }, { transform: 'none' }], { duration: 480 * S(), easing: 'cubic-bezier(.4,0,.2,1)' });
+            await wait(480);
+            el.style.zIndex = '';
+            if (!(NS.FXGL && NS.FXGL.seal && NS.FXGL.seal(c, sc * 76 / 128))) NS.FX.smoke(c.x, c.y, { count: 8, color: '#888' });
+            NS.FX.shake(4);
+            await wait(160);
+          } else await wait(300);
           break;
         }
         case 'supportFlip': {
