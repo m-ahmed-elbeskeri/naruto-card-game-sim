@@ -671,10 +671,24 @@
             else if (['N-004', 'N-015'].includes(d.sup.card.id)) { const r = $('#stage').getBoundingClientRect(); to = { x: r.left + r.width * .48, y: r.top + r.height * .39 }; }
             if (d.sup.card.id === 'N-010') { const le = this.el(g.p(d.player).leader.uid); if (le) to = this.center(le); }
             // Shikamaru's Checkmate plays when the attack is interrupted, so his old shadow effect is only the Low FX fallback
-            const own = d.sup.card.id === 'N-008' && d.attack && NS.FXGL && NS.FXGL.has(d.sup.card);
+            const own = d.sup.card.id === 'N-006' || (d.sup.card.id === 'N-008' && d.attack && NS.FXGL && NS.FXGL.has(d.sup.card)); // Jiraiya's fire is thrown once the targets are chosen (see 'jutsu')
             if (!own) { const ms = NS.FX.jutsuFX(d.sup.card.id, d.sup.card.id === 'N-010' ? to : from, to); await wait(ms); }
           }
           await wait(150);
+          break;
+        }
+        case 'jutsu': { // a technique aimed at chosen cards, played after the choice and before they are K.O.'d
+          if (d.id !== 'N-006') break;
+          const se = this.el(d.sup.iid), st = $('#stage').getBoundingClientRect(), from = se ? this.center(se) : { x: st.left + st.width / 2, y: mine(d.player) ? st.bottom - 120 : st.top + 120 };
+          const els = d.targets.map(u => this.el(u.uid)).filter(Boolean), pts = els.map(e => this.center(e));
+          if (!pts.length) break;
+          const jet = NS.FXGL && NS.FXGL.flameJet ? NS.FXGL.flameJet(from, pts, this.sc() * 120 / 140) : null;
+          for (let i = 0; i < els.length; i++) {
+            if (jet) await wait(i ? jet.gap : jet.hit); else { NS.FX.fireball(from.x, from.y, pts[i].x, pts[i].y); snd('fire'); await wait(650); }
+            NS.FX.shake(9);
+            if (els[i].isConnected) els[i].animate([{ filter: 'brightness(2.6)' }, { filter: 'brightness(.3) sepia(.6)' }], { duration: 260 * S(), fill: 'forwards' }); // scorched until it is K.O.'d
+          }
+          await wait(jet ? 340 : 200);
           break;
         }
         case 'supportEnd': this.render(); await wait(200); break;

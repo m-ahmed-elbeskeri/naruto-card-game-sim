@@ -136,6 +136,7 @@
         if (!t) break;
         done.push(t);
       }
+      if (done.length) await g.emit('jutsu', { id: c.sup.card.id, player: c.pi, sup: c.sup, targets: done }); // UI: the technique is aimed at the chosen cards
       for (const t of done) await g.ko(t, c.pi);
     },
   };

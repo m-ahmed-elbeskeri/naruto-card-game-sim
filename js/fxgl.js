@@ -628,6 +628,51 @@ void main(){
       wave(P, t, 0, pt.x, pt.y, 300 * u, 22 * u, 460);
     });
   }
+  // Toad oil and fire leaving together as one torrent: the dark oil leads, the flame catches it up and wraps it
+  function torrent(b, e, t, t0, x1, y1, x2, y2, sc) {
+    const dt = t - t0; if (dt < 0 || dt > 900) return;
+    const oil = easeOut(seg(dt, 0, 190)), fire = easeOut(seg(dt, 50, 240)), tail = easeIn(seg(dt, 430, 660)), dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+    const band = (c, f0, f1, wf, ph) => { if (f1 <= f0) return false; const Lp = [], Rp = [];
+      for (let q = 0; q <= 22; q++) { const u = f0 + (f1 - f0) * q / 22, w = wf(u) * (1 + .2 * Math.sin(u * 15 - t / 34 + ph)), bend = Math.sin(u * 7 - t / 90) * 10 * sc * Math.sin(u * Math.PI), px = x1 + dx * u + nx * bend, py = y1 + dy * u + ny * bend; Lp.push([px + nx * w, py + ny * w]); Rp.push([px - nx * w, py - ny * w]); }
+      c.beginPath(); Lp.forEach((p, n) => n ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); for (let n = Rp.length - 1; n >= 0; n--) c.lineTo(Rp[n][0], Rp[n][1]); c.closePath(); return true; };
+    e.save(); e.globalCompositeOperation = 'lighter';
+    for (let L = 0; L < 3; L++) { e.fillStyle = ['rgba(226,70,16,.55)', 'rgba(255,150,30,.6)', 'rgba(255,240,190,.75)'][L]; if (band(e, tail, fire, u => (16 + 70 * u) * (1 - L * .3) * sc, L)) e.fill(); }
+    if (fire > tail && dt < 660) { const hx = x1 + dx * fire, hy = y1 + dy * fire; glow(e, hx, hy, 130 * sc, 'rgba(255,120,30,.5)', .8); glow(e, hx, hy, 56 * sc, '#fff3c4', .8); }
+    e.restore();
+    b.save(); b.fillStyle = '#140a05'; b.globalAlpha = .92; if (band(b, Math.max(tail, fire - .25), oil, u => (7 + 20 * u) * sc, 4)) b.fill(); b.restore();
+    const r = rng(Math.round(x2 + t0) + 3); // oil flung off the sides
+    for (let n = 0; n < 14; n++) { const u0 = r(), side = r() < .5 ? -1 : 1, sp = 40 + r() * 90, k = (dt - 40 - u0 * 200) / 380; if (k <= 0 || k >= 1) continue; glow(b, x1 + dx * u0 + nx * side * (20 + sp * k) * sc, y1 + dy * u0 + ny * side * (20 + sp * k) * sc + 30 * k * k * sc, 9 * sc * (1 - k * .5), 'rgba(18,9,4,.9)', 1 - k); }
+  }
+  function flames(e, x, y, w, h, t, seed, a) {
+    if (h <= 2 || a <= 0) return; e.save(); e.globalCompositeOperation = 'lighter'; e.globalAlpha = clamp(a, 0, 1);
+    for (let L = 0; L < 3; L++) { e.fillStyle = ['rgba(226,70,16,.6)', 'rgba(255,150,30,.6)', 'rgba(255,236,170,.7)'][L]; e.beginPath(); e.moveTo(x - w / 2, y);
+      for (let q = -w / 2; q <= w / 2; q += 6) { const n = Math.abs(Math.sin(q * .07 + t / (70 - L * 12) + L + seed)) * .6 + Math.abs(Math.sin(q * .17 - t / 50 + seed)) * .4; e.lineTo(x + q, y - h * (1 - L * .25) * (.2 + n) * (1 - Math.pow(Math.abs(q) / (w / 2 + 4), 2))); }
+      e.lineTo(x + w / 2, y); e.closePath(); e.fill(); }
+    e.restore();
+  }
+  // Toad Oil Flame (Jiraiya's support): a torrent of burning oil from his card to each chosen Character in turn.
+  // from: {x, y}, pts: [{x, y}], u: size relative to a 140px-wide card. Returns the timings (ms before speed scaling) or null.
+  function flameJet(from, pts, u) {
+    const GAP = 560, HIT = 220;
+    const ok = overlay((pts.length - 1) * GAP + 1150, pts.map((_, i) => [i * GAP, 'fire']).concat(pts.map((_, i) => [i * GAP + HIT, 'impact'])), (b, e, P, t) => {
+      pts.forEach((p, i) => {
+        const t0 = i * GAP, T = t0 + HIT; torrent(b, e, t, t0, from.x, from.y, p.x, p.y, u);
+        if (t < T) return; const k = seg(t, T, T + 520);
+        e.save(); e.globalCompositeOperation = 'lighter';
+        glow(e, p.x, p.y, 210 * u * (1 - .5 * seg(t, T, T + 380)), 'rgba(255,120,30,.35)', (1 - seg(t, T, T + 380)) * .8); glow(e, p.x, p.y, 66 * u, '#fff3c4', (1 - seg(t, T, T + 180)) * .9);
+        e.restore();
+        ringE(e, p.x, p.y, (40 + 230 * easeOut(k)) * u, Math.max(1.5, 8 * u) * (1 - k), '#ff9a2a', 1 - k);
+        flames(e, p.x, p.y + 62 * u, 200 * u, 280 * u * bell(seg(t, T, T + 620)), t, i + 5, .95);
+        e.save(); e.globalCompositeOperation = 'lighter';
+        sparks(e, t, { seed: 50 + i, t0: T, x: p.x, y: p.y, n: 90, speed: 900 * u, life: 520, color: '#ffb347', w: Math.max(1.4, 2.4 * u) });
+        sparks(e, t, { seed: 60 + i, t0: T + 40, x: p.x, y: p.y, n: 40, speed: 380 * u, life: 900, color: '#ff7a2a', a0: 3.6, a1: 5.8, grav: -120 * u, w: Math.max(1.2, 1.8 * u) });
+        e.restore();
+        wave(P, t, T, p.x, p.y, 360 * u, 30 * u, 520);
+        const r = rng(70 + i); for (let n = 0; n < 10; n++) { const a = r() * 6.2832, d = 30 + r() * 110, life = 700 + r() * 500, sz = 40 + r() * 50, dl = r() * 120, kk = (t - T - 80 - dl) / life; if (kk <= 0 || kk >= 1) continue; glow(b, p.x + Math.cos(a) * d * easeOut(kk) * u, p.y + (Math.sin(a) * d * easeOut(kk) * .8 - 40 * kk) * u, sz * (.6 + .8 * kk) * u, 'rgba(20,14,12,.6)', (1 - kk) * .55); }
+      });
+    });
+    return ok ? { gap: GAP, hit: HIT } : null;
+  }
   // Checkmate (Shadow Possession Jutsu): the board becomes a shogi board and the king lands in the attacker's path.
   // at: attacker, tg: target, from: Shikamaru (optional), all {x, y}; k: board scale (card width / 150). Returns the landing time or 0.
   function shogiPiece(c, x, y, s, a, kan) {
@@ -667,5 +712,5 @@ void main(){
 
   function stop() { run++; if (cv) cv.style.display = 'none'; }
 
-  NS.FXGL = { summon, has, stop, chakra, checkmate, activate, seal };
+  NS.FXGL = { summon, has, stop, chakra, checkmate, activate, seal, flameJet };
 })();
