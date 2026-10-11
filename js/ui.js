@@ -643,6 +643,7 @@
           const el = this.el(d.sup.iid);
           snd('hidden');
           if (el) {
+            el.getAnimations().forEach(a => a.cancel()); // drop the redraw's own slide so the slot is measured where it really is
             const c = this.center(el), sc = this.sc() || 1, f = from || { x: c.x, y: c.y + (mine(d.player) ? 300 : -300) * sc };
             const [dx, dy] = this.local(el, (f.x - c.x) / sc, (f.y - c.y) / sc), [lx, ly] = this.local(el, 0, -30);
             el.style.zIndex = 40;
