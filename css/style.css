@@ -603,3 +603,7 @@ body.lowfx .aura-text .au { display: none; }
 .hand-reveal .hr-cap { font-family: var(--display); font-size: 17px; letter-spacing: .28em; text-transform: uppercase; color: #fff; text-shadow: 0 2px 6px #000; animation: resUp .3s .2s ease-out both; }
 .hand-reveal .hr-cap em { font-style: normal; color: var(--orange2); }
 .hand-reveal .hr-name { padding: 6px 26px; font-family: var(--display); font-weight: 700; font-size: 30px; letter-spacing: .1em; text-transform: uppercase; color: #111; background: var(--orange); border: 2px solid var(--orange2); transform: skewX(-8deg); animation: resUp .3s .3s ease-out both; }
+
+/* the attacker stays lit with a pulsing edge from the declaration until the attack resolves */
+.slot.atk::after { content: ''; position: absolute; inset: -3px; z-index: 4; border-radius: 9px; pointer-events: none; box-shadow: 0 0 0 2px rgba(255, 165, 60, .95), 0 0 26px rgba(240, 124, 20, .9); animation: atkCharge .48s ease-in-out infinite alternate; }
+@keyframes atkCharge { from { opacity: 1; } to { opacity: .4; } }

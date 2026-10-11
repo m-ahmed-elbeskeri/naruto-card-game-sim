@@ -715,7 +715,7 @@
           if (a2 && t2) {
             // turn from standing to rested as a wind-up instead of snapping sideways
             const tf = getComputedStyle(a2).transform;
-            if (tf && tf !== 'none') { a2.style.zIndex = 40; await a2.animate([{ transform: 'none' }, { transform: tf + ' scale(1.14)', offset: .7 }, { transform: tf }], { duration: 300 * S(), easing: 'cubic-bezier(.3,.7,.3,1)' }).finished.catch(() => { }); a2.style.zIndex = ''; }
+            if (tf && tf !== 'none') { a2.style.zIndex = 40; await a2.animate([{ transform: 'none' }, { transform: tf + ' scale(1.1)', offset: .7 }, { transform: tf }], { duration: 280 * S(), easing: 'cubic-bezier(.3,.7,.3,1)' }).finished.catch(() => { }); a2.style.zIndex = ''; }
             const p = this.center(a2);
             this.showArrow(d.attacker, d.target, label, kind);
             t2.classList.add('targeted');
