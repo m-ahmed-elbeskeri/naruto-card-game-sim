@@ -1,16 +1,24 @@
 name: Hokage match
 
-# Plays the trained champion (ai/best.json) against the network the site ships (js/az-weights.js) and reports the
-# champion's score. Nothing is committed: shipping a new generation stays a decision made by hand.
+# Plays one Hokage network against another and reports the first one's score, overall and per matchup. By default
+# that is the trained champion (ai/best.json) against the network the site ships (js/az-weights.js); `b_ref` takes
+# the opponent from an older commit instead, to play against a Hokage that was live before.
+# Nothing is committed: shipping a new generation stays a decision made by hand.
 on:
   workflow_dispatch:
     inputs:
       games:
         description: Games to play
         default: '800'
+      a:
+        description: Network to score (a weights file)
+        default: ai/best.json
       b:
         description: Opponent (a weights file, or kage for the heuristic)
         default: js/az-weights.js
+      b_ref:
+        description: Take the opponent's js/az-weights.js from this commit (an earlier live Hokage)
+        default: ''
       mix:
         description: Share of mirror matches (red v red, blue v blue); the rest is red v blue
         default: '0.5'
@@ -24,11 +32,18 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node tools/az-ci.js match games="$GAMES" b="$B" mix="$MIX"
+      - name: Play
+        run: |
+          if [ -n "$B_REF" ]; then git show "$B_REF:js/az-weights.js" > old-hokage.js; B=old-hokage.js; fi
+          node tools/az-ci.js match games="$GAMES" a="$A" b="$B" mix="$MIX"
         env:
           GAMES: ${{ inputs.games }}
+          A: ${{ inputs.a }}
           B: ${{ inputs.b }}
+          B_REF: ${{ inputs.b_ref }}
           MIX: ${{ inputs.mix }}
