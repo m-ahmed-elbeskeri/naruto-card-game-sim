@@ -3,6 +3,8 @@
 //       plays self-play games with ai/cur.json (or ai/best.json) until the time is up and writes the samples
 //   node tools/az-ci.js learn in=sp [steps=3000] [gate=200] [kage=200] [threads=4]
 //       trains on every sample file under `in`, gates the result against the champion, and updates ai/
+//   node tools/az-ci.js match [games=400] [a=ai/best.json] [b=js/az-weights.js] [threads=4]
+//       plays network a against network b (default: the champion against the one the site ships) and prints a's score
 // The game workers are the ones in az-train.js.
 const { Worker } = require('worker_threads');
 const fs = require('fs'), path = require('path'), os = require('os'), zlib = require('zlib');
@@ -129,4 +131,22 @@ async function learn() {
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, msg + '\n');
 }
 
-(cmd === 'selfplay' ? selfplay() : cmd === 'learn' ? learn() : Promise.reject(new Error('usage: az-ci.js selfplay|learn'))).catch(e => { console.error(e); process.exit(1); });
+// Head to head. A .js weights file is the exported form: the same JSON assigned to window.NTCG.AZ_WEIGHTS.
+async function match() {
+  const read = f => { const t = fs.readFileSync(path.resolve(__dirname, '..', f), 'utf8'); return AZ.Net.fromJSON(JSON.parse(f.endsWith('.js') ? t.slice(t.indexOf('{', t.indexOf('AZ_WEIGHTS')), t.lastIndexOf('}') + 1) : t)); };
+  const a = args.a || 'ai/best.json', b = args.b || 'js/az-weights.js', games = +(args.games || 400);
+  const pool = new Pool(THREADS); pool.setNet('a', read(a)); pool.setNet('b', read(b));
+  log(`match: ${a} vs ${b}, ${games} games, ${THREADS} threads`);
+  let done = 0;
+  const rs = await Promise.all(Array.from({ length: games }, (_, i) => pool.run({ type: 'arena', a: 'a', b: 'b', seat: i % 2, search: SEARCH }).then(r => { if (++done % 100 === 0) log(`${done}/${games}`); return r; })));
+  pool.close();
+  const ok = rs.filter(r => !r.error), n = ok.length, p = ok.reduce((t, r) => t + r.win, 0) / Math.max(1, n), ci = 196 * Math.sqrt(p * (1 - p) / Math.max(1, n));
+  if (n < games) log('match errors', games - n, (rs.find(r => r.error).error || '').slice(0, 300));
+  const msg = `MATCH RESULT: ${a} scores ${(p * 100).toFixed(1)}% (95% interval +-${ci.toFixed(1)}) against ${b} over ${n} games`;
+  log(msg);
+  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, msg + '\n');
+  if (!n) process.exit(1);
+}
+
+const run = { selfplay, learn, match }[cmd];
+(run ? run() : Promise.reject(new Error('usage: az-ci.js selfplay|learn|match'))).catch(e => { console.error(e); process.exit(1); });

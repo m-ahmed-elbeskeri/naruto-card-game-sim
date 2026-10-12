@@ -1,0 +1,26 @@
+name: Hokage match
+
+# Plays the trained champion (ai/best.json) against the network the site ships (js/az-weights.js) and reports the
+# champion's score. Nothing is committed: shipping a new generation stays a decision made by hand.
+on:
+  workflow_dispatch:
+    inputs:
+      games:
+        description: Games to play
+        default: '800'
+
+permissions:
+  contents: read
+
+jobs:
+  match:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node tools/az-ci.js match games="$GAMES"
+        env:
+          GAMES: ${{ inputs.games }}
