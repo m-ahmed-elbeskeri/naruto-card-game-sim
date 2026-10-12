@@ -26,3 +26,4 @@
 [2026-10-12 22:08:35] iter 16: 600000 samples, train 42s loss v=0.675 p=1.170 | vs champion 54.0% (200 games: rb 43% (96) / rr 65% (60) / bb 64% (44)) | vs Kage 90.5% (200 games: rb 94% (96) / rr 90% (61) / bb 84% (43))
 [2026-10-12 22:38:04] iter 17: 600000 samples, train 44s loss v=0.662 p=1.165 | vs champion 58.0% (200 games: rb 51% (81) / rr 66% (53) / bb 61% (66)) | vs Kage 95.0% (200 games: rb 95% (91) / rr 96% (54) / bb 95% (55)) -> NEW CHAMPION gen 9
 [2026-10-12 23:07:09] iter 18: 600000 samples, train 48s loss v=0.675 p=1.163 | vs champion 50.0% (200 games: rb 56% (112) / rr 36% (42) / bb 48% (46)) | vs Kage 91.5% (200 games: rb 92% (104) / rr 87% (46) / bb 94% (50))
+[2026-10-12 23:34:46] iter 19: 600000 samples, train 46s loss v=0.674 p=1.167 | vs champion 55.0% (200 games: rb 58% (102) / rr 51% (45) / bb 53% (53)) | vs Kage 95.5% (200 games: rb 95% (106) / rr 98% (44) / bb 94% (50)) -> NEW CHAMPION gen 10
