@@ -225,6 +225,7 @@
     deckOutLoses: true,
     leaderCanAttack: true,
     attackRestedOnly: true,
+    clock: true,         // online only: 20 min per player, 3 min per turn, 1 min per answer in the opponent's turn
   };
 
   const STARTERS = [

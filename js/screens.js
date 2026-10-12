@@ -20,7 +20,7 @@
     if (id !== 'game') {
       document.querySelectorAll('.coach').forEach(e => e.remove());
       document.querySelectorAll('.coach-focus').forEach(e => e.classList.remove('coach-focus'));
-      document.querySelectorAll('.cutin, .phase-banner, .speedlines, .atk-overlay, .outcome, .afterimage, .resp-pill').forEach(e => e.remove());
+      document.querySelectorAll('.cutin, .phase-banner, .speedlines, .atk-overlay, .outcome, .afterimage, .resp-pill, .clock').forEach(e => e.remove());
       $('#modalBack').classList.remove('show');
     }
     document.querySelectorAll('.popover').forEach(e => e.remove()); NS.View.hidePreview(true);
@@ -163,12 +163,16 @@
   function alertModal(title, html) {
     const close = NS.View.modal(`<h2>${title}</h2><p>${html}</p><div class="row-btns"><button class="btn small" id="aok">OK</button></div>`, m => { $('#aok', m).onclick = () => close(); });
   }
+  function quit() { if (NS.Net) NS.Net.leave(); if (game) game.abort(); game = null; $('#result').classList.remove('show'); show('title'); NS.Audio.playTrack('title'); }
   function confirmQuit() {
+    if (!game || game.over || game.phase === 'over') return quit(); // the match is already decided: nothing is abandoned
     const close = NS.View.modal(`<h2>Leave the match?</h2><p>The current game will be abandoned.</p><div class="row-btns"><button class="btn primary" id="qy">Quit</button><button class="btn" id="qn">Keep playing</button></div>`, m => {
-      $('#qy', m).onclick = () => { close(); if (NS.Net) NS.Net.leave(); if (game) game.abort(); game = null; $('#result').classList.remove('show'); show('title'); NS.Audio.playTrack('title'); };
+      $('#qy', m).onclick = () => { close(); quit(); };
       $('#qn', m).onclick = () => close();
     });
   }
+  // back from "View board" to the result screen (the End Turn button reads "Results" once the match is over)
+  function reopenResult() { const r = $('#result'); if (r.innerHTML) r.classList.add('show'); }
   function showResult(g, d, ui) {
     const w = d.winner, hot = !!ui.opts.hotseat;
     const humanWin = hot ? true : w === ui.viewPi;
@@ -176,7 +180,7 @@
     const me = hot ? w : ui.viewPi, op = 1 - me, L = g.p(1 - w);
     const W = g.p(w).leader.card;
     const title = hot ? 'Winner' : humanWin ? 'Victory' : 'Defeat';
-    const why = L.leader.life <= 0 ? `${esc(L.name)}'s Leader was defeated` : L.deck.length === 0 ? `${esc(L.name)} ran out of cards` : `${esc(g.p(w).name)} wins the match`;
+    const why = d.why === 'time' ? `${esc(L.name)} ran out of time` : d.why === 'away' ? `${esc(L.name)} stopped responding` : L.leader.life <= 0 ? `${esc(L.name)}'s Leader was defeated` : L.deck.length === 0 ? `${esc(L.name)} ran out of cards` : `${esc(g.p(w).name)} wins the match`;
     const st = ui.stats || [{}, {}];
     const secs = Math.max(0, Math.round((Date.now() - (ui.t0 || Date.now())) / 1000));
     const rows = [['Life left', i => Math.max(0, g.p(i).leader.life)], ['Attack damage', i => st[i].dmg || 0], ['Attacks', i => st[i].atk || 0], ['Characters summoned', i => st[i].sum || 0], ['Characters lost', i => st[i].lost || 0], ['Supports used', i => st[i].sup || 0]];
@@ -207,7 +211,7 @@
     })(performance.now());
     $('#rA').onclick = () => { r.classList.remove('show'); if (online) { NS.Net.leave(); NS.Audio.playTrack('title'); return NS.Net.open(); } startGame(); };
     $('#rM').onclick = () => { r.classList.remove('show'); if (online) NS.Net.leave(); show('title'); NS.Audio.playTrack('title'); };
-    $('#rB').onclick = () => r.classList.remove('show');
+    $('#rB').onclick = () => { r.classList.remove('show'); ui.toast('Press <b>Results</b> to go back to the result screen'); };
   }
 
   // ---------------- gallery ----------------
@@ -323,7 +327,7 @@
     const num = (k, l, s, min, max) => `<div class="set-row"><div>${l}<small>${s}</small></div><input type="number" min="${min}" max="${max}" value="${H[k]}" data-n="${k}"></div>`;
     const close = NS.View.modal(`<h2>Settings</h2><div class="settings-list">
       <h4>Presentation</h4>
-      ${tog('lowfx', 'Reduced effects (performance)', 'Fewer particles and background animations — use on slower PCs')}
+      <div class="set-row"><div>Visual effects<small>Reduced: fewer particles, no light layer. Off: no particles, flashes, screen shake or cut-ins; cards still move. Use on slower PCs</small></div><div class="seg" style="width:320px;flex:none">${[['full', 'Full'], ['low', 'Reduced'], ['off', 'Off']].map(([k, l]) => `<button data-fx="${k}" class="${st.fx === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       ${tog('music', 'Music', 'Generated soundtrack')}${tog('sfx', 'Sound effects', 'Hits, jutsu, chakra')}${tog('cutins', 'Jutsu cut-ins', 'Big banners for Supports and EX summons')}
       <div class="set-row"><div>Animation speed</div><div class="seg" style="width:320px">${['slow', 'normal', 'fast', 'turbo'].map(s => `<button data-sp="${s}" class="${st.speed === s ? 'on' : ''}">${s}</button>`).join('')}</div></div>
       <h4>House Rules (defaults follow the community rulebook v1.4)</h4>
@@ -340,6 +344,7 @@
       ${tog('leaderCanAttack', 'Leader can attack', 'Leaders have DMG 1 / POW 3', H)}
       ${tog('attackRestedOnly', 'Only rested Characters can be attacked', 'One Piece-style targeting', H)}
       ${tog('exUsesSummonCard', 'EX summon also rests the Summon card', '', H)}
+      ${tog('clock', 'Online match clock', '20 min per player, 3 min per turn, 1 min to answer in the opponent\'s turn. Applies to private rooms you host; Quick Match is always timed', H)}
       <div class="set-row"><div>Reset House Rules</div><button class="btn small" id="hrReset">Defaults</button></div>
       </div><div class="row-btns" style="margin-top:18px"><button class="btn primary" id="sDone">Done</button></div>`, m => {
       $$('.toggle', m).forEach(t => t.onclick = () => {
@@ -348,8 +353,8 @@
         const v = !st[k]; st.save({ [k]: v }); t.classList.toggle('on', v);
         if (k === 'music') NS.Audio.setMusic(v);
         if (k === 'sfx') NS.Audio.setSfx(v);
-        if (k === 'lowfx') { document.body.classList.toggle('lowfx', v); NS.FX.setQuality(v ? 0.4 : 1); }
       });
+      $$('[data-fx]', m).forEach(b => b.onclick = () => { st.save({ fx: b.dataset.fx }); st.applyFx(); $$('[data-fx]', m).forEach(x => x.classList.toggle('on', x === b)); });
       $$('[data-n]', m).forEach(i => i.onchange = () => { H[i.dataset.n] = Math.max(+i.min, Math.min(+i.max, +i.value || 0)); store.set('house', H); });
       $$('[data-sp]', m).forEach(b => b.onclick = () => { st.save({ speed: b.dataset.sp }); $$('[data-sp]', m).forEach(x => x.classList.toggle('on', x === b)); });
       $('#hrReset', m).onclick = () => { Object.assign(H, NS.HOUSE_DEFAULTS); store.set('house', H); close(); openSettings(); };
@@ -376,5 +381,5 @@
       else show(go);
     });
   }
-  NS.Screens = { init, show, confirmQuit, showResult, store, decks: allDecks, deckById, setGame(g, u) { if (game) game.abort(); game = g; ui = u; } };
+  NS.Screens = { init, show, confirmQuit, showResult, reopenResult, store, decks: allDecks, deckById, setGame(g, u) { if (game) game.abort(); game = g; ui = u; } };
 })();

@@ -33,6 +33,7 @@ Put a video at `backgrounds/menu.mp4` (or `.webm`) and it becomes the animated f
 - **Quick Match** pairs you with whoever else is looking; **private rooms** use a 5-character code.
 - It's browser-to-browser over WebRTC (PeerJS, bundled in `js/vendor/`), using the free public PeerJS server only to introduce the two players. No backend of our own.
 - Lockstep: both browsers run the same deterministic game from a shared seed and exchange only decision indices, with a state hash on every message to catch desyncs. `node tools/nettest.js` checks this with two simulated clients.
+- **Match clock**: 20 minutes per player for the whole match, 3 minutes per turn, and 1 minute for each answer in the opponent's turn. A clock only runs while its owner is being asked something. Out of time for a turn or an answer plays the default (end turn / no response); out of match time loses. Each browser times its own player and reports the time used with every decision; a player who stops answering altogether loses once the other side has waited past the limit. Hosts of private rooms can turn the clock off in House Rules. `node tools/clocktest.js` checks the timeouts and the leave handling.
 - Limits: it's a fan sim with no anti-cheat (each browser holds the full game state), and players on very strict networks may fail to connect because there's no relay server.
 
 ## Hokage AI (AlphaZero-style)

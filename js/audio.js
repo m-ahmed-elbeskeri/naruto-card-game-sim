@@ -102,9 +102,10 @@
     shaper.curve = c;
     return shaper;
   }
+  let distCurve = null; // the distortion curve is the same for every note
   function guitar(root, t, dur, vol) {
     const g = ac.createGain(), lp = ac.createBiquadFilter(), ws = ac.createWaveShaper();
-    ws.curve = dist().curve;
+    ws.curve = distCurve || (distCurve = dist().curve);
     lp.type = 'lowpass'; lp.frequency.value = 2300;
     [0, 7, 12].forEach((iv, k) => {
       const o = ac.createOscillator(); o.type = 'sawtooth';

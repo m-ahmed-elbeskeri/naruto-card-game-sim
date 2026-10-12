@@ -5,8 +5,9 @@
   const NS = window.NTCG = window.NTCG || {};
   const SPEEDS = { slow: 1.5, normal: 1, fast: 0.5, turbo: 0.15 };
 
-  const defaults = { music: true, sfx: true, cutins: true, lowfx: false, speed: 'normal' };
+  const defaults = { music: true, sfx: true, cutins: true, fx: 'full', speed: 'normal' }; // fx: full | low | off
   const saved = (() => { try { return JSON.parse(localStorage.getItem('ntcg.settings') || '{}'); } catch (e) { return {}; } })();
+  if (saved.fx == null && saved.lowfx) saved.fx = 'low'; // the old "Reduced effects" switch
   NS.settings = Object.assign({}, defaults, saved, {
     speedMul() { return SPEEDS[this.speed] || 1; },
     save(patch) {
@@ -15,6 +16,12 @@
       try { localStorage.setItem('ntcg.settings', JSON.stringify(o)); } catch (e) { /* storage unavailable */ }
     },
     cycleSpeed() { const ks = Object.keys(SPEEDS); this.save({ speed: ks[(ks.indexOf(this.speed) + 1) % ks.length] }); },
+    applyFx() {
+      const f = this.fx === 'off' ? 'off' : this.fx === 'low' ? 'low' : 'full';
+      document.body.classList.toggle('lowfx', f !== 'full'); document.body.classList.toggle('nofx', f === 'off');
+      NS.FX.setQuality(f === 'full' ? 1 : f === 'low' ? 0.4 : 0);
+      if (f !== 'full' && NS.FXGL) NS.FXGL.stop();
+    },
   });
 
   function fit() {
@@ -39,7 +46,7 @@
     fit();
     window.addEventListener('resize', fit);
     NS.FX.init();
-    if (NS.settings.lowfx) { document.body.classList.add('lowfx'); NS.FX.setQuality(0.4); }
+    NS.settings.applyFx();
     NS.Audio.setSfx(NS.settings.sfx);
     if (!NS.settings.music) NS.Audio.setMusic(false);
     NS.Screens.init();

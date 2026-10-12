@@ -93,6 +93,45 @@
     if (onMount) onMount(m);
     return () => { back.className = 'modal-back'; m.innerHTML = ''; };
   }
+  // ---- in-place board update (see GameUI.sync) ----
+  // Two nodes are the same when a fresh copy of one could not be told from the other: same tag, same attributes
+  // (class lists compare as sets, because classList rewrites the attribute) and the same children.
+  function sameClass(p, q) {
+    if (p === q) return true;
+    const a = p.split(/\s+/).filter(Boolean), b = q.split(/\s+/).filter(Boolean), s = new Set(a);
+    return s.size === new Set(b).size && b.every(c => s.has(c));
+  }
+  function sameTag(a, b) {
+    if (a.nodeType !== b.nodeType) return false;
+    if (a.nodeType !== 1) return a.nodeValue === b.nodeValue;
+    if (a.tagName !== b.tagName) return false;
+    const x = a.attributes;
+    if (x.length !== b.attributes.length) return false;
+    for (let i = 0; i < x.length; i++) {
+      const v = b.getAttribute(x[i].name);
+      if (v === null || (x[i].name === 'class' ? !sameClass(x[i].value, v) : x[i].value !== v)) return false;
+    }
+    return true;
+  }
+  function sameNode(a, b) {
+    if (!sameTag(a, b) || a.childNodes.length !== b.childNodes.length) return false;
+    for (let c = a.firstChild, d = b.firstChild; c; c = c.nextSibling, d = d.nextSibling) if (!sameNode(c, d)) return false;
+    return true;
+  }
+  // children of `a` become the children of `b`: equal ones stay, a block whose own tag is unchanged is gone through
+  // once more (a row keeps the slots that did not change), anything else is replaced by the new node
+  function patchKids(a, b, deep) {
+    let x = a.firstChild, y = b.firstChild;
+    while (y) {
+      const ny = y.nextSibling;
+      if (!x) a.appendChild(y);
+      else if (sameNode(x, y)) x = x.nextSibling;
+      else if (deep && x.nodeType === 1 && sameTag(x, y)) { patchKids(x, y, false); x = x.nextSibling; }
+      else { const nx = x.nextSibling; a.replaceChild(y, x); x = nx; }
+      y = ny;
+    }
+    while (x) { const nx = x.nextSibling; a.removeChild(x); x = nx; }
+  }
   const CHAKRA_CARD = { type: 'chakra', name: 'Chakra Card', id: 'C-001' };
   const SUMMON_CARD = { type: 'summoncard', name: 'Summon Card', id: 'S-001' };
 
@@ -106,7 +145,11 @@
       this.acts = [];
       this.build();
     }
-    setGame(g) { this.g = g; this.t0 = Date.now(); this.stats = [0, 1].map(() => ({ dmg: 0, sum: 0, lost: 0, sup: 0, atk: 0 })); }
+    setGame(g) {
+      this.g = g; this.t0 = Date.now(); this.stats = [0, 1].map(() => ({ dmg: 0, sum: 0, lost: 0, sup: 0, atk: 0 }));
+      // get the light layer ready (shaders, buffers, card art) while the opening banner plays, not during the first effect
+      if (NS.FXGL && NS.FXGL.warm) setTimeout(() => { if (this.g === g) NS.FXGL.warm([...new Set(g.players.flatMap(P => P.deck.concat(P.hand).map(c => c.card).concat(P.leader.card)))]); }, 500);
+    }
     // match tally shown on the result screen
     tally(type, d) {
       const s = this.stats; if (!s) return;
@@ -136,7 +179,10 @@
         <div class="logpanel panel" id="logPanel"><h3>Battle Log</h3><div class="logbody" id="logBody"></div></div>
         <div class="toast-log" id="toastLog"></div>
         <div class="prompt" id="prompt"></div>`;
-      $('#endBtn').onclick = () => { if (this.state === 'main' && this.acts.some(a => a.kind === 'end')) { NS.Audio.play('pass'); this.resolveMain({ kind: 'end' }); } };
+      $('#endBtn').onclick = () => {
+        if (this.g && this.g.phase === 'over') { NS.Audio.play('click'); return NS.Screens.reopenResult(); } // looking at the board after the match
+        if (this.state === 'main' && this.acts.some(a => a.kind === 'end')) { NS.Audio.play('pass'); this.resolveMain({ kind: 'end' }); }
+      };
       $('#logBtn').onclick = () => $('#logPanel').classList.toggle('open');
       $('#sndBtn').onclick = () => { NS.Audio.setMusic(!NS.Audio.musicOn); NS.settings.save({ music: NS.Audio.musicOn }); };
       $('#spdBtn').onclick = () => { NS.settings.cycleSpeed(); this.toast(`Animation speed: ${NS.settings.speed}`); };
@@ -176,9 +222,7 @@
       const before = new Map();
       if (!o.noFlip) $$('[data-k]', this.root).forEach(e => before.set(e.dataset.k, e.getBoundingClientRect()));
       const me = this.viewPi, op = 1 - me;
-      let h = '';
-      h += this.sideHTML(op, true) + this.sideHTML(me, false);
-      $('#layer').innerHTML = h;
+      this.sync($('#layer'), this.sideHTML(op, true) + this.sideHTML(me, false));
       // FLIP
       if (!o.noFlip) $$('[data-k]', this.root).forEach(e => {
         const b = before.get(e.dataset.k);
@@ -191,6 +235,19 @@
       this.renderChrome();
       this.highlight();
       this.updateArrow();
+    }
+    // Bring the board to new markup. Blocks that come out exactly as they already are stay in the page, so the browser
+    // has nothing to redraw for them; everything else is replaced by fresh elements, exactly as a full rebuild did.
+    sync(layer, html) {
+      let anims = null;
+      try { anims = layer.getAnimations({ subtree: true }); } catch (e) { /* older browser: full rebuild below */ }
+      if (!anims || !layer.firstChild) { layer.innerHTML = html; return; }
+      const t = document.createElement('template');
+      t.innerHTML = html;
+      this.highlight(t.content); // the glow classes are part of what is compared
+      // a rebuilt element never carried a scripted animation over; a kept one must not either (CSS ones just go on)
+      for (const a of anims) if (!(a instanceof CSSAnimation) && !(a instanceof CSSTransition)) a.cancel();
+      patchKids(layer, t.content, true);
     }
     // ---------- attack targeting overlay ----------
     showArrow(att, tgt, label, kind) {
@@ -246,6 +303,7 @@
       NS.FX.auraText(c.x, c.y, text, kind, { size: cls === 'ko' ? 66 : cls === 'dmg' ? 54 : 40, sub, hold: 1150 });
     }
     afterimages(a, t) {
+      if (NS.FX.off()) return;
       const p = this.center(a), q = this.center(t), r = a.getBoundingClientRect();
       [0.2, 0.4, 0.6].forEach((k, i) => setTimeout(() => {
         const gh = document.createElement('div'); gh.className = 'afterimage'; gh.innerHTML = a.innerHTML;
@@ -313,14 +371,17 @@
       chip.className = 'turn-chip ' + (mine ? 'mine' : 'theirs');
       chip.textContent = g.phase === 'over' ? 'Game over' : `Turn ${g.turn} · ${mine ? 'Your turn' : g.p(g.active).name}`;
       $$('#phaseDots span').forEach(s => s.classList.toggle('on', s.dataset.p === g.phase));
-      $('#endBtn').disabled = this.state !== 'main' || !this.acts.some(a => a.kind === 'end');
+      const eb = $('#endBtn'), over = g.phase === 'over';
+      eb.textContent = over ? 'Results' : 'End Turn';
+      eb.disabled = !over && (this.state !== 'main' || !this.acts.some(a => a.kind === 'end'));
       const myLife = g.p(this.viewPi).leader.life;
       this.root.classList.toggle('opp-turn', g.active !== this.viewPi);
       this.root.classList.toggle('danger', myLife <= 5 && g.phase !== 'over');
       if (g.phase !== 'over' && NS.Audio.musicOn) NS.Audio.playTrack(myLife <= 5 || g.p(1 - this.viewPi).leader.life <= 5 ? 'tension' : 'battle');
     }
-    highlight() {
-      $$('.can-act, .targetable', $('#layer')).forEach(e => { if (!e.classList.contains('hc')) e.classList.remove('can-act', 'targetable'); });
+    highlight(next) { // next: markup that is about to be shown (see sync); without it, the board itself
+      const R = next || $('#layer'), q = k => R.querySelector(`[data-k="${k}"]`);
+      if (!next) $$('.can-act, .targetable', R).forEach(e => { if (!e.classList.contains('hc')) e.classList.remove('can-act', 'targetable'); });
       if (this.state === 'main') {
         const actors = new Set();
         this.acts.forEach(a => {
@@ -329,11 +390,11 @@
           if (a.kind === 'leaderAbility' || a.kind === 'recovery') actors.add(this.g.p(this.viewPi).leader.uid);
           if (a.kind === 'support') actors.add(a.sup.iid);
         });
-        actors.forEach(k => { const e = this.el(k); if (e) e.classList.add('can-act'); });
+        actors.forEach(k => { const e = q(k); if (e) e.classList.add('can-act'); });
       }
-      if (this.state === 'target') this.targets.forEach(t => { const e = this.el(t.uid); if (e) e.classList.add('targetable'); });
-      if (this.state === 'choose' && this.req && this.req.kind === 'unit') this.req.options.forEach(u => { const e = this.el(u.uid); if (e) e.classList.add('targetable'); });
-      this.renderChrome();
+      if (this.state === 'target') this.targets.forEach(t => { const e = q(t.uid); if (e) e.classList.add('targetable'); });
+      if (this.state === 'choose' && this.req && this.req.kind === 'unit') this.req.options.forEach(u => { const e = q(u.uid); if (e) e.classList.add('targetable'); });
+      if (!next) this.renderChrome();
     }
 
     // =====================================================================
@@ -373,7 +434,7 @@
       if (this.state !== 'main') return '';
       const a = this.acts.filter(x => x.card === c);
       if (!a.length) return '<span style="color:#ff9a8a">No legal action for this card right now.</span>';
-      return 'Click to ' + a.map(x => ({ summon: 'summon', ex: 'EX summon', set: 'set as Support' }[x.kind])).join(' / ') + '.';
+      return 'Click to ' + a.map(x => ({ summon: 'summon', ex: 'EX summon', set: 'set as Support', support: 'activate from hand' }[x.kind])).join(' / ') + '.';
     }
     onClick(e) {
       if (e.target.closest('.popover')) return;
@@ -470,9 +531,29 @@
       if (r) r(a);
     }
     resolveChoice(v) {
-      const r = this.chooseResolve; this.chooseResolve = null;
+      const r = this.chooseResolve; this.chooseResolve = null; this.chooseClose = null;
       this.state = 'idle'; this.req = null; this.hidePrompt(); this.highlight();
       if (r) r(v);
+    }
+    // Time ran out (online clock): whatever is being asked is answered with its default. Returns what was done.
+    autoResolve() {
+      if (this.respDone) { this.respDone(); return 'No response'; }
+      if (this.chooseResolve) {
+        const q = this.req, cl = this.chooseClose;
+        if (cl) cl();
+        this.resolveChoice(NS.Net.defaultChoice(q));
+        return q.kind === 'mulligan' ? 'Hand kept' : 'Choice made for you';
+      }
+      if (this.mainResolve) { this.cancel(); this.resolveMain({ kind: 'end' }); return 'Turn ended'; }
+      return '';
+    }
+    // The match was stopped from outside (time, opponent gone): close every open question without answering it
+    dismiss() {
+      if (this.respClose) this.respClose();
+      if (this.chooseClose) this.chooseClose();
+      this.closePop(); this.hidePrompt(); this.hideArrow();
+      this.mainResolve = this.chooseResolve = this.chooseClose = this.respDone = this.respClose = null;
+      this.state = 'idle'; this.acts = []; this.req = null; this.atkUid = null;
     }
     showTrash(pi) {
       const P = this.g.p(pi);
@@ -526,10 +607,15 @@
         this.render({ noFlip: true }); // activated Supports show face-up on the board while you decide
         const trig = win.kind === 'support' ? win.link.sup.card : null;
         const trigHTML = trig ? `<div class="resp-trig">${cardHTML(trig, { w: 86 })}<span>Opponent's card<br><b>${esc(trig.support.name)}</b><br><i>hover to read</i></span></div>` : '';
-        const done = v => { const pill = document.querySelector('.resp-pill'); if (pill) pill.remove(); close(); res(v); };
+        const P = g.p(this.viewPi), anyHand = win.options.some(s => P.hand.includes(s));
+        const zone = s => { const h = P.hand.includes(s), slot = P.supports.indexOf(s) + 1; return { k: h ? 'hand' : 'sup', t: h ? 'From hand' : 'Support Area', note: h ? 'This copy is in your <b>hand</b>.' : `This copy is face-down in your <b>Support Area</b>${slot ? ` (slot ${slot})` : ''}.` }; };
+        let open = true;
+        const done = v => { if (!open) return; open = false; this.respDone = null; const pill = document.querySelector('.resp-pill'); if (pill) pill.remove(); close(); res(v); };
+        this.respDone = () => done(win.noSkip ? win.options[0] : null); // out of time (online clock)
+        this.respClose = () => { if (!open) return; open = false; this.respDone = null; const pill = document.querySelector('.resp-pill'); if (pill) pill.remove(); close(); };
         const main = () => {
           const pill = document.querySelector('.resp-pill'); if (pill) pill.remove();
-          close = modal(`<button class="resp-eye" id="respHide" title="Hide this panel to look at the board">${NS.icon('eye')}</button><h2>${win.kind === 'attack' ? (win.attack.pi === this.viewPi ? 'Your Attack' : 'Incoming Attack!') : win.kind === 'support' ? 'Support Activated!' : 'Support Cut-in'}</h2><p>${ctx}</p>${trigHTML}<div class="cards-row">${win.options.map((s, i) => `<div class="pickable" data-i="${i}">${cardHTML(s.card, { w: 170 })}<div class="lbl">${esc(s.card.support.name)} · ${s.card.support.cost} Chakra<br><span class="tim">${esc(NS.TIMING[s.card.support.timing])}</span></div></div>`).join('')}</div><div class="row-btns">${win.noSkip ? '' : '<button class="btn" id="noResp">No response</button>'}</div>`, m => {
+          close = modal(`<button class="resp-eye" id="respHide" title="Hide this panel to look at the board">${NS.icon('eye')}</button><h2>${win.kind === 'attack' ? (win.attack.pi === this.viewPi ? 'Your Attack' : 'Incoming Attack!') : win.kind === 'support' ? 'Support Activated!' : 'Support Cut-in'}</h2><p>${ctx}</p>${trigHTML}<div class="cards-row">${win.options.map((s, i) => { const z = zone(s); return `<div class="pickable" data-i="${i}" data-note="${esc(z.note)}">${cardHTML(s.card, { w: 170 })}${anyHand ? `<div class="lbl src z-${z.k}">${z.t}</div>` : ''}<div class="lbl">${esc(s.card.support.name)} · ${s.card.support.cost} Chakra<br><span class="tim">${esc(NS.TIMING[s.card.support.timing])}</span></div></div>`; }).join('')}</div><div class="row-btns">${win.noSkip ? '' : '<button class="btn" id="noResp">No response</button>'}</div>`, m => {
             $$('.pickable', m).forEach(b => b.onclick = () => { NS.Audio.play('click'); done(win.options[+b.dataset.i]); });
             const nr = $('#noResp', m); if (nr) nr.onclick = () => done(null);
             $('#respHide', m).onclick = hide;
@@ -560,7 +646,7 @@
         }
         this.state = 'modal';
         if (req.kind === 'mulligan') {
-          const close = modal(`<h2>Opening Hand</h2><p>${esc(req.prompt)}</p><div class="cards-row">${this.g.p(req.player).hand.map(c => cardHTML(c.card, { w: 170 })).join('')}</div><div class="row-btns"><button class="btn primary" data-v="keep">Keep</button><button class="btn" data-v="mulligan">Mulligan</button></div>`, m => {
+          const close = this.chooseClose = modal(`<h2>Opening Hand</h2><p>${esc(req.prompt)}</p><div class="cards-row">${this.g.p(req.player).hand.map(c => cardHTML(c.card, { w: 170 })).join('')}</div><div class="row-btns"><button class="btn primary" data-v="keep">Keep</button><button class="btn" data-v="mulligan">Mulligan</button></div>`, m => {
             $$('button[data-v]', m).forEach(b => b.onclick = () => { close(); this.resolveChoice(b.dataset.v); });
           });
           return;
@@ -568,7 +654,7 @@
         if (req.kind === 'card') {
           const Q = this.g.p(req.player);
           const from = c => Q.trash.includes(c) ? ['trash', 'From trash'] : Q.deck.includes(c) ? ['deck', 'From deck'] : Q.hand.includes(c) ? ['hand', 'From hand'] : ['', ''];
-          const close = modal(`<h2>Choose a Card</h2><p>${esc(req.prompt)}</p><div class="cards-row">${req.options.map((c, i) => { const [k, t] = from(c); return `<div class="pickable" data-i="${i}">${cardHTML(c.card, { w: 170 })}${t ? `<div class="lbl src ${k}">${t}</div>` : ''}</div>`; }).join('')}</div><div class="row-btns">${req.optional ? '<button class="btn" id="sk">Skip</button>' : ''}</div>`, m => {
+          const close = this.chooseClose = modal(`<h2>Choose a Card</h2><p>${esc(req.prompt)}</p><div class="cards-row">${req.options.map((c, i) => { const [k, t] = from(c); return `<div class="pickable" data-i="${i}"${k ? ` data-note="This copy is in your <b>${k}</b>."` : ''}>${cardHTML(c.card, { w: 170 })}${t ? `<div class="lbl src z-${k}">${t}</div>` : ''}</div>`; }).join('')}</div><div class="row-btns">${req.optional ? '<button class="btn" id="sk">Skip</button>' : ''}</div>`, m => {
             $$('.pickable', m).forEach(b => b.onclick = () => { close(); this.resolveChoice(req.options[+b.dataset.i]); });
             const sk = $('#sk', m); if (sk) sk.onclick = () => { close(); this.resolveChoice(null); };
           });
@@ -974,7 +1060,8 @@
     if (!el) return hidePreview();
     const id = el.dataset.card;
     const card = id === 'chakra' ? CHAKRA_CARD : id === 'summon' ? SUMMON_CARD : NS.Cards.byId[id];
-    if (card) showPreview(card, e);
+    const pk = el.closest('[data-note]');
+    if (card) showPreview(card, e, pk ? pk.dataset.note : '');
   });
   NS.View = { cardHTML, backHTML, artCSS, portraitCSS, textPanel, showPreview, hidePreview, modal, esc, CHAKRA_CARD, SUMMON_CARD };
   NS.GameUI = GameUI;

@@ -10,6 +10,10 @@
   let ambient = [];
   let running = false;
   let quality = 1;
+  let off = false;          // Settings > Visual effects > Off: nothing in this file draws or shakes; text call-outs still show
+  let dirty = false;        // last frame drew more than the drifting leaves, so the whole canvas has to be cleared
+  const leafBox = [];       // where the leaves were drawn last frame (x, y, r triples)
+  let cadence = 16.7, lastLoop = 0; // usual time between frames while no light-layer effect is playing
 
   function init() {
     canvas = document.getElementById('fx');
@@ -100,11 +104,13 @@
   }
 
   function ring(x, y, opts) {
+    if (off) return;
     opts = opts || {};
     rings.push({ x, y, r: opts.r0 || 8, max: opts.max || 160, w: opts.width || 6, color: opts.color || '#fff', life: 1 });
   }
 
   function lightning(x1, y1, x2, y2, opts) {
+    if (off) return;
     opts = opts || {};
     const pts = [[x1, y1]];
     const seg = 14;
@@ -162,18 +168,26 @@
   }
 
   // ---- main loop ------------------------------------------------
-  function loop() {
+  function loop(ts) {
     requestAnimationFrame(loop);
-    if (!ctx || document.hidden) return;
-    ctx.clearRect(0, 0, W, H);
+    if (!ctx || document.hidden) { lastLoop = 0; return; }
+    if (lastLoop && !(NS.FXGL && NS.FXGL.busy())) { const dt = ts - lastLoop; if (dt > 2 && dt < 80) cadence += (dt - cadence) * .05; }
+    lastLoop = ts;
+    const leaves = !document.body.classList.contains('lowfx') && !document.body.classList.contains('on-title');
+    const busy = rings.length || bolts.length || specials.length || parts.length;
+    if (dirty || busy) ctx.clearRect(0, 0, W, H);
+    else for (let i = 0; i < leafBox.length; i += 3) ctx.clearRect(leafBox[i] - leafBox[i + 2], leafBox[i + 1] - leafBox[i + 2], leafBox[i + 2] * 2, leafBox[i + 2] * 2);
+    leafBox.length = 0;
+    dirty = !!busy;
+    if (!leaves && !busy) return;
 
-    const lowfx = document.body.classList.contains('lowfx');
     // ambient embers (the title screen has its own particle layer)
-    if (!lowfx && !document.body.classList.contains('on-title')) for (const l of ambient) {
+    if (leaves) for (const l of ambient) {
       l.sway += 0.02;
       l.x += l.vx + Math.sin(l.sway) * 0.5; l.y += l.vy; l.rot += l.vr;
       if (l.y > H + 20 || l.x > W + 20) Object.assign(l, newLeaf(false), { x: Math.random() * W * 0.8 - 40 });
       drawLeaf(l.x, l.y, l.s * .8, l.rot, `hsla(${l.hue},70%,55%,${l.a * .5})`);
+      leafBox.push(l.x, l.y, l.s * .8 + 3);
     }
 
     // rings
@@ -282,12 +296,13 @@
   // ---- DOM spectacle -----------------------------------------------
   function shake(power) {
     const el = document.getElementById('app');
-    if (!el) return;
+    if (!el || off) return;
     el.style.setProperty('--shake', (power || 8) + 'px');
     el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
   }
 
   function flash(color) {
+    if (off) return;
     const f = document.createElement('div');
     f.className = 'screen-flash';
     f.style.background = color || '#fff';
@@ -297,6 +312,7 @@
 
   // anime cut-in: slanted banner with portrait & jutsu name
   function cutIn(opts) {
+    if (off) return Promise.resolve();
     return new Promise(res => {
       const el = document.createElement('div');
       el.className = 'cutin ' + (opts.side === 'right' ? 'right' : 'left');
@@ -374,7 +390,7 @@
   // ================= PREMIUM VFX =================
   const specials = [];   // scripted effects: { t, dur, draw(ctx, k, t) } — k = progress 0..1
   let lastT = performance.now();
-  function special(dur, draw, onEnd) { specials.push({ t: 0, dur, draw, onEnd }); }
+  function special(dur, draw, onEnd) { if (!off) specials.push({ t: 0, dur, draw, onEnd }); }
   // soft cloud texture for smoke (built once)
   const cloudTex = {};
   function cloud(dark) {
@@ -424,9 +440,12 @@
   // brief chromatic split on the stage
   function chroma(ms) {
     const st = document.getElementById('stage'); if (!st || document.body.classList.contains('lowfx')) return;
-    st.classList.add('chroma'); setTimeout(() => st.classList.remove('chroma'), ms || 140);
+    const r = st.getBoundingClientRect(), el = document.createElement('div');
+    el.className = 'chroma-edge'; el.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
+    document.body.appendChild(el); setTimeout(() => el.remove(), ms || 140);
   }
   function whiteout(color) {
+    if (off) return;
     const el = document.createElement('div'); el.className = 'whiteout'; if (color) el.style.background = color;
     document.body.appendChild(el); setTimeout(() => el.remove(), 900);
   }
@@ -591,6 +610,7 @@
   }
   // map a Support card to its signature effect
   function jutsuFX(cardId, from, to) {
+    if (off) return 0;
     const a = from, b = to || from;
     switch (cardId) {
       case 'N-004': rasengan(a.x, a.y - 20, 1100); setTimeout(() => { whiteout('rgba(170,220,255,.9)'); chroma(220); }, 1000 * (NS.settings ? NS.settings.speedMul() : 1)); return 1200;
@@ -638,6 +658,7 @@
     c.strokeStyle = 'rgba(20,10,10,.9)'; c.lineWidth = 2; c.beginPath(); c.arc(x, y - r * .1, r * .55, 0, 6.28); c.stroke();
   }
   function summonSeal(x, y, opts) {
+    if (off) return;
     opts = opts || {};
     const em = emblemFor(opts.traits), glow = opts.gold ? '#ffd23a' : em.glow;
     const lines = Array.from({ length: 10 }, (_, i) => ({ a: i / 10 * 6.283 + (Math.random() - .5) * .25, len: 140 + Math.random() * 90, chars: Array.from({ length: 5 }, () => SCRIPT[Math.floor(Math.random() * SCRIPT.length)]) }));
@@ -684,6 +705,7 @@
   const Sx = () => (NS.settings ? NS.settings.speedMul() : 1);
   // anime speed lines overlay
   function speedLines(ms, color) {
+    if (off) return;
     const el = document.createElement('div');
     el.className = 'speedlines';
     if (color) el.style.setProperty('--sl', color);
@@ -693,6 +715,7 @@
   }
   // one-frame manga "impact frame": inverted flash + radial burst lines, then hit-stop
   function impactFrame(x, y, strong) {
+    if (off) return Promise.resolve();
     const el = document.createElement('div');
     el.className = 'impact-frame' + (strong ? ' strong' : '');
     el.style.setProperty('--x', x + 'px'); el.style.setProperty('--y', y + 'px');
@@ -705,7 +728,7 @@
   // camera punch toward a point
   function punch(x, y, amt) {
     const st = document.getElementById('stage');
-    if (!st || !st.animate) return;
+    if (!st || !st.animate || off) return;
     const base = st.style.transform || '';
     const r = st.getBoundingClientRect();
     const ox = ((x - r.left) / r.width * 100).toFixed(1), oy = ((y - r.top) / r.height * 100).toFixed(1);
@@ -714,7 +737,7 @@
   }
   // shatter an element into shards
   function shatter(el) {
-    if (!el) return;
+    if (!el || off) return;
     const r = el.getBoundingClientRect();
     const html = el.innerHTML;
     const N = 9;
@@ -734,6 +757,7 @@
   }
   // rotating summoning seal under a point
   function seal(x, y, opts) {
+    if (off) return;
     opts = opts || {};
     const el = document.createElement('div');
     el.className = 'seal' + (opts.gold ? ' gold' : '');
@@ -744,6 +768,7 @@
   }
   // vertical pillar of light (EX summon)
   function pillar(x, y, color) {
+    if (off) return;
     const el = document.createElement('div');
     el.className = 'pillar';
     el.style.left = x + 'px'; el.style.top = y + 'px';
@@ -767,6 +792,7 @@
   }
   // slash streak across a line
   function slashLine(x1, y1, x2, y2, color) {
+    if (off) return;
     const el = document.createElement('div');
     el.className = 'slash';
     const len = Math.hypot(x2 - x1, y2 - y1), ang = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
@@ -776,5 +802,6 @@
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 400);
   }
-  NS.FX = { auraText, summonSeal, puff, sparks, shock, chroma, whiteout, rasengan, chidori, fireball, shadowBind, serpents, heal, sharingan, jutsuFX, glowSprite, speedLines, impactFrame, punch, shatter, seal, pillar, stream, damage, slashLine, init, burst, smoke, chakra, ring, lightning, fire, petals, shuriken, confetti, shake, flash, cutIn, banner, floatText, centerOf, jutsuFor, setQuality: q => quality = q };
+  NS.FX = { auraText, summonSeal, puff, sparks, shock, chroma, whiteout, rasengan, chidori, fireball, shadowBind, serpents, heal, sharingan, jutsuFX, glowSprite, speedLines, impactFrame, punch, shatter, seal, pillar, stream, damage, slashLine, init, burst, smoke, chakra, ring, lightning, fire, petals, shuriken, confetti, shake, flash, cutIn, banner, floatText, centerOf, jutsuFor, off: () => off, cadence: () => cadence,
+    setQuality(q) { quality = q; off = q <= 0; if (off) { parts.length = rings.length = bolts.length = specials.length = 0; } } };
 })();

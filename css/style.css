@@ -449,7 +449,10 @@ body.lowfx .t-swirl { animation: none; }
 body.lowfx .keyart { animation: none !important; }
 
 /* premium VFX */
-#stage.chroma { filter: drop-shadow(5px 0 rgba(255, 20, 70, .6)) drop-shadow(-5px 0 rgba(0, 220, 255, .6)); }
+.chroma-edge { position: fixed; z-index: 3; pointer-events: none; box-shadow: 5px 0 rgba(255, 20, 70, .6), -5px 0 rgba(0, 220, 255, .6); }
+/* The board keeps its own compositing surface during a match. Without it, every effect that touches the whole board
+   (negative frame, screen flash, impact frame, camera punch) made the browser redraw all of it, a 40-150 ms frame each. */
+body.in-game:not(.nofx) #stage { will-change: transform, filter; }
 .whiteout { position: fixed; inset: 0; z-index: 78; pointer-events: none; background: rgba(255, 255, 255, .92); animation: whiteout .85s ease-out forwards; }
 @keyframes whiteout { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
 .dmg-num { background: linear-gradient(180deg, #fff6c8 0%, #ffd23a 35%, #ff6a1a 70%, #c2140a 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; -webkit-text-stroke: 3px #1a0400; filter: drop-shadow(0 5px 0 #000) drop-shadow(0 0 18px rgba(255, 90, 30, .8)); text-shadow: none; animation: dmgPop 1.25s cubic-bezier(.2, 1.6, .4, 1) forwards, dmgShake .25s linear 2; }
@@ -544,9 +547,9 @@ body.lowfx .nc .ex-rim::before { animation: none; }
 .resp-pill .rp-skip:hover { background: #2a2a34; color: #fff; }
 @keyframes respPulse { 50% { box-shadow: 0 8px 24px rgba(0, 0, 0, .6), 0 0 0 4px rgba(255, 58, 42, .28); } }
 .pickable .lbl.src { font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; font-size: 12px; }
-.pickable .lbl.src.trash { color: #ff8a6a; }
-.pickable .lbl.src.deck { color: #7fc4ff; }
-.pickable .lbl.src.hand { color: #ffd27a; }
+.pickable .lbl.src.z-trash { color: #ff8a6a; }
+.pickable .lbl.src.z-deck { color: #7fc4ff; }
+.pickable .lbl.src.z-hand { color: #ffd27a; } /* not "hand": that is the hand row of the board */
 
 /* online lobby */
 .on-hint { font-size: 12px; text-transform: uppercase; letter-spacing: 3px; color: var(--dim); padding: 4px 16px 0; }
@@ -607,3 +610,27 @@ body.lowfx .aura-text .au { display: none; }
 /* the attacker stays lit with a pulsing edge from the declaration until the attack resolves */
 .slot.atk::after { content: ''; position: absolute; inset: -3px; z-index: 4; border-radius: 9px; pointer-events: none; box-shadow: 0 0 0 2px rgba(255, 165, 60, .95), 0 0 26px rgba(240, 124, 20, .9); animation: atkCharge .48s ease-in-out infinite alternate; }
 @keyframes atkCharge { from { opacity: 1; } to { opacity: .4; } }
+
+/* which zone an option is in: Support Area */
+.pickable .lbl.src.z-sup { color: #9fe0b8; }
+
+/* online match clock: the free band of the right-hand column (placed and scaled with the stage from js/net.js) */
+.clock { position: fixed; left: 0; top: 0; z-index: 82; width: 248px; transform-origin: 0 0; pointer-events: none; display: grid; gap: 8px; transition: transform .16s ease-out; }
+.clock .ck-row { --c: var(--opp); position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 10px; row-gap: 3px; padding: 9px 12px 12px; background: rgba(12, 12, 16, .94); border: 1px solid #2a2a32; border-left: 3px solid #3a3a44; overflow: hidden; }
+.clock .ck-row.me { --c: var(--orange); }
+.clock .ck-name { font-family: var(--display); font-size: 15px; letter-spacing: 2px; text-transform: uppercase; color: #b4b4be; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clock .ck-bank { font-size: 10px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: #7c7c86; white-space: nowrap; }
+.clock .ck-bank b { margin-left: 5px; font-family: var(--display); font-weight: 500; font-size: 15px; letter-spacing: 1px; color: #d6d6de; font-variant-numeric: tabular-nums; }
+.clock .ck-bank.low b { color: #ff7a6a; }
+.clock .ck-time { grid-column: 2; grid-row: 1 / 3; min-width: 84px; text-align: right; font-family: var(--display); font-weight: 500; font-size: 38px; line-height: 1; letter-spacing: 1px; color: #5c5c66; font-variant-numeric: tabular-nums; }
+.clock .ck-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--c); opacity: .3; transform-origin: 0 50%; transform: scaleX(0); transition: transform .2s linear; }
+.clock .ck-row.run { border-color: var(--c); }
+.clock .ck-row.run .ck-name { color: #fff; }
+.clock .ck-row.run .ck-time { color: #fff; }
+.clock .ck-row.run .ck-bar { opacity: 1; }
+.clock .ck-row.low .ck-time { color: #ff5a4a; }
+.clock .ck-row.low .ck-bar { background: #ff3a2a; }
+
+/* effects off (Settings): nothing decorative moves; cards still slide, turn and flash */
+body.nofx .hand .nc.r-SR::after, body.nofx #preview .nc.r-SR::after, body.nofx #preview .nc.r-L::after, body.nofx #modal .nc.r-SR::after { animation: none; }
+body.nofx .slot .flag.rush, body.nofx .slot.atk::after, body.nofx .gb .lowlife, body.nofx .atk-overlay .atk-line, body.nofx .atk-reticle, body.nofx .resp-pill .rp-show, body.nofx #app.shake { animation: none; }

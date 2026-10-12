@@ -10,6 +10,8 @@
   const NS = window.NTCG = window.NTCG || {};
   // effects are authored in a 1280x800 space with the card (250 wide) centred at (640, 380)
   const CX = 640, CY = 380, CW = 250, CH = CW * 831 / 600, FLOOR = CY + CH / 2 + 14;
+  const CAPS = [1280, 1024, 800, 640]; // internal width of the layer; it only steps down, and only when the machine cannot keep up
+  let capI = 0, slowRuns = 0;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const seg = (t, a, b) => clamp((t - a) / (b - a), 0, 1);
   const easeOut = k => 1 - Math.pow(1 - k, 3), easeIn = k => k * k * k, easeIO = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
@@ -54,10 +56,12 @@ void take(vec2 px, out vec4 surf, out vec3 lit){
   surf = vec4(b.rgb * (1. - c.a) + c.rgb * c.a, b.a * (1. - c.a) + c.a);
   lit = texture(uEmis, uv).rgb + g; }
 void main(){
-  vec2 px = distort(vec2(vUv.x, 1. - vUv.y) * uRes); vec2 dir = (px - uCtr) * uAberr;
-  vec4 s0, s1, s2; vec3 l0, l1, l2;
-  take(px - dir, s0, l0); take(px, s1, l1); take(px + dir, s2, l2);
-  vec4 surf = vec4(s0.r, s1.g, s2.b, s1.a); vec3 lit = vec3(l0.r, l1.g, l2.b);
+  vec2 px = distort(vec2(vUv.x, 1. - vUv.y) * uRes);
+  vec4 surf; vec3 lit;
+  if (uAberr > 0.) { vec2 dir = (px - uCtr) * uAberr; vec4 s0, s1, s2; vec3 l0, l1, l2;
+    take(px - dir, s0, l0); take(px, s1, l1); take(px + dir, s2, l2);
+    surf = vec4(s0.r, s1.g, s2.b, s1.a); lit = vec3(l0.r, l1.g, l2.b); }
+  else take(px, surf, lit); // no split: the three samples would be the same pixel
   vec2 ub = px / uRes;
   lit += texture(uB1, ub).rgb * .55 + texture(uB2, ub).rgb * .8 + texture(uB3, ub).rgb * 1.0 + texture(uStreak, ub).rgb * .7;
   lit = 1. - exp(-lit * uExposure);
@@ -67,13 +71,16 @@ void main(){
 
   // ---------------- GL plumbing ----------------
   let cv = null, gl = null, G = null, base, emis, bc, ec, Wp = 0, Hp = 0, sc = 1, broken = false;
+  // base layer bookkeeping: most frames draw light only, so the base layer is uploaded only when it was drawn on
+  // (or has to be emptied again); bDrawn is set by the wrapped drawing calls of its context
+  let bDrawn = false, bTex = true, rawClear = null, rawFill = null;
   function ensure() {
     if (broken) return false;
     if (gl) return true;
     try {
       cv = document.createElement('canvas'); cv.id = 'fxgl';
-      gl = cv.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false });
-      if (!gl) throw new Error('no webgl2');
+      gl = cv.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, failIfMajorPerformanceCaveat: !window.NTCG_SOFTGL }); // NTCG_SOFTGL: test hook
+      if (!gl) throw new Error('no hardware WebGL 2');
       const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
       const prog = fs => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.bindAttribLocation(p, 0, 'p'); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; };
       G = { pBlur: prog(FS_BLUR), pFinal: prog(FS_FINAL), loc: new Map() };
@@ -81,6 +88,8 @@ void main(){
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
       G.tBase = mkTex(); G.tEmis = mkTex(); G.tCard = mkTex(); G.cardSrc = null;
       base = document.createElement('canvas'); emis = document.createElement('canvas'); bc = base.getContext('2d'); ec = emis.getContext('2d');
+      const proto = Object.getPrototypeOf(bc); rawClear = proto.clearRect; rawFill = proto.fillRect;
+      ['fill', 'stroke', 'fillRect', 'strokeRect', 'fillText', 'strokeText', 'drawImage'].forEach(m => { const f = proto[m]; bc[m] = function () { bDrawn = true; return f.apply(this, arguments); }; });
       document.body.appendChild(cv);
       return true;
     } catch (e) { broken = true; gl = null; if (cv && cv.parentNode) cv.remove(); console.warn('FXGL disabled:', e.message); return false; }
@@ -90,10 +99,11 @@ void main(){
   function killFbo(f) { gl.deleteFramebuffer(f.fb); gl.deleteTexture(f.tex); }
   function resize() {
     // internal resolution is capped: the layer is light and glow, so it scales up cleanly
-    sc = Math.min(1, 1280 / window.innerWidth);
+    sc = Math.min(1, CAPS[capI] / window.innerWidth);
     const w = Math.max(320, Math.round(window.innerWidth * sc)), h = Math.max(200, Math.round(window.innerHeight * sc));
     if (w === Wp && h === Hp) return;
     Wp = w; Hp = h; cv.width = base.width = emis.width = w; cv.height = base.height = emis.height = h;
+    for (const t of [G.tBase, G.tEmis]) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); } // storage once, filled in place every frame
     if (G.L) { G.L.forEach(l => { killFbo(l.a); killFbo(l.b); }); killFbo(G.streak.a); killFbo(G.streak.b); }
     const q = d => [Math.max(8, Math.round(w / d)), Math.max(8, Math.round(h / d))];
     G.L = [2, 4, 8].map(d => ({ a: fbo(...q(d)), b: fbo(...q(d)) })); G.streak = { a: fbo(...q(8)), b: fbo(...q(8)) };
@@ -103,8 +113,8 @@ void main(){
   function render(P, M, img) {
     if (img && img.complete && img.naturalWidth && G.cardSrc !== img) { gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.bindTexture(gl.TEXTURE_2D, G.tCard); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img); G.cardSrc = img; }
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-    gl.bindTexture(gl.TEXTURE_2D, G.tBase); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, base);
-    gl.bindTexture(gl.TEXTURE_2D, G.tEmis); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, emis);
+    if (bDrawn || bTex) { gl.bindTexture(gl.TEXTURE_2D, G.tBase); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, base); bTex = bDrawn; } // an empty base layer is uploaded once, not every frame
+    gl.bindTexture(gl.TEXTURE_2D, G.tEmis); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, emis);
     gl.disable(gl.BLEND);
     let src = G.tEmis;
     for (const l of G.L) { blur(src, l.a, 1, 0); blur(l.a.tex, l.b, 0, 1); src = l.b.tex; }
@@ -144,10 +154,9 @@ void main(){
     for (let i = 0; i < o.n; i++) {
       const ang = a0 + r() * (a1 - a0), sp = o.speed * (.25 + r() * 1.0), life = (o.life || 700) * (.45 + r() * .9), delay = r() * (o.jit || 70), w = (o.w || 2.2) * (.5 + r() * .9), hot = r() < .3;
       const k = (t - o.t0 - delay) / life; if (k <= 0 || k >= 1) continue;
-      const pos = kk => { const d = sp * (1 - Math.pow(1 - kk, 3)) * life / 1000; return [o.x + Math.cos(ang) * d, o.y + Math.sin(ang) * d * (o.sy || 1) + (o.grav || 0) * kk * kk]; };
-      const p1 = pos(k), p0 = pos(Math.max(0, k - .07));
+      const k0 = Math.max(0, k - .07), ca = Math.cos(ang), sa = Math.sin(ang), sy = o.sy || 1, gr = o.grav || 0, d1 = sp * (1 - Math.pow(1 - k, 3)) * life / 1000, d0 = sp * (1 - Math.pow(1 - k0, 3)) * life / 1000;
       e.globalAlpha = Math.pow(1 - k, 1.3); e.strokeStyle = hot ? '#ffffff' : o.color; e.lineWidth = w * (1 - k * .6);
-      e.beginPath(); e.moveTo(p0[0], p0[1]); e.lineTo(p1[0], p1[1]); e.stroke();
+      e.beginPath(); e.moveTo(o.x + ca * d0, o.y + sa * d0 * sy + gr * k0 * k0); e.lineTo(o.x + ca * d1, o.y + sa * d1 * sy + gr * k * k); e.stroke();
     }
     e.restore();
   }
@@ -498,6 +507,36 @@ void main(){
   function cardImg(card) { const url = card.art && card.art.url; if (!url) return null; if (!imgs[url]) { const i = new Image(); i.src = url; imgs[url] = i; } return imgs[url]; }
   let run = 0;
   const has = card => !!EFFECTS[card.id] && !document.body.classList.contains('lowfx') && !broken;
+  // start of a frame: both layers empty, drawing in the given transform
+  function begin(a, d, tx, ty) {
+    bc.setTransform(1, 0, 0, 1, 0, 0); rawClear.call(bc, 0, 0, Wp, Hp); bc.globalAlpha = 1; bc.globalCompositeOperation = 'source-over'; bc.setTransform(a, 0, 0, d, tx, ty);
+    ec.setTransform(1, 0, 0, 1, 0, 0); ec.globalAlpha = 1; ec.globalCompositeOperation = 'source-over'; ec.fillStyle = '#000'; rawFill.call(ec, 0, 0, Wp, Hp); ec.setTransform(a, 0, 0, d, tx, ty);
+    bDrawn = false;
+  }
+  const blank = () => ({ waves: [], aberr: 0, exposure: 1.15, flash: [1, 1, 1, 0], edge: GOLD, card: { x: 0, y: 0, s: 1, sx: 1, burn: 1, white: 0, a: 0 } });
+  // If this machine cannot keep the layer smooth, later effects are drawn at a lower internal resolution (it is light
+  // and glow, so it scales up cleanly). If the lowest one is still far too slow, the board uses the 2D effects instead.
+  function grade(dts) {
+    if (dts.length < 16 || NS.FXGL._freeze != null) return;
+    dts = dts.slice(3).sort((a, b) => a - b);
+    const med = dts[dts.length >> 1], idle = NS.FX && NS.FX.cadence ? NS.FX.cadence() : 16.7;
+    if (med <= Math.max(24, idle * 1.6)) { slowRuns = 0; return; }
+    if (++slowRuns < 2) return;
+    slowRuns = 0;
+    if (capI < CAPS.length - 1) capI++;
+    else if (med > Math.max(48, idle * 3)) { broken = true; console.info('FXGL: too slow on this machine, using the 2D effects'); }
+  }
+  // Called when a match starts: compile the shaders, allocate the buffers and fetch the card art now, not in the first
+  // frames of the first effect.
+  function warm(cards) {
+    if (document.body.classList.contains('lowfx') || !ensure()) return;
+    resize();
+    if (!G.warm && !busy()) {
+      G.warm = true;
+      try { const P = blank(); P.aberr = .01; begin(1, 1, 0, 0); render(P, { k: 1, pt: (x, y) => [x, y] }, null); gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } catch (err) { /* the first effect will report it */ }
+    }
+    (cards || []).forEach(c => { if (!EFFECTS[c.id]) return; const i = cardImg(c); if (i && i.decode) i.decode().catch(() => { }); });
+  }
   // Plays the card's summon effect over the board element `el`. Resolves when the card has landed.
   function summon(card, el) {
     const fx = EFFECTS[card.id];
@@ -508,16 +547,17 @@ void main(){
     const face = el.querySelector('.nc') || el;
     const r = face.getBoundingClientRect(), ax = r.left + r.width / 2, ay = r.top + r.height / 2, k0 = r.width / CW;
     const M = { k: k0 * sc, pt: (x, y) => [(ax + (x - CX) * k0) * sc, (ay + (y - CY) * k0) * sc] };
-    const setT = c => c.setTransform(M.k, 0, 0, M.k, (ax - CX * k0) * sc, (ay - CY * k0) * sc);
     el.style.opacity = '0';
     cv.style.display = 'block'; cv.style.zIndex = '';
-    const fired = new Set(), stage = document.getElementById('stage');
-    let t0 = null, landed = false, done;
+    bTex = true;
+    const fired = new Set(), stage = document.getElementById('stage'), dts = [];
+    let t0 = null, landed = false, done, prev = 0;
     const promise = new Promise(res => { done = res; });
     const reveal = () => { if (el.isConnected) el.style.opacity = ''; done(); };
     const frame = now => {
       if (id !== run) { reveal(); return; }
       if (t0 == null) t0 = now;
+      if (prev) dts.push(now - prev); prev = now;
       const t = NS.FXGL._freeze != null ? NS.FXGL._freeze : (now - t0) / speed; // _freeze: test hook, pins the effect to one moment
       fx.cues.forEach(([at, name], i) => { if (t >= at && !fired.has(i)) { fired.add(i); NS.Audio.play(name); } });
       if (t >= fx.land && !landed) { // the hit: one negative frame, a camera punch and a lens split on the whole board
@@ -526,11 +566,10 @@ void main(){
         NS.FX.shake(fx.shake || 10); NS.FX.punch(ax, ay, fx.neg ? 0.05 : 0.03); if (fx.neg) NS.FX.chroma(170);
       }
       if (t >= fx.reveal && !fired.has('rv')) { fired.add('rv'); reveal(); }
-      const P = { waves: [], aberr: 0, exposure: 1.15, flash: [1, 1, 1, 0], edge: GOLD, card: { x: CX, y: CY, s: 1, sx: 1, burn: 1, white: 0, a: 0 } };
-      bc.setTransform(1, 0, 0, 1, 0, 0); bc.clearRect(0, 0, Wp, Hp); bc.globalAlpha = 1; bc.globalCompositeOperation = 'source-over'; setT(bc);
-      ec.setTransform(1, 0, 0, 1, 0, 0); ec.globalAlpha = 1; ec.globalCompositeOperation = 'source-over'; ec.fillStyle = '#000'; ec.fillRect(0, 0, Wp, Hp); setT(ec);
+      const P = blank(); P.card.x = CX; P.card.y = CY;
+      begin(M.k, M.k, (ax - CX * k0) * sc, (ay - CY * k0) * sc);
       try { fx.draw(bc, ec, P, Math.min(t, fx.dur), img); render(P, M, img); } catch (err) { console.warn('FXGL frame failed:', err); run++; }
-      if (t >= fx.dur || id !== run) { if (id === run || run === id + 1) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); cv.style.display = 'none'; } reveal(); return; }
+      if (t >= fx.dur || id !== run) { if (id === run || run === id + 1) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); cv.style.display = 'none'; } if (t >= fx.dur) grade(dts); reveal(); return; }
       requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
@@ -544,19 +583,20 @@ void main(){
   function overlay(dur, cues, draw, z) {
     if (document.body.classList.contains('lowfx') || !ensure()) return false;
     resize();
-    const id = ++run, speed = Math.max(.45, NS.settings ? NS.settings.speedMul() : 1), M = { k: sc, pt: (x, y) => [x * sc, y * sc] }, fired = new Set();
+    const id = ++run, speed = Math.max(.45, NS.settings ? NS.settings.speedMul() : 1), M = { k: sc, pt: (x, y) => [x * sc, y * sc] }, fired = new Set(), dts = [];
     cv.style.display = 'block'; cv.style.zIndex = z || ''; // z: lift the layer above a full-screen panel
-    let t0 = null;
+    bTex = true;
+    let t0 = null, prev = 0;
     const frame = now => {
       if (id !== run) return;
       if (t0 == null) t0 = now;
+      if (prev) dts.push(now - prev); prev = now;
       const t = NS.FXGL._freeze != null ? NS.FXGL._freeze : (now - t0) / speed;
       cues.forEach(([at, name], i) => { if (t >= at && !fired.has(i)) { fired.add(i); NS.Audio.play(name); } });
-      const P = { waves: [], aberr: 0, exposure: 1.15, flash: [1, 1, 1, 0], edge: GOLD, card: { x: 0, y: 0, s: 1, sx: 1, burn: 1, white: 0, a: 0 } };
-      bc.setTransform(1, 0, 0, 1, 0, 0); bc.clearRect(0, 0, Wp, Hp); bc.globalAlpha = 1; bc.globalCompositeOperation = 'source-over'; bc.setTransform(sc, 0, 0, sc, 0, 0);
-      ec.setTransform(1, 0, 0, 1, 0, 0); ec.globalAlpha = 1; ec.globalCompositeOperation = 'source-over'; ec.fillStyle = '#000'; ec.fillRect(0, 0, Wp, Hp); ec.setTransform(sc, 0, 0, sc, 0, 0);
+      const P = blank();
+      begin(sc, sc, 0, 0);
       try { draw(bc, ec, P, Math.min(t, dur)); render(P, M, null); } catch (err) { console.warn('FXGL frame failed:', err); run++; }
-      if (t >= dur || id !== run) { if (id === run || run === id + 1) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); cv.style.display = 'none'; } return; }
+      if (t >= dur || id !== run) { if (id === run || run === id + 1) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); cv.style.display = 'none'; } if (t >= dur) grade(dts); return; }
       requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
@@ -713,5 +753,6 @@ void main(){
   function stop() { run++; if (cv) cv.style.display = 'none'; }
 
   const ready = () => !document.body.classList.contains('lowfx') && ensure(); // can a board-space effect play right now?
-  NS.FXGL = { summon, has, stop, chakra, checkmate, activate, seal, flameJet, ready, _k: { overlay, glow, line, beam, sparks, motes, ringE, wave, rng, seg, clamp, easeOut, easeIn, easeIO, bell } };
+  const busy = () => !!cv && cv.style.display === 'block';
+  NS.FXGL = { summon, has, stop, chakra, checkmate, activate, seal, flameJet, ready, warm, busy, _k: { overlay, glow, line, beam, sparks, motes, ringE, wave, rng, seg, clamp, easeOut, easeIn, easeIO, bell } };
 })();
