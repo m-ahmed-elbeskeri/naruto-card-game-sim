@@ -52,26 +52,28 @@ if (!isMainThread) {
     try {
       if (m.nets) for (const k in m.nets) getNet(k, m.nets[k]);
       const swap = Math.random() < 0.5;
+      // decks of this game: a fixed matchup, or a share `mix` of mirror matches (half red, half blue) and red against blue otherwise
+      const mu = m.matchup || (Math.random() < (m.mix || 0) ? (Math.random() < 0.5 ? 'rr' : 'bb') : 'rb');
       if (m.type === 'imitate') {
         const samples = [];
         const lv = ['chunin', 'jonin', 'kage', 'kage'];
-        const { g } = newGame([recordingKage(lv[(Math.random() * 4) | 0], x => samples.push(x)), recordingKage(lv[(Math.random() * 4) | 0], x => samples.push(x))], swap);
+        const { g } = newGame([recordingKage(lv[(Math.random() * 4) | 0], x => samples.push(x)), recordingKage(lv[(Math.random() * 4) | 0], x => samples.push(x))], swap, undefined, mu);
         await g.start();
         parentPort.postMessage({ id: m.id, samples: pack(samples, g.winner) });
       } else if (m.type === 'selfplay') {
         const samples = [];
         const mk = () => new AZ.AZController({ net: nets.cur, cfg: Object.assign({ noise: m.noise }, m.search), record: x => samples.push(x), temp: (g, n) => (n < m.tempMoves ? 1 : 0) });
-        const { g } = newGame([mk(), mk()], swap);
+        const { g } = newGame([mk(), mk()], swap, undefined, mu);
         await g.start();
-        parentPort.postMessage({ id: m.id, samples: pack(samples, g.winner), turns: g.turn });
+        parentPort.postMessage({ id: m.id, samples: pack(samples, g.winner), turns: g.turn, matchup: mu });
       } else if (m.type === 'arena') {
         // player A (net m.a) vs player B (net m.b, or the Kage heuristic when m.b is null); A sits in seat m.seat
         const A = new AZ.AZController({ net: nets[m.a], cfg: m.search });
         const B = m.b ? new AZ.AZController({ net: nets[m.b], cfg: m.search }) : new NS.AI.AIController('kage', { fast: true });
         const ctl = m.seat === 0 ? [A, B] : [B, A];
-        const { g } = newGame(ctl, swap);
+        const { g } = newGame(ctl, swap, undefined, mu);
         await g.start();
-        parentPort.postMessage({ id: m.id, win: g.winner == null ? 0.5 : g.winner === m.seat ? 1 : 0 });
+        parentPort.postMessage({ id: m.id, win: g.winner == null ? 0.5 : g.winner === m.seat ? 1 : 0, matchup: mu });
       }
     } catch (e) { parentPort.postMessage({ id: m.id, error: String(e.stack || e) }); }
   });

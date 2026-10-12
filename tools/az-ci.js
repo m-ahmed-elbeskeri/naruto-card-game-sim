@@ -3,8 +3,10 @@
 //       plays self-play games with ai/cur.json (or ai/best.json) until the time is up and writes the samples
 //   node tools/az-ci.js learn in=sp [steps=3000] [gate=200] [kage=200] [threads=4]
 //       trains on every sample file under `in`, gates the result against the champion, and updates ai/
-//   node tools/az-ci.js match [games=400] [a=ai/best.json] [b=js/az-weights.js] [threads=4]
+//   node tools/az-ci.js match [games=400] [a=ai/best.json] [b=js/az-weights.js | b=kage] [threads=4]
 //       plays network a against network b (default: the champion against the one the site ships) and prints a's score
+// Decks: every stage takes mix=<share of mirror matches> (default 0.5: half red against blue, a quarter each red
+// and blue mirror), so the bot is trained and judged on every matchup the two decks allow.
 // The game workers are the ones in az-train.js.
 const { Worker } = require('worker_threads');
 const fs = require('fs'), path = require('path'), os = require('os'), zlib = require('zlib');
@@ -17,6 +19,9 @@ const DIR = process.env.AZ_DIR || path.join(__dirname, '..', 'ai');
 const THREADS = +(args.threads || os.cpus().length);
 const SEARCH = { worlds: 8, sims: 24, cpuct: 1.6 }, NOISE = { alpha: 0.3, eps: 0.25 }, TEMP_MOVES = 12;
 const BATCH = 128, LR = 1e-3, GATE_WIN = 0.55, BUFFER_MAX = 600000; // the cap keeps the learn stage inside a CI runner's memory
+const MIX = args.mix == null || args.mix === '' ? 0.5 : Math.max(0, Math.min(1, +args.mix));
+// score per matchup, e.g. "rb 61% (402) / rr 58% (199) / bb 57% (199)"
+const split = rs => ['rb', 'rr', 'bb'].map(k => { const x = rs.filter(r => r.matchup === k); return x.length ? `${k} ${(100 * x.reduce((t, r) => t + r.win, 0) / x.length).toFixed(0)}% (${x.length})` : ''; }).filter(Boolean).join(' / ');
 const { S, A } = AZ.dims();
 const log = (...a) => { const s = `[${new Date().toISOString().slice(0, 19).replace('T', ' ')}] ` + a.join(' '); console.log(s); return s; };
 const loadNet = f => AZ.Net.fromJSON(JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf8')));
@@ -72,13 +77,14 @@ async function selfplay() {
   const pool = new Pool(THREADS); pool.setNet('cur', net);
   const end = Date.now() + (+(args.minutes || 40)) * 60000, max = +(args.games || 0);
   const samples = []; let games = 0, turns = 0, errs = 0, started = 0;
-  log(`selfplay: ${THREADS} threads, ${args.minutes || 40} min`);
+  log(`selfplay: ${THREADS} threads, ${args.minutes || 40} min, ${Math.round(MIX * 100)}% mirror matches`);
+  const seen = { rb: 0, rr: 0, bb: 0 };
   const one = async () => {
     while (Date.now() < end && (!max || started < max)) {
       started++;
-      const r = await pool.run({ type: 'selfplay', search: SEARCH, noise: NOISE, tempMoves: TEMP_MOVES });
+      const r = await pool.run({ type: 'selfplay', search: SEARCH, noise: NOISE, tempMoves: TEMP_MOVES, mix: MIX });
       if (r.error) { if (++errs < 3) log('selfplay error', r.error.slice(0, 400)); continue; }
-      for (const x of r.samples) samples.push(x); games++; turns += r.turns;
+      for (const x of r.samples) samples.push(x); games++; turns += r.turns; seen[r.matchup]++;
       if (games % 20 === 0) log(`${games} games, ${samples.length} samples`);
     }
   };
@@ -86,13 +92,15 @@ async function selfplay() {
   pool.close();
   const out = args.out || 'sp.bin.gz', buf = encode(samples);
   fs.writeFileSync(out, buf);
+  log(`matchups: red v blue ${seen.rb}, red mirror ${seen.rr}, blue mirror ${seen.bb}`);
   log(`done: ${games} games (avg ${(turns / Math.max(1, games)).toFixed(1)} turns), ${samples.length} samples, ${errs} errors, ${(buf.length / 1048576).toFixed(1)} MB -> ${out}`);
   if (!games) process.exit(1);
 }
 
-async function arena(pool, a, b, games) {
-  const rs = await Promise.all(Array.from({ length: games }, (_, i) => pool.run({ type: 'arena', a, b, seat: i % 2, search: SEARCH })));
+async function arena(pool, a, b, games, by) {
+  const rs = await Promise.all(Array.from({ length: games }, (_, i) => pool.run({ type: 'arena', a, b, seat: i % 2, search: SEARCH, mix: MIX })));
   const ok = rs.filter(r => !r.error); if (ok.length < rs.length) log('arena errors', rs.length - ok.length, (rs.find(r => r.error).error || '').slice(0, 300));
+  if (by) by.text = split(ok);
   return ok.reduce((t, r) => t + r.win, 0) / Math.max(1, ok.length);
 }
 
@@ -120,9 +128,9 @@ async function learn() {
   const t1 = Date.now(), pool = new Pool(THREADS);
   pool.setNet('cur', cur); pool.setNet('best', best);
   const gate = +(args.gate || 200), kage = +(args.kage || 200);
-  const vb = await arena(pool, 'cur', 'best', gate), vk = await arena(pool, 'cur', null, kage);
+  const sb = {}, sk = {}, vb = await arena(pool, 'cur', 'best', gate, sb), vk = await arena(pool, 'cur', null, kage, sk);
   pool.close();
-  let msg = `iter ${state.iter}: ${buffer.length} samples, train ${((t1 - t0) / 1000).toFixed(0)}s loss v=${loss.v} p=${loss.p} | vs champion ${(vb * 100).toFixed(1)}% (${gate} games) | vs Kage ${(vk * 100).toFixed(1)}% (${kage} games)`;
+  let msg = `iter ${state.iter}: ${buffer.length} samples, train ${((t1 - t0) / 1000).toFixed(0)}s loss v=${loss.v} p=${loss.p} | vs champion ${(vb * 100).toFixed(1)}% (${gate} games: ${sb.text}) | vs Kage ${(vk * 100).toFixed(1)}% (${kage} games: ${sk.text})`;
   if (vb >= GATE_WIN) { state.gen++; best = cur; fs.writeFileSync(path.join(DIR, 'best.json'), JSON.stringify(best.toJSON())); msg += ` -> NEW CHAMPION gen ${state.gen}`; }
   state.lastKage = vk; state.lastGate = vb;
   fs.writeFileSync(path.join(DIR, 'cur.json'), JSON.stringify(cur.toJSON()));
@@ -134,15 +142,15 @@ async function learn() {
 // Head to head. A .js weights file is the exported form: the same JSON assigned to window.NTCG.AZ_WEIGHTS.
 async function match() {
   const read = f => { const t = fs.readFileSync(path.resolve(__dirname, '..', f), 'utf8'); return AZ.Net.fromJSON(JSON.parse(f.endsWith('.js') ? t.slice(t.indexOf('{', t.indexOf('AZ_WEIGHTS')), t.lastIndexOf('}') + 1) : t)); };
-  const a = args.a || 'ai/best.json', b = args.b || 'js/az-weights.js', games = +(args.games || 400);
-  const pool = new Pool(THREADS); pool.setNet('a', read(a)); pool.setNet('b', read(b));
-  log(`match: ${a} vs ${b}, ${games} games, ${THREADS} threads`);
+  const a = args.a || 'ai/best.json', b = args.b || 'js/az-weights.js', games = +(args.games || 400), kage = b === 'kage';
+  const pool = new Pool(THREADS); pool.setNet('a', read(a)); if (!kage) pool.setNet('b', read(b));
+  log(`match: ${a} vs ${b}, ${games} games, ${THREADS} threads, ${Math.round(MIX * 100)}% mirror matches`);
   let done = 0;
-  const rs = await Promise.all(Array.from({ length: games }, (_, i) => pool.run({ type: 'arena', a: 'a', b: 'b', seat: i % 2, search: SEARCH }).then(r => { if (++done % 100 === 0) log(`${done}/${games}`); return r; })));
+  const rs = await Promise.all(Array.from({ length: games }, (_, i) => pool.run({ type: 'arena', a: 'a', b: kage ? null : 'b', seat: i % 2, search: SEARCH, mix: MIX }).then(r => { if (++done % 100 === 0) log(`${done}/${games}`); return r; })));
   pool.close();
   const ok = rs.filter(r => !r.error), n = ok.length, p = ok.reduce((t, r) => t + r.win, 0) / Math.max(1, n), ci = 196 * Math.sqrt(p * (1 - p) / Math.max(1, n));
   if (n < games) log('match errors', games - n, (rs.find(r => r.error).error || '').slice(0, 300));
-  const msg = `MATCH RESULT: ${a} scores ${(p * 100).toFixed(1)}% (95% interval +-${ci.toFixed(1)}) against ${b} over ${n} games`;
+  const msg = `MATCH RESULT: ${a} scores ${(p * 100).toFixed(1)}% (95% interval +-${ci.toFixed(1)}) against ${b} over ${n} games | ${split(ok)}`;
   log(msg);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, msg + '\n');
   if (!n) process.exit(1);

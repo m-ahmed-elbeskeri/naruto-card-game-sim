@@ -8,6 +8,12 @@ on:
       games:
         description: Games to play
         default: '800'
+      b:
+        description: Opponent (a weights file, or kage for the heuristic)
+        default: js/az-weights.js
+      mix:
+        description: Share of mirror matches (red v red, blue v blue); the rest is red v blue
+        default: '0.5'
 
 permissions:
   contents: read
@@ -21,6 +27,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node tools/az-ci.js match games="$GAMES"
+      - run: node tools/az-ci.js match games="$GAMES" b="$B" mix="$MIX"
         env:
           GAMES: ${{ inputs.games }}
+          B: ${{ inputs.b }}
+          MIX: ${{ inputs.mix }}

@@ -15,6 +15,9 @@ on:
       minutes:
         description: Self-play minutes per job
         default: '20'
+      mix:
+        description: Share of mirror matches (red v red, blue v blue); the rest is red v blue
+        default: '0.5'
 
 permissions:
   contents: write
@@ -48,9 +51,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node tools/az-ci.js selfplay minutes="$MINUTES" out="sp-${{ matrix.shard }}.bin.gz"
+      - run: node tools/az-ci.js selfplay minutes="$MINUTES" mix="$MIX" out="sp-${{ matrix.shard }}.bin.gz"
         env:
           MINUTES: ${{ inputs.minutes }}
+          MIX: ${{ inputs.mix }}
       - uses: actions/upload-artifact@v4
         with:
           name: sp-${{ matrix.shard }}
@@ -72,7 +76,9 @@ jobs:
           path: sp
           pattern: sp-*
           merge-multiple: true
-      - run: node --max-old-space-size=12000 tools/az-ci.js learn in=sp
+      - run: node --max-old-space-size=12000 tools/az-ci.js learn in=sp mix="$MIX"
+        env:
+          MIX: ${{ inputs.mix }}
       - name: Commit the result
         run: |
           git config user.name "github-actions[bot]"
@@ -83,10 +89,11 @@ jobs:
           git push
       - name: Start the next iteration
         if: ${{ inputs.remaining > 1 }}
-        run: gh workflow run train.yml -f remaining=$(( REMAINING - 1 )) -f shards="$SHARDS" -f minutes="$MINUTES"
+        run: gh workflow run train.yml -f remaining=$(( REMAINING - 1 )) -f shards="$SHARDS" -f minutes="$MINUTES" -f mix="$MIX"
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           REMAINING: ${{ inputs.remaining }}
           SHARDS: ${{ inputs.shards }}
           MINUTES: ${{ inputs.minutes }}
+          MIX: ${{ inputs.mix }}
