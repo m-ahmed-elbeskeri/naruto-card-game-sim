@@ -67,13 +67,14 @@ if (!isMainThread) {
         await g.start();
         parentPort.postMessage({ id: m.id, samples: pack(samples, g.winner), turns: g.turn, matchup: mu });
       } else if (m.type === 'arena') {
-        // player A (net m.a) vs player B (net m.b, or the Kage heuristic when m.b is null); A sits in seat m.seat
+        // player A (net m.a) vs player B (net m.b, or the heuristic at m.level, Kage by default, when m.b is null); A sits in seat m.seat
         const A = new AZ.AZController({ net: nets[m.a], cfg: m.search });
-        const B = m.b ? new AZ.AZController({ net: nets[m.b], cfg: m.search }) : new NS.AI.AIController('kage', { fast: true });
+        const B = m.b ? new AZ.AZController({ net: nets[m.b], cfg: m.search }) : new NS.AI.AIController(m.level || 'kage', { fast: true });
         const ctl = m.seat === 0 ? [A, B] : [B, A];
-        const { g } = newGame(ctl, swap, undefined, mu);
+        const { g, decks } = newGame(ctl, swap, undefined, mu);
         await g.start();
-        parentPort.postMessage({ id: m.id, win: g.winner == null ? 0.5 : g.winner === m.seat ? 1 : 0, matchup: mu });
+        // deck: the one A played ('r' red, 'b' blue); first: whether A took the first turn
+        parentPort.postMessage({ id: m.id, win: g.winner == null ? 0.5 : g.winner === m.seat ? 1 : 0, matchup: mu, deck: decks[m.seat] === NS.STARTERS[0] ? 'r' : 'b', first: g.first === m.seat });
       }
     } catch (e) { parentPort.postMessage({ id: m.id, error: String(e.stack || e) }); }
   });

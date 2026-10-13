@@ -3,8 +3,9 @@
 //       plays self-play games with ai/cur.json (or ai/best.json) until the time is up and writes the samples
 //   node tools/az-ci.js learn in=sp [steps=3000] [gate=200] [kage=200] [threads=4]
 //       trains on every sample file under `in`, gates the result against the champion, and updates ai/
-//   node tools/az-ci.js match [games=400] [a=ai/best.json] [b=js/az-weights.js | b=kage] [threads=4]
-//       plays network a against network b (default: the champion against the one the site ships) and prints a's score
+//   node tools/az-ci.js match [games=400] [a=ai/best.json] [b=js/az-weights.js | b=genin|chunin|jonin|kage] [threads=4]
+//       plays network a against network b, or against one of the heuristic levels (default: the champion against the
+//       network the site ships), and prints a's score: overall, per matchup, per deck side and per turn order
 // Decks: every stage takes mix=<share of mirror matches> (default 0.5: half red against blue, a quarter each red
 // and blue mirror), so the bot is trained and judged on every matchup the two decks allow.
 // The game workers are the ones in az-train.js.
@@ -21,7 +22,11 @@ const SEARCH = { worlds: 8, sims: 24, cpuct: 1.6 }, NOISE = { alpha: 0.3, eps: 0
 const BATCH = 128, LR = 1e-3, GATE_WIN = 0.55, BUFFER_MAX = 600000; // the cap keeps the learn stage inside a CI runner's memory
 const MIX = args.mix == null || args.mix === '' ? 0.5 : Math.max(0, Math.min(1, +args.mix));
 // score per matchup, e.g. "rb 61% (402) / rr 58% (199) / bb 57% (199)"
-const split = rs => ['rb', 'rr', 'bb'].map(k => { const x = rs.filter(r => r.matchup === k); return x.length ? `${k} ${(100 * x.reduce((t, r) => t + r.win, 0) / x.length).toFixed(0)}% (${x.length})` : ''; }).filter(Boolean).join(' / ');
+const cell = (rs, label) => rs.length ? `${label} ${(100 * rs.reduce((t, r) => t + r.win, 0) / rs.length).toFixed(0)}% (${rs.length})` : '';
+const split = rs => ['rb', 'rr', 'bb'].map(k => cell(rs.filter(r => r.matchup === k), k)).filter(Boolean).join(' / ');
+// red against blue seen from each side, and the score by turn order
+const sides = rs => [cell(rs.filter(r => r.matchup === 'rb' && r.deck === 'r'), 'as red v blue'), cell(rs.filter(r => r.matchup === 'rb' && r.deck === 'b'), 'as blue v red'),
+  cell(rs.filter(r => r.first), 'going first'), cell(rs.filter(r => !r.first), 'going second')].filter(Boolean).join(' / ');
 const { S, A } = AZ.dims();
 const log = (...a) => { const s = `[${new Date().toISOString().slice(0, 19).replace('T', ' ')}] ` + a.join(' '); console.log(s); return s; };
 const loadNet = f => AZ.Net.fromJSON(JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf8')));
@@ -142,15 +147,15 @@ async function learn() {
 // Head to head. A .js weights file is the exported form: the same JSON assigned to window.NTCG.AZ_WEIGHTS.
 async function match() {
   const read = f => { const t = fs.readFileSync(path.resolve(__dirname, '..', f), 'utf8'); return AZ.Net.fromJSON(JSON.parse(f.endsWith('.js') ? t.slice(t.indexOf('{', t.indexOf('AZ_WEIGHTS')), t.lastIndexOf('}') + 1) : t)); };
-  const a = args.a || 'ai/best.json', b = args.b || 'js/az-weights.js', games = +(args.games || 400), kage = b === 'kage';
-  const pool = new Pool(THREADS); pool.setNet('a', read(a)); if (!kage) pool.setNet('b', read(b));
+  const a = args.a || 'ai/best.json', b = args.b || 'js/az-weights.js', games = +(args.games || 400), level = ['genin', 'chunin', 'jonin', 'kage'].includes(b) ? b : null;
+  const pool = new Pool(THREADS); pool.setNet('a', read(a)); if (!level) pool.setNet('b', read(b));
   log(`match: ${a} vs ${b}, ${games} games, ${THREADS} threads, ${Math.round(MIX * 100)}% mirror matches`);
   let done = 0;
-  const rs = await Promise.all(Array.from({ length: games }, (_, i) => pool.run({ type: 'arena', a: 'a', b: kage ? null : 'b', seat: i % 2, search: SEARCH, mix: MIX }).then(r => { if (++done % 100 === 0) log(`${done}/${games}`); return r; })));
+  const rs = await Promise.all(Array.from({ length: games }, (_, i) => pool.run({ type: 'arena', a: 'a', b: level ? null : 'b', level, seat: i % 2, search: SEARCH, mix: MIX }).then(r => { if (++done % 100 === 0) log(`${done}/${games}`); return r; })));
   pool.close();
   const ok = rs.filter(r => !r.error), n = ok.length, p = ok.reduce((t, r) => t + r.win, 0) / Math.max(1, n), ci = 196 * Math.sqrt(p * (1 - p) / Math.max(1, n));
   if (n < games) log('match errors', games - n, (rs.find(r => r.error).error || '').slice(0, 300));
-  const msg = `MATCH RESULT: ${a} scores ${(p * 100).toFixed(1)}% (95% interval +-${ci.toFixed(1)}) against ${b} over ${n} games | ${split(ok)}`;
+  const msg = `MATCH RESULT: ${a} scores ${(p * 100).toFixed(1)}% (95% interval +-${ci.toFixed(1)}) against ${b} over ${n} games | ${split(ok)} | ${sides(ok)}`;
   log(msg);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, msg + '\n');
   if (!n) process.exit(1);

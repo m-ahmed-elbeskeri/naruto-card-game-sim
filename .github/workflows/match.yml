@@ -14,7 +14,7 @@ on:
         description: Network to score (a weights file)
         default: ai/best.json
       b:
-        description: Opponent (a weights file, or kage for the heuristic)
+        description: Opponent (a weights file, or a heuristic level - genin, chunin, jonin, kage)
         default: js/az-weights.js
       b_ref:
         description: Take the opponent's js/az-weights.js from this commit (an earlier live Hokage)
