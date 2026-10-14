@@ -40,3 +40,4 @@
 [2026-10-14 15:57:06] iter 30: 600000 samples, train 47s loss v=0.663 p=1.140 | vs champion 52.0% (200 games: rb 62% (100) / rr 48% (50) / bb 36% (50)) | vs Kage 94.5% (200 games: rb 94% (97) / rr 94% (54) / bb 96% (49))
 [2026-10-14 16:23:03] iter 31: 600000 samples, train 23s loss v=0.671 p=1.128 | vs champion 47.5% (200 games: rb 47% (101) / rr 52% (52) / bb 45% (47)) | vs Kage 95.0% (200 games: rb 94% (113) / rr 100% (37) / bb 94% (50))
 [2026-10-14 16:52:59] iter 32: 600000 samples, train 41s loss v=0.686 p=1.145 | vs champion 54.5% (200 games: rb 59% (102) / rr 47% (45) / bb 53% (53)) | vs Kage 93.5% (200 games: rb 93% (99) / rr 92% (52) / bb 96% (49))
+[2026-10-14 19:50:27] iter 33: 600000 samples, train 46s loss v=0.671 p=1.151 | vs champion 54.0% (200 games: rb 50% (94) / rr 58% (45) / bb 57% (61)) | vs Kage 94.5% (200 games: rb 92% (102) / rr 96% (53) / bb 98% (45))
