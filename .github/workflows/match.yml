@@ -22,6 +22,12 @@ on:
       mix:
         description: Share of mirror matches (red v red, blue v blue); the rest is red v blue
         default: '0.5'
+      worlds:
+        description: Search worlds per decision (empty = 8, as in training)
+        default: ''
+      sims:
+        description: Search simulations per world (empty = 24, as in training)
+        default: ''
 
 permissions:
   contents: read
@@ -29,7 +35,7 @@ permissions:
 jobs:
   match:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,10 +46,12 @@ jobs:
       - name: Play
         run: |
           if [ -n "$B_REF" ]; then git show "$B_REF:js/az-weights.js" > old-hokage.js; B=old-hokage.js; fi
-          node tools/az-ci.js match games="$GAMES" a="$A" b="$B" mix="$MIX"
+          node tools/az-ci.js match games="$GAMES" a="$A" b="$B" mix="$MIX" worlds="$WORLDS" sims="$SIMS"
         env:
           GAMES: ${{ inputs.games }}
           A: ${{ inputs.a }}
           B: ${{ inputs.b }}
           B_REF: ${{ inputs.b_ref }}
           MIX: ${{ inputs.mix }}
+          WORLDS: ${{ inputs.worlds }}
+          SIMS: ${{ inputs.sims }}
