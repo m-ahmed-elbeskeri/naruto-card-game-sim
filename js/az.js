@@ -125,32 +125,35 @@
   }
 
   // ---------------- network ----------------
-  const H = 128, HV = 64, HP = 96;
+  // layer widths: trunk H, value head HV, policy head HP. Each network carries its own in `dims` (weights files
+  // written before that have none and use SIZE0).
+  const SIZE0 = { H: 128, HV: 64, HP: 96 };
   function randn(rng) { let u = 0, v = 0; while (!u) u = rng(); while (!v) v = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
-  const LAYERS = () => { const { S, A } = dims(); return [['W1', S, H], ['W2', H, H], ['Wv1', H, HV], ['Wv2', HV, 1], ['Wph', H, HP], ['Wpa', A, HP], ['Wp2', HP, 1]]; };
+  const LAYERS = z => { const { S, A } = dims(), { H, HV, HP } = z || SIZE0; return [['W1', S, H], ['W2', H, H], ['Wv1', H, HV], ['Wv2', HV, 1], ['Wph', H, HP], ['Wpa', A, HP], ['Wp2', HP, 1]]; };
 
   class Net {
-    constructor(seed) {
+    constructor(seed, size) {
       const rng = NS.mulberry32(seed || 1);
+      this.size = { H: (size && size.H) || SIZE0.H, HV: (size && size.HV) || SIZE0.HV, HP: (size && size.HP) || SIZE0.HP };
       this.p = {};
-      for (const [k, i, o] of LAYERS()) {
+      for (const [k, i, o] of LAYERS(this.size)) {
         const w = new Float32Array(i * o), s = Math.sqrt(2 / i);
         for (let j = 0; j < w.length; j++) w[j] = randn(rng) * s * (k === 'Wv2' || k === 'Wp2' ? 0.1 : 1);
         this.p[k] = w; this.p['b' + k.slice(1)] = new Float32Array(o);
       }
-      this.p.bph = new Float32Array(HP); // shared hidden bias of the policy head
+      this.p.bph = new Float32Array(this.size.HP); // shared hidden bias of the policy head
     }
-    static shape() { return LAYERS(); }
-    toJSON() { const o = {}; for (const k in this.p) o[k] = b64(this.p[k]); return { v: 1, dims: dims(), p: o }; }
+    static shape(size) { return LAYERS(size); }
+    toJSON() { const o = {}; for (const k in this.p) o[k] = b64(this.p[k]); return { v: 1, dims: Object.assign(dims(), this.size), p: o }; }
     static fromJSON(j) {
-      const net = new Net(1);
+      const net = new Net(1, j.dims);
       for (const k in j.p) { const a = unb64(j.p[k]); if (net.p[k] && net.p[k].length === a.length) net.p[k] = a; }
       return net;
     }
-    clone() { const n = new Net(1); for (const k in this.p) n.p[k] = this.p[k].slice(); return n; }
+    clone() { const n = new Net(1, this.size); for (const k in this.p) n.p[k] = this.p[k].slice(); return n; }
     // forward pass; keeps activations when `keep` is set (for training)
     forward(s, acts, keep) {
-      const p = this.p, { S, A } = dims();
+      const p = this.p, { S, A } = dims(), { H, HV, HP } = this.size;
       const dense = (x, W, bias, I, O, relu) => {
         const y = new Float32Array(O);
         y.set(bias);
@@ -179,7 +182,7 @@
     }
     // accumulate gradients for one sample: value target z in [-1,1], policy target pi (sums to 1)
     backward(fw, z, pi, G, wv) {
-      const p = this.p, { S, A } = dims();
+      const p = this.p, { S, A } = dims(), { H, HV, HP } = this.size;
       const addOuter = (Gw, x, dy, I, O) => { for (let i = 0; i < I; i++) { const xi = x[i]; if (xi === 0) continue; const r = i * O; for (let j = 0; j < O; j++) Gw[r + j] += xi * dy[j]; } };
       const back = (dy, W, I, O) => { const dx = new Float32Array(I); for (let i = 0; i < I; i++) { let s = 0; const r = i * O; for (let j = 0; j < O; j++) s += W[r + j] * dy[j]; dx[i] = s; } return dx; };
       const addv = (Gb, d) => { for (let j = 0; j < d.length; j++) Gb[j] += d[j]; };

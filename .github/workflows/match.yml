@@ -28,6 +28,9 @@ on:
       sims:
         description: Search simulations per world (empty = 24, as in training)
         default: ''
+      ms:
+        description: Thinking time per decision in ms instead of a simulation count (fair between network sizes)
+        default: ''
 
 permissions:
   contents: read
@@ -46,7 +49,7 @@ jobs:
       - name: Play
         run: |
           if [ -n "$B_REF" ]; then git show "$B_REF:js/az-weights.js" > old-hokage.js; B=old-hokage.js; fi
-          node tools/az-ci.js match games="$GAMES" a="$A" b="$B" mix="$MIX" worlds="$WORLDS" sims="$SIMS"
+          node tools/az-ci.js match games="$GAMES" a="$A" b="$B" mix="$MIX" worlds="$WORLDS" sims="$SIMS" ms="$MS"
         env:
           GAMES: ${{ inputs.games }}
           A: ${{ inputs.a }}
@@ -55,3 +58,4 @@ jobs:
           MIX: ${{ inputs.mix }}
           WORLDS: ${{ inputs.worlds }}
           SIMS: ${{ inputs.sims }}
+          MS: ${{ inputs.ms }}

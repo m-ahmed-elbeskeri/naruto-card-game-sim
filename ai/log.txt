@@ -46,3 +46,4 @@
 [2026-10-14 21:17:05] iter 36: 600000 samples, train 49s loss v=0.675 p=1.130 | vs champion 54.0% (200 games: rb 50% (104) / rr 59% (41) / bb 58% (55)) | vs Kage 94.5% (200 games: rb 95% (106) / rr 98% (44) / bb 90% (50))
 [2026-10-14 21:46:13] iter 37: 600000 samples, train 44s loss v=0.669 p=1.120 | vs champion 48.0% (200 games: rb 46% (116) / rr 41% (37) / bb 60% (47)) | vs Kage 96.0% (200 games: rb 94% (99) / rr 98% (49) / bb 98% (52))
 [2026-10-14 22:14:47] iter 38: 600000 samples, train 39s loss v=0.677 p=1.120 | vs champion 54.0% (200 games: rb 59% (92) / rr 46% (54) / bb 54% (54)) | vs Kage 94.0% (200 games: rb 93% (106) / rr 94% (49) / bb 96% (45))
+[2026-10-17 14:59:56] network widened to 256/128/128 (trunk/value/policy) by tools/az-widen.js, starting from generation 11 (the live network; identical play at the start). Champion reset to generation 11, so the gate measures progress against the live bot; the next promotion is numbered gen 13.

@@ -6,7 +6,9 @@
 //   node tools/az-ci.js match [games=400] [a=ai/best.json] [b=js/az-weights.js | b=genin|chunin|jonin|kage] [threads=4]
 //       plays network a against network b, or against one of the heuristic levels (default: the champion against the
 //       network the site ships), and prints a's score: overall, per matchup, per deck side and per turn order;
-//       worlds= / sims= change the search both players use (default 8 x 24, as in training)
+//       worlds= / sims= change the search both players use (default 8 x 24, as in training); ms= gives both players
+//       the same thinking time per decision instead, as the browser does, which is the fair test between networks
+//       of different sizes (a larger one searches less in the same time)
 // Decks: every stage takes mix=<share of mirror matches> (default 0.5: half red against blue, a quarter each red
 // and blue mirror), so the bot is trained and judged on every matchup the two decks allow.
 // The game workers are the ones in az-train.js.
@@ -150,14 +152,15 @@ async function match() {
   const read = f => { const t = fs.readFileSync(path.resolve(__dirname, '..', f), 'utf8'); return AZ.Net.fromJSON(JSON.parse(f.endsWith('.js') ? t.slice(t.indexOf('{', t.indexOf('AZ_WEIGHTS')), t.lastIndexOf('}') + 1) : t)); };
   const a = args.a || 'ai/best.json', b = args.b || 'js/az-weights.js', games = +(args.games || 400), level = ['genin', 'chunin', 'jonin', 'kage'].includes(b) ? b : null;
   const pool = new Pool(THREADS); pool.setNet('a', read(a)); if (!level) pool.setNet('b', read(b));
-  const search = Object.assign({}, SEARCH, +args.worlds ? { worlds: +args.worlds } : {}, +args.sims ? { sims: +args.sims } : {});
-  log(`match: ${a} vs ${b}, ${games} games, ${THREADS} threads, ${Math.round(MIX * 100)}% mirror matches, search ${search.worlds} worlds x ${search.sims} sims`);
+  const search = Object.assign({}, SEARCH, +args.worlds ? { worlds: +args.worlds } : {}, +args.sims ? { sims: +args.sims } : {}, +args.ms ? { ms: +args.ms } : {});
+  const how = search.ms ? `${search.worlds} x ${search.ms} ms` : `${search.worlds} x ${search.sims}`;
+  log(`match: ${a} vs ${b}, ${games} games, ${THREADS} threads, ${Math.round(MIX * 100)}% mirror matches, search ${how}`);
   let done = 0;
   const rs = await Promise.all(Array.from({ length: games }, (_, i) => pool.run({ type: 'arena', a: 'a', b: level ? null : 'b', level, seat: i % 2, search, mix: MIX }).then(r => { if (++done % 100 === 0) log(`${done}/${games}`); return r; })));
   pool.close();
   const ok = rs.filter(r => !r.error), n = ok.length, p = ok.reduce((t, r) => t + r.win, 0) / Math.max(1, n), ci = 196 * Math.sqrt(p * (1 - p) / Math.max(1, n));
   if (n < games) log('match errors', games - n, (rs.find(r => r.error).error || '').slice(0, 300));
-  const msg = `MATCH RESULT: ${a} scores ${(p * 100).toFixed(1)}% (95% interval +-${ci.toFixed(1)}) against ${b} over ${n} games (search ${search.worlds} x ${search.sims}) | ${split(ok)} | ${sides(ok)}`;
+  const msg = `MATCH RESULT: ${a} scores ${(p * 100).toFixed(1)}% (95% interval +-${ci.toFixed(1)}) against ${b} over ${n} games (search ${how}) | ${split(ok)} | ${sides(ok)}`;
   log(msg);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, msg + '\n');
   if (!n) process.exit(1);
