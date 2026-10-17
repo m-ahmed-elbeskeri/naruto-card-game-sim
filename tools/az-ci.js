@@ -1,8 +1,10 @@
 // Staged training for the Hokage bot, built to run on CI where one machine is small but many can run at once.
-//   node tools/az-ci.js selfplay minutes=40 out=sp-1.bin.gz [threads=4] [games=0]
-//       plays self-play games with ai/cur.json (or ai/best.json) until the time is up and writes the samples
-//   node tools/az-ci.js learn in=sp [steps=3000] [gate=200] [kage=200] [threads=4]
-//       trains on every sample file under `in`, gates the result against the champion, and updates ai/
+//   node tools/az-ci.js selfplay minutes=40 out=sp-1.bin.gz [sims=48] [threads=4] [games=0]
+//       plays self-play games with ai/cur.json (or ai/best.json) until the time is up and writes the samples;
+//       sims= is the search per world (8 worlds), deeper than the gate's 24 so the moves learned from are sharper
+//   node tools/az-ci.js learn in=sp [steps=3000] [lr=0.0003] [sims=48] [gate=200] [kage=200] [threads=4]
+//       trains on every sample file under `in`, gates the result against the champion (always at 8 x 24), and
+//       updates ai/; sims= only labels the log line with the self-play search
 //   node tools/az-ci.js match [games=400] [a=ai/best.json] [b=js/az-weights.js | b=genin|chunin|jonin|kage] [threads=4]
 //       plays network a against network b, or against one of the heuristic levels (default: the champion against the
 //       network the site ships), and prints a's score: overall, per matchup, per deck side and per turn order;
@@ -22,7 +24,8 @@ const args = Object.fromEntries(process.argv.slice(3).map(a => a.split('=')));
 const DIR = process.env.AZ_DIR || path.join(__dirname, '..', 'ai');
 const THREADS = +(args.threads || os.cpus().length);
 const SEARCH = { worlds: 8, sims: 24, cpuct: 1.6 }, NOISE = { alpha: 0.3, eps: 0.25 }, TEMP_MOVES = 12;
-const BATCH = 128, LR = 1e-3, GATE_WIN = 0.55, BUFFER_MAX = 600000; // the cap keeps the learn stage inside a CI runner's memory
+const SP_SEARCH = Object.assign({}, SEARCH, { sims: +args.sims || 48 }); // self-play only
+const BATCH = 128, LR = +args.lr || 3e-4, GATE_WIN = 0.55, BUFFER_MAX = 600000; // the cap keeps the learn stage inside a CI runner's memory
 const MIX = args.mix == null || args.mix === '' ? 0.5 : Math.max(0, Math.min(1, +args.mix));
 // score per matchup, e.g. "rb 61% (402) / rr 58% (199) / bb 57% (199)"
 const cell = (rs, label) => rs.length ? `${label} ${(100 * rs.reduce((t, r) => t + r.win, 0) / rs.length).toFixed(0)}% (${rs.length})` : '';
@@ -85,12 +88,12 @@ async function selfplay() {
   const pool = new Pool(THREADS); pool.setNet('cur', net);
   const end = Date.now() + (+(args.minutes || 40)) * 60000, max = +(args.games || 0);
   const samples = []; let games = 0, turns = 0, errs = 0, started = 0;
-  log(`selfplay: ${THREADS} threads, ${args.minutes || 40} min, ${Math.round(MIX * 100)}% mirror matches`);
+  log(`selfplay: ${THREADS} threads, ${args.minutes || 40} min, ${Math.round(MIX * 100)}% mirror matches, search ${SP_SEARCH.worlds} x ${SP_SEARCH.sims}`);
   const seen = { rb: 0, rr: 0, bb: 0 };
   const one = async () => {
     while (Date.now() < end && (!max || started < max)) {
       started++;
-      const r = await pool.run({ type: 'selfplay', search: SEARCH, noise: NOISE, tempMoves: TEMP_MOVES, mix: MIX });
+      const r = await pool.run({ type: 'selfplay', search: SP_SEARCH, noise: NOISE, tempMoves: TEMP_MOVES, mix: MIX });
       if (r.error) { if (++errs < 3) log('selfplay error', r.error.slice(0, 400)); continue; }
       for (const x of r.samples) samples.push(x); games++; turns += r.turns; seen[r.matchup]++;
       if (games % 20 === 0) log(`${games} games, ${samples.length} samples`);
@@ -138,7 +141,7 @@ async function learn() {
   const gate = +(args.gate || 200), kage = +(args.kage || 200);
   const sb = {}, sk = {}, vb = await arena(pool, 'cur', 'best', gate, sb), vk = await arena(pool, 'cur', null, kage, sk);
   pool.close();
-  let msg = `iter ${state.iter}: ${buffer.length} samples, train ${((t1 - t0) / 1000).toFixed(0)}s loss v=${loss.v} p=${loss.p} | vs champion ${(vb * 100).toFixed(1)}% (${gate} games: ${sb.text}) | vs Kage ${(vk * 100).toFixed(1)}% (${kage} games: ${sk.text})`;
+  let msg = `iter ${state.iter}: ${buffer.length} samples (self-play ${SP_SEARCH.worlds} x ${SP_SEARCH.sims}), train ${((t1 - t0) / 1000).toFixed(0)}s lr ${LR} loss v=${loss.v} p=${loss.p} | vs champion ${(vb * 100).toFixed(1)}% (${gate} games: ${sb.text}) | vs Kage ${(vk * 100).toFixed(1)}% (${kage} games: ${sk.text})`;
   if (vb >= GATE_WIN) { state.gen++; best = cur; fs.writeFileSync(path.join(DIR, 'best.json'), JSON.stringify(best.toJSON())); msg += ` -> NEW CHAMPION gen ${state.gen}`; }
   state.lastKage = vk; state.lastGate = vb;
   fs.writeFileSync(path.join(DIR, 'cur.json'), JSON.stringify(cur.toJSON()));

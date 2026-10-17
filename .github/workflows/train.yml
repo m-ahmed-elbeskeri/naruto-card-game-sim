@@ -18,6 +18,12 @@ on:
       mix:
         description: Share of mirror matches (red v red, blue v blue); the rest is red v blue
         default: '0.5'
+      sims:
+        description: Self-play search simulations per world (the gate always uses 24)
+        default: '48'
+      lr:
+        description: Learning rate
+        default: '0.0003'
 
 permissions:
   contents: write
@@ -51,10 +57,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node tools/az-ci.js selfplay minutes="$MINUTES" mix="$MIX" out="sp-${{ matrix.shard }}.bin.gz"
+      - run: node tools/az-ci.js selfplay minutes="$MINUTES" mix="$MIX" sims="$SIMS" out="sp-${{ matrix.shard }}.bin.gz"
         env:
           MINUTES: ${{ inputs.minutes }}
           MIX: ${{ inputs.mix }}
+          SIMS: ${{ inputs.sims }}
       - uses: actions/upload-artifact@v4
         with:
           name: sp-${{ matrix.shard }}
@@ -76,9 +83,11 @@ jobs:
           path: sp
           pattern: sp-*
           merge-multiple: true
-      - run: node --max-old-space-size=12000 tools/az-ci.js learn in=sp mix="$MIX"
+      - run: node --max-old-space-size=12000 tools/az-ci.js learn in=sp mix="$MIX" sims="$SIMS" lr="$LR"
         env:
           MIX: ${{ inputs.mix }}
+          SIMS: ${{ inputs.sims }}
+          LR: ${{ inputs.lr }}
       - name: Commit the result
         run: |
           git config user.name "github-actions[bot]"
@@ -89,7 +98,7 @@ jobs:
           git push
       - name: Start the next iteration
         if: ${{ inputs.remaining > 1 }}
-        run: gh workflow run train.yml -f remaining=$(( REMAINING - 1 )) -f shards="$SHARDS" -f minutes="$MINUTES" -f mix="$MIX"
+        run: gh workflow run train.yml -f remaining=$(( REMAINING - 1 )) -f shards="$SHARDS" -f minutes="$MINUTES" -f mix="$MIX" -f sims="$SIMS" -f lr="$LR"
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -97,3 +106,5 @@ jobs:
           SHARDS: ${{ inputs.shards }}
           MINUTES: ${{ inputs.minutes }}
           MIX: ${{ inputs.mix }}
+          SIMS: ${{ inputs.sims }}
+          LR: ${{ inputs.lr }}
