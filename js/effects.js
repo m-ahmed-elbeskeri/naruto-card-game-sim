@@ -12,7 +12,7 @@
   async function pickUnit(c, options, prompt, o) {
     o = o || {};
     if (!options.length) return null;
-    return c.g.choose({ player: o.chooser != null ? o.chooser : c.pi, kind: 'unit', options, prompt, optional: !o.must, ai: o.ai || harm(c.g, c.pi) });
+    return c.g.choose({ player: o.chooser != null ? o.chooser : c.pi, kind: 'unit', options, prompt, optional: !o.must, cancel: !!o.cancel, ai: o.ai || harm(c.g, c.pi) });
   }
   async function revealTop(c) {
     const P = c.g.p(c.pi);
@@ -90,8 +90,8 @@
       run: async c => {
         const g = c.g;
         const ai = u => help(g, c.pi)(u) + (u.owner === c.pi && g.pow(u) < 10 && g.pow(u) + 3 >= 10 ? 6 : 0) + (u.owner === c.pi && g.canAttack(u) ? 3 : 0);
-        const t = await pickUnit(c, allChars(g), 'Naruto: choose 1 Character to get +3 power this turn', { must: true, ai });
-        if (!t) return;
+        const t = await pickUnit(c, allChars(g), 'Naruto: choose 1 Character to get +3 power this turn', { must: true, cancel: true, ai });
+        if (!t) return false; // cancelled: nothing paid
         await c.g.payChakra(c.pi, 1, c.g.p(c.pi).leader.uid);
         await c.g.emit('jutsu', { id: 'N-001', player: c.pi, src: c.g.p(c.pi).leader, targets: [t] });
         t.buffs.push({ pow: 3, until: 'turn' });

@@ -521,11 +521,15 @@
       this.popEl = pv;
     }
     closePop() { if (this.popEl) { this.popEl.remove(); this.popEl = null; hidePreview(true); } }
-    cancel() { this.closePop(); if (this.state === 'target') { this.state = 'main'; this.hidePrompt(); this.highlight(); } }
-    showPrompt(t, optional, onSkip) {
+    cancel() {
+      this.closePop();
+      if (this.state === 'target') { this.state = 'main'; this.hidePrompt(); this.highlight(); }
+      else if (this.state === 'choose' && this.req && this.req.cancel) this.resolveChoice(null); // backing out of a Leader effect or EX summon
+    }
+    showPrompt(t, optional, onSkip, skipLabel) {
       const p = $('#prompt');
       p.className = 'prompt show';
-      p.innerHTML = `<span class="p-lead">${NS.icon('target')} ${esc(t)}</span>${optional ? '<button class="btn small" id="pSkip">Skip</button>' : ''}`;
+      p.innerHTML = `<span class="p-lead">${NS.icon('target')} ${esc(t)}</span>${optional ? `<button class="btn small" id="pSkip">${skipLabel || 'Skip'}</button>` : ''}`;
       if (optional) $('#pSkip').onclick = ev => { ev.stopPropagation(); onSkip(); };
     }
     hidePrompt() { $('#prompt').className = 'prompt'; }
@@ -657,7 +661,7 @@
         this.req = req;
         if (req.kind === 'unit') {
           this.state = 'choose';
-          this.showPrompt(req.prompt, req.optional, () => this.resolveChoice(null));
+          this.showPrompt(req.prompt + (req.cancel ? ' (right-click to cancel)' : ''), req.optional || req.cancel, () => this.resolveChoice(null), req.cancel && !req.optional ? 'Cancel' : 'Skip');
           this.highlight();
           return;
         }

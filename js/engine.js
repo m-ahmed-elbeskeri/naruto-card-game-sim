@@ -316,8 +316,9 @@
           for (let i = 0; i < reqs.length; i++) {
             const sets = this.exTributeSets(pi, a.card.card).filter(s => chosen.every((c, j) => s[j] === c));
             const uniq = [...new Set(sets.map(s => s[i]))];
-            const u = uniq.length === 1 ? uniq[0] : await this.choose({ player: pi, kind: 'unit', options: uniq, prompt: `Summon Requirements for ${a.card.card.name}: choose Character ${i + 1}/${reqs.length} to place in your trash`, must: true, ai: x => -NS.AI.unitValue(this, x) });
-            chosen.push(u || uniq[0]);
+            const u = uniq.length === 1 ? uniq[0] : await this.choose({ player: pi, kind: 'unit', options: uniq, prompt: `Summon Requirements for ${a.card.card.name}: choose Character ${i + 1}/${reqs.length} to place in your trash`, must: true, cancel: true, ai: x => -NS.AI.unitValue(this, x) });
+            if (!u) { this.say(`${P.name} cancels the EX summon.`, 'sys'); return; } // nothing has been placed in the trash yet
+            chosen.push(u);
           }
           if (this.house.exUsesSummonCard) { P.summonRested = true; await this.emit('summonCard', { player: pi }); }
           this.say(`${P.name} fulfils the Summon Requirements of ${a.card.card.name}!`, 'ex');
@@ -335,7 +336,13 @@
           await this.emit('set', { player: pi, sup: a.card });
           break;
         case 'support': await this.activateSupport(pi, a.sup, { kind: 'main' }); break;
-        case 'leaderAbility': await this.safe(() => NS.LEADER[P.leader.card.id].run(this.ctx(pi, P.leader))); await this.responseWindow(1 - pi, { kind: 'effect' }); break;
+        case 'leaderAbility': {
+          let used = true; // false: the player cancelled it before paying anything, so there is nothing to respond to
+          await this.safe(async () => { used = (await NS.LEADER[P.leader.card.id].run(this.ctx(pi, P.leader))) !== false; });
+          if (used) await this.responseWindow(1 - pi, { kind: 'effect' });
+          else this.say(`${P.name} cancels.`, 'sys');
+          break;
+        }
         case 'recovery':
           P.leader.rested = true;
           P.chakra = [true, true, true, true, true];

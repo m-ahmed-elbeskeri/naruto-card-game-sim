@@ -61,7 +61,20 @@ body.on-title .t-wall { display: block; }
 @keyframes rasPulse { 50% { transform: scale(1.18); opacity: .8; } }
 .blade-glint { position: absolute; left: 60%; top: 2%; width: 26%; height: 5px; transform: rotate(33deg); transform-origin: 0 50%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .95), transparent); background-size: 30% 100%; background-repeat: no-repeat; animation: glint 4.5s ease-in-out infinite; }
 @keyframes glint { 0%, 70% { background-position: -40% 0; } 100% { background-position: 140% 0; } }
-.t-particles { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* menu embers and Rasengan motes: compositor-only animations (transform / opacity) on small elements */
+.t-embers { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.t-embers i { position: absolute; bottom: -20px; will-change: transform; animation: emberRise0 14s linear infinite; }
+.t-embers i.e1 { animation-name: emberRise1; } .t-embers i.e2 { animation-name: emberRise2; }
+.t-embers b { display: block; width: 100%; height: 100%; border-radius: 50%; background: radial-gradient(circle, #ffe2b8 0, rgba(255, 138, 42, .85) 30%, transparent 68%); animation: emberFlick 2.4s ease-in-out infinite alternate; }
+.t-embers b.pale { background: radial-gradient(circle, #fff6dc 0, rgba(255, 179, 71, .85) 30%, transparent 68%); }
+@keyframes emberRise0 { to { transform: translate(38vw, -112vh); } }
+@keyframes emberRise1 { to { transform: translate(62vw, -112vh); } }
+@keyframes emberRise2 { to { transform: translate(22vw, -112vh); } }
+@keyframes emberFlick { from { opacity: .15; } to { opacity: .85; } }
+.ras-orbit { position: absolute; left: 57%; top: 15.5%; width: 0; height: 0; transform: scaleY(.45); pointer-events: none; }
+.ras-orbit i { position: absolute; left: 0; top: 0; width: 0; height: 0; animation: swirlSpin 3s linear infinite; }
+.ras-orbit i::after { content: ''; position: absolute; left: var(--r); top: calc(var(--s) / -2); width: var(--s); height: var(--s); border-radius: 50%; background: radial-gradient(circle, #eef9ff 0, rgba(106, 200, 255, .85) 30%, transparent 70%); }
+body.lowfx .t-embers { display: none; }
 .t-shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(14, 14, 18, .82) 0%, rgba(14, 14, 18, .6) 30%, rgba(14, 14, 18, .25) 46%, transparent 62%), radial-gradient(ellipse at 50% 120%, rgba(0, 0, 0, .6), transparent 60%); }
 #screen-title .logo, #screen-title .menu, #screen-title .footer-note { z-index: 4; }
 @keyframes keyIn { from { opacity: 0; transform: translateX(120px) scale(1.05); } }
@@ -69,7 +82,8 @@ body.on-title .t-wall { display: block; }
 #screen-title .logo img { width: 440px; filter: drop-shadow(0 6px 16px rgba(0, 0, 0, .5)); animation: fadeIn 1s .2s both; }
 #screen-title .logo .sub { margin-top: 12px; font-family: var(--display); font-size: 22px; letter-spacing: 6px; color: #fff; text-transform: uppercase; text-shadow: 0 2px 8px rgba(0, 0, 0, .7); }
 #screen-title .logo .pre { display: inline-block; margin-top: 8px; padding: 4px 12px; background: var(--orange); color: #111; font-weight: 900; letter-spacing: 3px; font-size: 13px; }
-.menu { position: absolute; left: 170px; top: 324px; display: flex; flex-direction: column; gap: 10px; width: 380px; z-index: 3; }
+.menu { position: absolute; left: 170px; top: 318px; display: flex; flex-direction: column; gap: 8px; width: 380px; z-index: 3; }
+.menu .btn { padding-top: 10px; padding-bottom: 10px; } /* eight buttons clear the footer line */
 .btn { position: relative; cursor: pointer; padding: 13px 22px; font-family: var(--display); font-size: 22px; letter-spacing: 3px; text-transform: uppercase; color: #fff; background: rgba(18, 18, 23, .88); border: 2px solid rgba(255, 255, 255, .15); border-left: 6px solid var(--orange); transition: transform .15s, background .2s, border-color .2s; text-align: left; }
 .btn:hover { transform: translateX(8px); background: var(--orange); border-color: var(--orange2); color: #111; }
 .btn.primary { background: var(--orange); color: #111; border-color: var(--orange2); }
@@ -421,7 +435,7 @@ body.lowfx .result .r-motes { display: none; }
 @keyframes bannerSheen { from { background-position: 150% 0; } to { background-position: -100% 0; } }
 
 /* user-supplied live wallpaper (backgrounds/menu.mp4|webm) */
-.t-video { position: absolute; left: -4%; top: -4%; width: 108%; height: 108%; object-fit: cover; display: none; transform: translate(calc(var(--mx) * -30px), calc(var(--my) * -20px)) scale(1.02); transition: transform .3s ease-out; }
+.t-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
 .t-wall.has-video .t-video { display: block; }
 .t-wall.has-video .t-swirl, .t-wall.has-video .t-rays, .t-wall.has-video .keyart-wrap { display: none; }
 .t-wall.has-video .t-shade { background: linear-gradient(90deg, rgba(10, 10, 14, .72) 0%, rgba(10, 10, 14, .5) 30%, rgba(10, 10, 14, .2) 46%, transparent 64%), radial-gradient(ellipse at 50% 120%, rgba(0, 0, 0, .5), transparent 60%); }

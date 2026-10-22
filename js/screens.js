@@ -35,7 +35,8 @@
     $('#tSwirl').style.backgroundImage = `url('${NS.ASSETS.swirl}')`;
     const wall = $('.t-wall');
     window.addEventListener('mousemove', e => {
-      if (!document.body.classList.contains('on-title') || document.hidden) return;
+      // parallax for the key art; the menu video stays still (moving a full-screen video every frame halved the frame rate)
+      if (!document.body.classList.contains('on-title') || document.hidden || wall.classList.contains('has-video')) return;
       const lowfx = document.body.classList.contains('lowfx');
       const r = wall.getBoundingClientRect();
       wall.style.setProperty('--mx', ((e.clientX - r.left) / r.width - .5).toFixed(3));
@@ -57,40 +58,16 @@
       NS.FX.chakra(e.clientX, e.clientY, { color: '#ffb347', count: 30 });
     });
   }
-  // embers + chakra motes orbiting the Rasengan
+  // Embers drifting up, and chakra motes orbiting the Rasengan. They are small elements moved by CSS animations, which
+  // the browser runs without repainting anything: the full-screen canvas this used to be was redrawn every frame and
+  // cost ~20 ms a frame over the menu video, so the menu ran at ~30 fps with stalls.
   function titleParticles() {
-    const cv = $('#tParticles'), ctx = cv.getContext('2d');
-    let W = cv.width = window.innerWidth, H = cv.height = window.innerHeight;
-    window.addEventListener('resize', () => { W = cv.width = window.innerWidth; H = cv.height = window.innerHeight; });
-    const P = [];
-    for (let i = 0; i < 55; i++) P.push({ x: Math.random() * W, y: Math.random() * H, vx: .3 + Math.random() * 1.2, vy: -.2 - Math.random() * .8, s: 1 + Math.random() * 2.6, a: Math.random(), h: 20 + Math.random() * 25 });
-    const orb = [];
-    for (let i = 0; i < 28; i++) orb.push({ ang: Math.random() * 6.28, r: 40 + Math.random() * 90, sp: .03 + Math.random() * .05, s: 1 + Math.random() * 2 });
-    function frame(t) {
-      requestAnimationFrame(frame);
-      if (!document.body.classList.contains('on-title') || document.hidden) return;
-      const lowfx = document.body.classList.contains('lowfx');
-      ctx.clearRect(0, 0, W, H);
-      ctx.globalCompositeOperation = 'lighter';
-      for (const p of P) {
-        p.x += p.vx; p.y += p.vy + Math.sin(t / 900 + p.x / 90) * .2; p.a += .01;
-        if (p.x > W + 10 || p.y < -10) { p.x = Math.random() * W * .6; p.y = H + 10; }
-        if (lowfx) continue;
-        ctx.globalAlpha = .35 + Math.sin(p.a) * .3;
-        ctx.drawImage(NS.FX.glowSprite(p.h < 32 ? '#ff8a2a' : '#ffb347'), p.x - p.s * 3, p.y - p.s * 3, p.s * 6, p.s * 6);
-      }
-      // rasengan orbit (key-art space -> stage space)
-      const rb = $('.rasengan').getBoundingClientRect();
-      const cx = rb.left, cy = rb.top;
-      for (const o of orb) {
-        o.ang += o.sp;
-        const x = cx + Math.cos(o.ang) * o.r, y = cy + Math.sin(o.ang) * o.r * .45;
-        ctx.globalAlpha = .85;
-        ctx.drawImage(NS.FX.glowSprite('#6ac8ff'), x - o.s * 3, y - o.s * 3, o.s * 6, o.s * 6);
-      }
-      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-    }
-    requestAnimationFrame(frame);
+    const rnd = (a, b) => a + Math.random() * (b - a), f = (x, n) => x.toFixed(n == null ? 1 : n);
+    $('#tEmbers').innerHTML = Array.from({ length: 22 }, (_, i) => { // ~2x this many animated layers made Intel graphics drop to ~35 fps
+      const s = rnd(5, 15), d = rnd(9, 22);
+      return `<i class="e${i % 3}" style="left:${f(rnd(-8, 62))}%;width:${f(s)}px;height:${f(s)}px;animation-duration:${f(d)}s;animation-delay:-${f(rnd(0, d))}s"><b class="${i % 4 ? '' : 'pale'}" style="animation-duration:${f(rnd(1.4, 3.2))}s;animation-delay:-${f(rnd(0, 3))}s"></b></i>`;
+    }).join('');
+    $('#tOrbit').innerHTML = Array.from({ length: 24 }, () => { const d = rnd(1.4, 3.6); return `<i style="--r:${f(rnd(40, 130), 0)}px;--s:${f(rnd(6, 16), 0)}px;animation-duration:${f(d, 2)}s;animation-delay:-${f(rnd(0, d), 2)}s"></i>`; }).join('');
   }
 
   // ---------------- decks ----------------
