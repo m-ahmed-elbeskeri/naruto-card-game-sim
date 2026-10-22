@@ -164,7 +164,7 @@
       controllers: [D.human(ui.controllerFor(0)), D.rival()],
       leaders: [NS.Cards.byId['N-001'], NS.Cards.byId['N-012']],
       decks: [stacked('st-red', ['N-007', 'N-008', 'N-005', 'N-006', 'N-018', 'N-004', 'N-003', 'N-011', 'N-002', 'N-009']), stacked('st-blue', ['N-019', 'N-010', 'N-021', 'N-017', 'N-013', 'N-015', 'N-020', 'N-022', 'N-014', 'N-016'])],
-      noShuffle: true, first: 0,
+      noShuffle: true, first: 0, tutorial: true, // not kept as a replay
     });
     ui.setGame(g);
     NS.Screens.setGame(g, ui);

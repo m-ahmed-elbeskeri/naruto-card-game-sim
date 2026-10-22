@@ -20,7 +20,7 @@
     if (id !== 'game') {
       document.querySelectorAll('.coach').forEach(e => e.remove());
       document.querySelectorAll('.coach-focus').forEach(e => e.classList.remove('coach-focus'));
-      document.querySelectorAll('.cutin, .phase-banner, .speedlines, .atk-overlay, .outcome, .afterimage, .resp-pill, .clock').forEach(e => e.remove());
+      document.querySelectorAll('.cutin, .phase-banner, .speedlines, .atk-overlay, .outcome, .afterimage, .resp-pill, .clock, .replay-bar').forEach(e => e.remove());
       $('#modalBack').classList.remove('show');
     }
     document.querySelectorAll('.popover').forEach(e => e.remove()); NS.View.hidePreview(true);
@@ -149,7 +149,7 @@
     if (game) game.abort();
     ui = new NS.GameUI({ humans: [true, setup.hot], hotseat: setup.hot });
     game = new NS.Game({
-      names, ui, house: NS.house,
+      names, ui, house: NS.house, ai: setup.hot ? null : setup.lv,
       controllers: [ui.controllerFor(0), setup.hot ? ui.controllerFor(1) : setup.lv === 'hokage' && NS.AZ ? NS.AZ.hokage() : new NS.AI.AIController(setup.lv)],
       leaders: defs.map(d => NS.Cards.byId[d.leader]),
       decks: defs.map(NS.Cards.expand),
@@ -174,6 +174,7 @@
   // back from "View board" to the result screen (the End Turn button reads "Results" once the match is over)
   function reopenResult() { const r = $('#result'); if (r.innerHTML) r.classList.add('show'); }
   function showResult(g, d, ui) {
+    const rec = NS.Replay ? NS.Replay.save(g, d, ui) : null;
     const w = d.winner, hot = !!ui.opts.hotseat;
     const humanWin = hot ? true : w === ui.viewPi;
     const online = !!ui.opts.online;
@@ -198,7 +199,7 @@
           <div class="r-head">${side(me)}<div class="r-vs">VS</div>${side(op)}</div>
           ${rows.map(([lbl, f], k) => `<div class="r-row" style="--k:${k}"><b data-n="${f(me)}">0</b><span>${lbl}</span><b data-n="${f(op)}">0</b></div>`).join('')}
         </div>
-        <div class="row-btns">${online ? '<button class="btn primary" id="rA">Online lobby</button>' : '<button class="btn primary" id="rA">Rematch</button>'}<button class="btn" id="rM">Main menu</button><button class="btn ghost" id="rB">View board</button></div>
+        <div class="row-btns">${online ? '<button class="btn primary" id="rA">Online lobby</button>' : '<button class="btn primary" id="rA">Rematch</button>'}<button class="btn" id="rM">Main menu</button><button class="btn ghost" id="rB">View board</button>${rec ? '<button class="btn ghost" id="rR">Watch replay</button>' : ''}</div>
       </div>`;
     NS.Audio.jingle(humanWin ? 'victory' : 'defeat');
     // count the numbers up once the table has slid in
@@ -212,6 +213,7 @@
     $('#rA').onclick = () => { r.classList.remove('show'); if (online) { NS.Net.leave(); NS.Audio.playTrack('title'); return NS.Net.open(); } startGame(); };
     $('#rM').onclick = () => { r.classList.remove('show'); if (online) NS.Net.leave(); show('title'); NS.Audio.playTrack('title'); };
     $('#rB').onclick = () => { r.classList.remove('show'); ui.toast('Press <b>Results</b> to go back to the result screen'); };
+    if (rec) $('#rR').onclick = () => { if (online) NS.Net.leave(); NS.Replay.watch(rec.id); };
   }
 
   // ---------------- gallery ----------------
@@ -378,8 +380,9 @@
       else if (go === 'builder') openBuilder();
       else if (go === 'gallery') openGallery();
       else if (go === 'settings') openSettings();
+      else if (go === 'replays') NS.Replay.openList();
       else show(go);
     });
   }
-  NS.Screens = { init, show, confirmQuit, showResult, reopenResult, store, decks: allDecks, deckById, setGame(g, u) { if (game) game.abort(); game = g; ui = u; } };
+  NS.Screens = { init, show, confirmQuit, showResult, reopenResult, store, alert: alertModal, decks: allDecks, deckById, setGame(g, u) { if (game) game.abort(); game = g; ui = u; } };
 })();

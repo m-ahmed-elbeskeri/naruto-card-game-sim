@@ -138,9 +138,9 @@
   // =====================================================================
   class GameUI {
     constructor(opts) {
-      this.opts = opts;           // {humans:[bool,bool], hotseat}
+      this.opts = opts;           // {humans:[bool,bool], hotseat, online} or, watching a replay, {humans:[false,false], view, replay, reveal}
       this.root = $('#gb');
-      this.viewPi = opts.humans[0] ? 0 : 1;
+      this.viewPi = opts.view != null ? opts.view : opts.humans[0] ? 0 : 1;
       this.state = 'idle';
       this.acts = [];
       this.build();
@@ -186,7 +186,8 @@
       $('#logBtn').onclick = () => $('#logPanel').classList.toggle('open');
       $('#sndBtn').onclick = () => { NS.Audio.setMusic(!NS.Audio.musicOn); NS.settings.save({ music: NS.Audio.musicOn }); };
       $('#spdBtn').onclick = () => { NS.settings.cycleSpeed(); this.toast(`Animation speed: ${NS.settings.speed}`); };
-      $('#quitBtn').onclick = () => NS.Screens.confirmQuit();
+      $('#quitBtn').onclick = () => this.opts.replay ? this.opts.replay.exit() : NS.Screens.confirmQuit();
+      this.root.classList.toggle('replay', !!this.opts.replay);
       this.root.addEventListener('mousemove', e => {
         this._hv = e;
         if (this._hvq) return;
@@ -324,6 +325,7 @@
         if (!s) { h += `<div class="slot" style="width:76px;height:106px;border:1px dashed rgba(240,124,20,.18);border-radius:4px"></div>`; continue; }
         const mine = pi === this.viewPi;
         if (g.chain.some(l => l.sup === s)) { h += `<div class="slot ${side} sup live" data-k="${s.iid}" data-sup="${s.iid}">${cardHTML(s.card, { w: 76 })}</div>`; continue; }
+        if (this.opts.reveal) { h += `<div class="slot ${side} sup rv" data-k="${s.iid}" data-sup="${s.iid}">${cardHTML(s.card, { w: 76 })}</div>`; continue; }
         h += `<div class="slot ${side} sup" data-k="${s.iid}" data-sup="${s.iid}">${backHTML('', 76)}${mine ? `<div class="peek">${cardHTML(s.card, { w: 64 })}</div>` : ''}</div>`;
       }
       h += `</div>`;
@@ -356,7 +358,8 @@
       const tt = P.trash[P.trash.length - 1];
       h += `<div class="pile trash" data-pile="trash-${pi}" style="left:122px;top:${dY}px">${tt ? cardHTML(tt.card, { w: 96 }) : '<div class="empty">TRASH</div>'}<div class="cnt">TRASH ${P.trash.length}</div></div>`;
       if (top) {
-        h += `<div style="position:absolute;left:16px;top:176px;display:flex">${P.hand.map((c, i) => `<div data-k="${c.iid}" style="margin-right:-44px;transform:rotate(${(i - P.hand.length / 2) * 3}deg)">${backHTML('', 64)}</div>`).join('')}</div><div style="position:absolute;left:16px;top:272px;font-size:12px;font-weight:900;color:var(--dim);letter-spacing:2px">HAND ${P.hand.length}</div>`;
+        const rv = this.opts.reveal;
+        h += `<div style="position:absolute;left:16px;top:176px;display:flex">${P.hand.map((c, i) => `<div data-k="${c.iid}"${rv ? ` data-ohand="${c.iid}" class="ohand"` : ''} style="margin-right:-44px;transform:rotate(${(i - P.hand.length / 2) * 3}deg)">${rv ? cardHTML(c.card, { w: 64 }) : backHTML('', 64)}</div>`).join('')}</div><div style="position:absolute;left:16px;top:272px;font-size:12px;font-weight:900;color:var(--dim);letter-spacing:2px">HAND ${P.hand.length}</div>`;
       } else {
         const n = P.hand.length;
         const can = new Set(this.state === 'main' ? this.acts.filter(a => a.card).map(a => a.card.iid) : []);
@@ -415,6 +418,8 @@
       }
       const hand = e.target.closest('[data-hand]'), unit = e.target.closest('[data-unit]'), sup = e.target.closest('[data-sup]'), pile = e.target.closest('[data-pile^=trash]');
       if (hand) { const c = g.p(this.viewPi).hand.find(x => x.iid === hand.dataset.hand); if (c) return showPreview(c.card, e, this.handHint(c)); }
+      const oh = e.target.closest('[data-ohand]');
+      if (oh) { const P = g.p(1 - this.viewPi), c = P.hand.find(x => x.iid === oh.dataset.ohand); if (c) return showPreview(c.card, e, `In ${esc(P.name)}'s hand`); }
       if (unit) {
         const u = this.findUnit(unit.dataset.unit);
         if (u) {
@@ -424,7 +429,7 @@
           return showPreview(u.card, e, bits.join('<br>'), { pow: g.pow(u), dmg: g.dmg(u) });
         }
       }
-      if (sup) { const s = this.findSup(sup.dataset.sup); if (s && g.chain.some(l => l.sup === s)) return showPreview(s.card, e, 'Activated. Waiting to resolve.'); if (s && s.owner === this.viewPi) return showPreview(s.card, e, `Face-down in your Support Area. Activate for <b>${s.card.support.cost}</b> Chakra.`); }
+      if (sup) { const s = this.findSup(sup.dataset.sup); if (s && g.chain.some(l => l.sup === s)) return showPreview(s.card, e, 'Activated. Waiting to resolve.'); if (s && this.opts.reveal) return showPreview(s.card, e, `Face-down in ${esc(g.p(s.owner).name)}'s Support Area. Activates for <b>${s.card.support.cost}</b> Chakra.`); if (s && s.owner === this.viewPi) return showPreview(s.card, e, `Face-down in your Support Area. Activate for <b>${s.card.support.cost}</b> Chakra.`); }
       if (pile) { const pi = +pile.dataset.pile.split('-')[1]; const t = g.p(pi).trash; if (t.length) return showPreview(t[t.length - 1].card, e, `Trash: ${t.length} cards (click to view)`); }
       const ck = e.target.closest('[data-ck]'); if (ck) return showPreview(CHAKRA_CARD, e, `Face-up Chakra: <b>${g.faceUpChakra(+ck.dataset.ck[0])}</b>/5`);
       if (e.target.closest('[data-k^=SUM]')) return showPreview(SUMMON_CARD, e);
@@ -592,6 +597,33 @@
         },
       };
     }
+    // A choice window with the eye button: it tucks the window away behind a small pill so the whole board (trash piles
+    // included) can be inspected, and the pill brings it back. o.cls: window style; o.label: the pill's button;
+    // o.pill: extra markup above it; o.skip: { text, fn } for a second pill button. Returns close(), which also drops the pill.
+    peekModal(html, onMount, o) {
+      o = o || {};
+      let close = null, pill = null;
+      const drop = () => { if (pill) { pill.remove(); pill = null; } };
+      const show = () => {
+        drop();
+        close = modal(`<button class="resp-eye" title="Hide this window to look at the board">${NS.icon('eye')}</button>${html}`, m => {
+          $('.resp-eye', m).onclick = hide;
+          if (onMount) onMount(m);
+        }, o.cls);
+      };
+      const hide = () => {
+        if (close) { close(); close = null; }
+        hidePreview(true);
+        pill = document.createElement('div');
+        pill.className = 'resp-pill';
+        pill.innerHTML = `${o.pill || ''}<button class="rp-show">${NS.icon('eyeOff')}<span>${o.label || 'Show choice'}</span></button>${o.skip ? `<button class="rp-skip">${o.skip.text}</button>` : ''}`;
+        pill.querySelector('.rp-show').onclick = e => { e.stopPropagation(); NS.Audio.play('click'); show(); };
+        if (o.skip) pill.querySelector('.rp-skip').onclick = e => { e.stopPropagation(); o.skip.fn(); };
+        document.body.appendChild(pill);
+      };
+      show();
+      return () => { drop(); if (close) { close(); close = null; } };
+    }
     responseModal(win) {
       const g = this.g;
       let ctx;
@@ -610,28 +642,13 @@
         const P = g.p(this.viewPi), anyHand = win.options.some(s => P.hand.includes(s));
         const zone = s => { const h = P.hand.includes(s), slot = P.supports.indexOf(s) + 1; return { k: h ? 'hand' : 'sup', t: h ? 'From hand' : 'Support Area', note: h ? 'This copy is in your <b>hand</b>.' : `This copy is face-down in your <b>Support Area</b>${slot ? ` (slot ${slot})` : ''}.` }; };
         let open = true;
-        const done = v => { if (!open) return; open = false; this.respDone = null; const pill = document.querySelector('.resp-pill'); if (pill) pill.remove(); close(); res(v); };
+        const done = v => { if (!open) return; open = false; this.respDone = null; close(); res(v); };
         this.respDone = () => done(win.noSkip ? win.options[0] : null); // out of time (online clock)
-        this.respClose = () => { if (!open) return; open = false; this.respDone = null; const pill = document.querySelector('.resp-pill'); if (pill) pill.remove(); close(); };
-        const main = () => {
-          const pill = document.querySelector('.resp-pill'); if (pill) pill.remove();
-          close = modal(`<button class="resp-eye" id="respHide" title="Hide this panel to look at the board">${NS.icon('eye')}</button><h2>${win.kind === 'attack' ? (win.attack.pi === this.viewPi ? 'Your Attack' : 'Incoming Attack!') : win.kind === 'support' ? 'Support Activated!' : 'Support Cut-in'}</h2><p>${ctx}</p>${trigHTML}<div class="cards-row">${win.options.map((s, i) => { const z = zone(s); return `<div class="pickable" data-i="${i}" data-note="${esc(z.note)}">${cardHTML(s.card, { w: 170 })}${anyHand ? `<div class="lbl src z-${z.k}">${z.t}</div>` : ''}<div class="lbl">${esc(s.card.support.name)} · ${s.card.support.cost} Chakra<br><span class="tim">${esc(NS.TIMING[s.card.support.timing])}</span></div></div>`; }).join('')}</div><div class="row-btns">${win.noSkip ? '' : '<button class="btn" id="noResp">No response</button>'}</div>`, m => {
-            $$('.pickable', m).forEach(b => b.onclick = () => { NS.Audio.play('click'); done(win.options[+b.dataset.i]); });
-            const nr = $('#noResp', m); if (nr) nr.onclick = () => done(null);
-            $('#respHide', m).onclick = hide;
-          }, 'resp');
-        };
-        // eye toggle: tuck the panel away so the whole board (trash piles included) can be inspected
-        const hide = () => {
-          close();
-          const pill = document.createElement('div');
-          pill.className = 'resp-pill';
-          pill.innerHTML = `${trigHTML}<button class="rp-show">${NS.icon('eyeOff')}<span>Show response</span></button>${win.noSkip ? '' : '<button class="rp-skip">No response</button>'}`;
-          pill.querySelector('.rp-show').onclick = e => { e.stopPropagation(); NS.Audio.play('click'); main(); };
-          const sk = pill.querySelector('.rp-skip'); if (sk) sk.onclick = e => { e.stopPropagation(); done(null); };
-          document.body.appendChild(pill);
-        };
-        main();
+        this.respClose = () => { if (!open) return; open = false; this.respDone = null; close(); };
+        close = this.peekModal(`<h2>${win.kind === 'attack' ? (win.attack.pi === this.viewPi ? 'Your Attack' : 'Incoming Attack!') : win.kind === 'support' ? 'Support Activated!' : 'Support Cut-in'}</h2><p>${ctx}</p>${trigHTML}<div class="cards-row">${win.options.map((s, i) => { const z = zone(s); return `<div class="pickable" data-i="${i}" data-note="${esc(z.note)}">${cardHTML(s.card, { w: 170 })}${anyHand ? `<div class="lbl src z-${z.k}">${z.t}</div>` : ''}<div class="lbl">${esc(s.card.support.name)} · ${s.card.support.cost} Chakra<br><span class="tim">${esc(NS.TIMING[s.card.support.timing])}</span></div></div>`; }).join('')}</div><div class="row-btns">${win.noSkip ? '' : '<button class="btn" id="noResp">No response</button>'}</div>`, m => {
+          $$('.pickable', m).forEach(b => b.onclick = () => { NS.Audio.play('click'); done(win.options[+b.dataset.i]); });
+          const nr = $('#noResp', m); if (nr) nr.onclick = () => done(null);
+        }, { cls: 'resp', label: 'Show response', pill: trigHTML, skip: win.noSkip ? null : { text: 'No response', fn: () => done(null) } });
       });
     }
     humanChoose(req) {
@@ -646,18 +663,18 @@
         }
         this.state = 'modal';
         if (req.kind === 'mulligan') {
-          const close = this.chooseClose = modal(`<h2>Opening Hand</h2><p>${esc(req.prompt)}</p><div class="cards-row">${this.g.p(req.player).hand.map(c => cardHTML(c.card, { w: 170 })).join('')}</div><div class="row-btns"><button class="btn primary" data-v="keep">Keep</button><button class="btn" data-v="mulligan">Mulligan</button></div>`, m => {
+          const close = this.chooseClose = this.peekModal(`<h2>Opening Hand</h2><p>${esc(req.prompt)}</p><div class="cards-row">${this.g.p(req.player).hand.map(c => cardHTML(c.card, { w: 170 })).join('')}</div><div class="row-btns"><button class="btn primary" data-v="keep">Keep</button><button class="btn" data-v="mulligan">Mulligan</button></div>`, m => {
             $$('button[data-v]', m).forEach(b => b.onclick = () => { close(); this.resolveChoice(b.dataset.v); });
-          });
+          }, { label: 'Show hand' });
           return;
         }
         if (req.kind === 'card') {
           const Q = this.g.p(req.player);
           const from = c => Q.trash.includes(c) ? ['trash', 'From trash'] : Q.deck.includes(c) ? ['deck', 'From deck'] : Q.hand.includes(c) ? ['hand', 'From hand'] : ['', ''];
-          const close = this.chooseClose = modal(`<h2>Choose a Card</h2><p>${esc(req.prompt)}</p><div class="cards-row">${req.options.map((c, i) => { const [k, t] = from(c); return `<div class="pickable" data-i="${i}"${k ? ` data-note="This copy is in your <b>${k}</b>."` : ''}>${cardHTML(c.card, { w: 170 })}${t ? `<div class="lbl src z-${k}">${t}</div>` : ''}</div>`; }).join('')}</div><div class="row-btns">${req.optional ? '<button class="btn" id="sk">Skip</button>' : ''}</div>`, m => {
+          const close = this.chooseClose = this.peekModal(`<h2>Choose a Card</h2><p>${esc(req.prompt)}</p><div class="cards-row">${req.options.map((c, i) => { const [k, t] = from(c); return `<div class="pickable" data-i="${i}"${k ? ` data-note="This copy is in your <b>${k}</b>."` : ''}>${cardHTML(c.card, { w: 170 })}${t ? `<div class="lbl src z-${k}">${t}</div>` : ''}</div>`; }).join('')}</div><div class="row-btns">${req.optional ? '<button class="btn" id="sk">Skip</button>' : ''}</div>`, m => {
             $$('.pickable', m).forEach(b => b.onclick = () => { close(); this.resolveChoice(req.options[+b.dataset.i]); });
             const sk = $('#sk', m); if (sk) sk.onclick = () => { close(); this.resolveChoice(null); };
-          });
+          }, { label: 'Show choice', skip: req.optional ? { text: 'Skip', fn: () => { close(); this.resolveChoice(null); } } : null });
           return;
         }
         this.resolveChoice(req.optional ? null : req.options[0]);
@@ -721,6 +738,7 @@
     async onEvent(type, d, g) {
       const snd = n => NS.Audio.play(n);
       const mine = pi => pi === this.viewPi;
+      if (this.opts.replay) await this.opts.replay.gate(type, g);
       this.tally(type, d);
       switch (type) {
         case 'coin': this.render({ noFlip: true }); snd('taiko'); await NS.FX.banner(esc(g.p(d.player).name), 'goes first', { hold: 1000 }); break;
@@ -1023,7 +1041,7 @@
           break;
         }
         case 'toDeck': this.render(); break;
-        case 'gameOver': this.render({ noFlip: true }); await wait(500); NS.Screens.showResult(g, d, this); break;
+        case 'gameOver': this.render({ noFlip: true }); await wait(500); if (this.opts.replay) this.opts.replay.finish(d); else NS.Screens.showResult(g, d, this); break;
         default: this.render();
       }
     }

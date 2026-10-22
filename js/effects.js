@@ -167,7 +167,11 @@
       usable: (g, pi, s, w) => w.kind === 'attack',
       resolve: async c => {
         if (c.g.p(c.pi).chars.length < c.g.house.charLimit) await c.g.summon(c.pi, c.sup, 'support');
-        if (c.win && c.win.attack) c.win.attack.interrupted = true;
+        const atk = c.win && c.win.attack;
+        if (atk && c.g.immune(atk.attacker, c.pi)) { // shielded by Suigetsu: the attack goes on
+          c.g.say(`${atk.attacker.card.name} is unaffected by the opponent's Support: the attack goes on!`, 'sys');
+          await c.g.emit('immune', { unit: atk.attacker });
+        } else if (atk) atk.interrupted = true;
       },
     },
     'N-010': {
@@ -191,17 +195,25 @@
       resolve: async c => {
         const t = await pickUnit(c, allChars(c.g), 'Expansion Jutsu: choose 1 Character to double its power', { must: true, ai: help(c.g, c.pi) });
         const u = await c.g.summon(c.pi, c.sup, 'support');
-        if (t) { await c.g.emit('jutsu', { id: 'N-002', player: c.pi, src: u, sup: c.sup, targets: [t] }); t.buffs.push({ double: true, until: 'turn' }); await c.g.emit('buff', { unit: t, text: 'POW ×2' }); }
+        if (t) {
+          await c.g.emit('jutsu', { id: 'N-002', player: c.pi, src: u, sup: c.sup, targets: [t] });
+          if (c.g.immune(t, c.pi)) { c.g.say(`${t.card.name} is unaffected by the opponent's Support!`, 'sys'); await c.g.emit('immune', { unit: t }); }
+          else { t.buffs.push({ double: true, until: 'turn' }); await c.g.emit('buff', { unit: t, text: 'POW ×2' }); }
+        }
       },
     },
     'N-021': {
       usable: (g, pi) => g.p(pi).chars.length < g.house.charLimit,
       resolve: async c => {
-        const opts = c.g.p(c.pi).chars.slice();
-        const t = opts.length ? await pickUnit(c, opts, 'Water Transformation: choose 1 Character to shield from opponent Supports', { must: true, ai: help(c.g, c.pi) }) : null;
+        const opts = allChars(c.g);
+        const t = opts.length ? await pickUnit(c, opts, "Water Transformation: choose 1 Character to shield from your opponent's Supports this turn", { must: true, ai: help(c.g, c.pi) }) : null;
         const u = await c.g.summon(c.pi, c.sup, 'support');
         const target = t || u;
-        if (target) { await c.g.emit('jutsu', { id: 'N-021', player: c.pi, src: u, sup: c.sup, targets: [target] }); target.flags.immuneSupportTurn = c.g.turn; await c.g.emit('buff', { unit: target, text: 'SHIELDED' }); }
+        if (target) {
+          await c.g.emit('jutsu', { id: 'N-021', player: c.pi, src: u, sup: c.sup, targets: [target] });
+          target.flags.immuneSupportTurn = c.g.turn; target.flags.immuneFrom = c.opp;
+          await c.g.emit('buff', { unit: target, text: 'SHIELDED' });
+        }
       },
     },
     'N-009': negate(async c => c.g.changeLife(c.pi, -2)),

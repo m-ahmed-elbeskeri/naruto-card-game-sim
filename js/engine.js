@@ -73,6 +73,7 @@
     async decide(options, ask, toIdx, fromIdx) {
       if (this.aborted) throw new Error('aborted');
       if (this.replay && this.rp < this.replay.length) {
+        if (this.onStep) await this.onStep(); // replay viewer: step-by-step playback
         const k = this.replay[this.rp++];
         this.log.push(k);
         return fromIdx ? fromIdx(k) : (k < 0 ? null : options[k]);
@@ -372,7 +373,8 @@
       await this.emit(how === 'tribute' ? 'tribute' : 'ko', { unit: u });
       return true;
     }
-    immune(u, viaSupportOf) { return viaSupportOf != null && viaSupportOf !== u.owner && u.flags.immuneSupportTurn === this.turn; }
+    // Suigetsu's shield: unaffected this turn by Support effects of player `immuneFrom` (the opponent of whoever shielded it)
+    immune(u, viaSupportOf) { return viaSupportOf != null && u.flags.immuneSupportTurn === this.turn && viaSupportOf === (u.flags.immuneFrom != null ? u.flags.immuneFrom : 1 - u.owner); }
     async ko(u, viaSupportOf) {
       if (!u || !this.p(u.owner).chars.includes(u)) return false;
       if (this.immune(u, viaSupportOf)) { this.say(`${u.card.name} is unaffected by the opponent's Support!`, 'sys'); await this.emit('immune', { unit: u }); return false; }

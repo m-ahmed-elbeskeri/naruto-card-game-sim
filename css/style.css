@@ -534,8 +534,9 @@ body.in-game:not(.nofx) #stage { will-change: transform, filter; }
 .nc .ex-tag { position: absolute; left: 50%; top: calc(var(--w) * .02); transform: translateX(-50%); z-index: 5; padding: 0 calc(var(--w) * .06); font-family: var(--display); font-weight: 700; font-size: calc(var(--w) * .11); letter-spacing: .08em; color: #3a1a00; background: linear-gradient(180deg, #fff6c8, #ffc23a 55%, #e08a00); border: 1px solid #fff; box-shadow: 0 0 calc(var(--w) * .06) rgba(255, 190, 40, .9); border-radius: 3px; }
 body.lowfx .nc .ex-rim::before { animation: none; }
 
-/* response panel: eye toggle hides it so the board can be inspected; card picker source labels */
-.modal-back.resp .modal { position: relative; }
+/* choice windows: eye toggle hides them so the board can be inspected; card picker source labels */
+.modal { position: relative; }
+.resp-eye + h2 { padding-right: 46px; }
 .resp-eye { position: absolute; top: 10px; right: 10px; width: 38px; height: 38px; display: grid; place-items: center; cursor: pointer; color: #ddd; background: #1d1d24; border: 1px solid #3a3a44; }
 .resp-eye:hover { background: var(--orange); color: #111; border-color: var(--orange2); }
 .resp-eye svg, .resp-pill svg { width: 20px; height: 20px; }
@@ -634,3 +635,30 @@ body.lowfx .aura-text .au { display: none; }
 /* effects off (Settings): nothing decorative moves; cards still slide, turn and flash */
 body.nofx .hand .nc.r-SR::after, body.nofx #preview .nc.r-SR::after, body.nofx #preview .nc.r-L::after, body.nofx #modal .nc.r-SR::after { animation: none; }
 body.nofx .slot .flag.rush, body.nofx .slot.atk::after, body.nofx .gb .lowlife, body.nofx .atk-overlay .atk-line, body.nofx .atk-reticle, body.nofx .resp-pill .rp-show, body.nofx #app.shake { animation: none; }
+
+/* replays: control bar in place of End Turn, every card face-up, saved-replay list */
+.gb.replay .end-btn, .gb.replay .phase-dots { display: none; }
+.replay-bar { position: absolute; right: 280px; top: 332px; z-index: 27; display: flex; align-items: center; gap: 6px; }
+.replay-bar .rb-tag { font-family: var(--display); font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: #111; background: var(--orange); padding: 5px 10px; margin-right: 4px; }
+.replay-bar .iconbtn[disabled] { opacity: .35; pointer-events: none; }
+.replay-bar .rb-play { border-color: var(--orange); }
+.replay-bar .rb-range { width: 170px; margin: 0 4px; accent-color: var(--orange); cursor: pointer; }
+.replay-bar .rb-at { min-width: 96px; font-family: var(--display); font-size: 15px; letter-spacing: 2px; color: #ddd; text-transform: uppercase; white-space: nowrap; }
+.replay-bar .rb-speed { width: 46px; font-family: var(--display); font-size: 14px; letter-spacing: 1px; }
+.replay-bar.busy { opacity: .6; }
+.slot.sup.rv .nc { filter: brightness(.8) saturate(.8); }
+.slot.sup.rv::after { content: ''; position: absolute; inset: 0; border: 1px dashed rgba(255, 255, 255, .5); border-radius: 4px; pointer-events: none; }
+.ohand .nc { box-shadow: 0 4px 10px rgba(0, 0, 0, .7); }
+.modal-back.replays .modal { width: 1000px; }
+.rl-list { display: flex; flex-direction: column; gap: 8px; max-height: 56vh; overflow: auto; margin: 10px 0 18px; }
+.rl-row { display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: #121217; border: 1px solid #2a2a32; }
+.rl-p { display: flex; align-items: center; gap: 10px; width: 250px; min-width: 0; }
+.rl-p i { width: 44px; height: 44px; flex: none; border-radius: 50%; border: 2px solid #333; }
+.rl-p.won i { border-color: var(--orange); }
+.rl-p b { display: block; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rl-p small { display: block; font-size: 12px; color: var(--dim); }
+.rl-vs { font-family: var(--display); letter-spacing: 2px; color: var(--dim); }
+.rl-meta { flex: 1; text-align: right; font-size: 14px; color: #ddd; }
+.rl-meta small { color: var(--dim); }
+.rl-row .btn.sure { color: #ff8a7a; border-color: #ff5a4a; }
+.rl-empty { padding: 30px; text-align: center; color: var(--dim); }

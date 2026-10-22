@@ -114,7 +114,7 @@
     const th = threat(g, atk);
     const av = atk.attacker.isLeader ? 0 : unitValue(g, atk.attacker);
     switch (id) {
-      case 'N-008': return th + 1 - cost;
+      case 'N-008': return g.immune(atk.attacker, pi) ? -1 : th + 1 - cost; // a shielded attacker cannot be interrupted
       case 'N-018': return atk.attacker.isLeader || atk.attacker.card.type === 'ex' ? -1 : th + av - cost;
       case 'N-006': case 'N-017': return (atk.attacker.isLeader ? 0 : th + av) + g.p(1 - pi).chars.filter(u => u.rested && u !== atk.attacker).reduce((t, u) => t + unitValue(g, u), 0) * 0.6 - cost * 1.2;
       case 'N-020': return atk.attacker.isLeader ? -1 : th + av * 0.6 - cost;
