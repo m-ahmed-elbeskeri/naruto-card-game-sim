@@ -112,7 +112,7 @@
       mode: 'face', conf: 'demo',
     },
     {
-      id: 'N-020', type: 'character', name: 'Sakura Haruno', color: 'blue', dmg: 2, pow: 6, hp: 4, rarity: 'C',
+      id: 'N-020', type: 'character', name: 'Sakura Haruno', color: 'blue', dmg: 1, pow: 6, hp: 4, rarity: 'C',
       traits: ['Taijutsu', 'Hidden Leaf Village', 'Team 7'],
       support: { name: 'Cha!', cost: 1, timing: 'oppAttack', text: "Choose 1 Character: Return the chosen card to the owner's hand." },
       mode: 'face', conf: 'demo',
