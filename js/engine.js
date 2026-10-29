@@ -54,7 +54,7 @@
       this.over = false;
       this.winner = null;
       this.aborted = false;
-      this.chain = [];
+      this.chain = []; this.chainOpen = false;
     }
     p(i) { return this.players[i]; }
     abort() { this.aborted = true; }
@@ -99,7 +99,7 @@
     }
     load(s) {
       this.turn = s.turn; this.active = s.active; this.first = s.first; this.rng.set(s.rng);
-      this.over = false; this.winner = null; this.chain = []; this.phase = 'refresh';
+      this.over = false; this.winner = null; this.chain = []; this.chainOpen = false; this.phase = 'refresh';
       s.players.forEach((q, i) => Object.assign(this.players[i], {
         leader: unitL(q.leader), summonRested: q.summonRested, chakra: q.chakra.slice(), chakraLockUntil: q.chakraLockUntil,
         deck: q.deck.map(instL), hand: q.hand.map(instL), trash: q.trash.map(instL), exclusion: q.exclusion.map(instL),
@@ -410,50 +410,73 @@
     }
 
     // ---------------- supports & chain ----------------
+    // Cut-ins chain: the opponent of whoever activated the newest Support may answer it with one Support, the other
+    // player may answer that, and so on. Once the player to answer passes, the whole chain resolves from last to first,
+    // and nobody can cut in again until it has finished.
     async activateSupport(pi, s, win) {
       const P = this.p(pi), sp = s.card.support;
       const fromHand = P.hand.includes(s);
       if (!P.supports.includes(s) && !(fromHand && this.active === pi)) return;
       if (this.chain.some(l => l.sup === s)) return;
       await this.payChakra(pi, sp.cost, s.iid);
-      const link = { pi, sup: s, negated: false };
+      const link = { pi, sup: s, negated: false, win };
       this.chain.push(link);
       this.say(`${P.name} ${fromHand ? 'activates from hand' : 'flips'} ${s.card.name}: ${sp.name}!`, 'support');
       await this.emit('supportFlip', { player: pi, sup: s, attack: win && win.attack, fromHand });
-      await this.responseWindow(1 - pi, { kind: 'support', link });
-      this.chain.pop();
+      if (this.chainOpen) return; // an answer to a chain that is still being built: it resolves with that chain
+      const base = this.chain.length - 1;
+      this.chainOpen = true;
+      try {
+        for (let top = link; !this.over; top = this.chain[this.chain.length - 1]) {
+          const n = this.chain.length;
+          await this.cutIn(1 - top.pi, { kind: 'support', link: top, attack: win && win.attack });
+          if (this.chain.length === n) break;
+        }
+      } finally { this.chainOpen = false; }
+      while (this.chain.length > base) await this.resolveLink(this.chain.pop());
+    }
+    async resolveLink(link) {
+      const { pi, sup: s } = link, P = this.p(pi), sp = s.card.support;
+      const toTrash = () => { for (const z of [P.supports, P.hand]) { const i = z.indexOf(s); if (i >= 0) { z.splice(i, 1); P.trash.push(s); } } };
+      if (this.over) return toTrash();
       if (link.negated) {
         this.say(`${sp.name} is negated!`, 'ko');
-        for (const z of [P.supports, P.hand]) { const i = z.indexOf(s); if (i >= 0) { z.splice(i, 1); P.trash.push(s); } }
+        toTrash();
         await this.emit('supportEnd', { player: pi, sup: s, negated: true });
         return;
       }
       const def = NS.SUPPORTS[s.card.id];
-      if (def && def.resolve) await this.safe(() => def.resolve(this.ctx(pi, null, { sup: s, link, win })));
-      for (const z of [P.supports, P.hand]) { const j = z.indexOf(s); if (j >= 0) { z.splice(j, 1); P.trash.push(s); } }
+      if (def && def.resolve) await this.safe(() => def.resolve(this.ctx(pi, null, { sup: s, link, win: link.win })));
+      toTrash();
       await this.emit('supportEnd', { player: pi, sup: s });
       await this.checkLife();
     }
-    // a player may activate eligible supports during a window, one after another
+    // the Supports `pi` may cut in with. [During Your Opponent's Attack] ones work at any point of that attack,
+    // including in answer to a Support the attacker played
+    cutIns(pi, win) {
+      const P = this.p(pi);
+      const pool = P.supports.concat(this.house.handSupports && this.active === pi ? P.hand.filter(c => c.card.support) : []);
+      return pool.filter(s => {
+        if (this.chain.some(l => l.sup === s)) return false; // already activated and waiting to resolve
+        const t = s.card.support.timing;
+        if (this.faceUpChakra(pi) < s.card.support.cost) return false;
+        const okT = t === 'quick' || (t === 'supportActivated' && win.kind === 'support') || (t === 'oppAttack' && !!win.attack && this.active !== pi);
+        return okT && this.supportUsable(pi, s, win);
+      });
+    }
+    // one chance to cut in: activates at most one Support
+    async cutIn(pi, win) {
+      const opts = this.cutIns(pi, win);
+      if (!opts.length) return null;
+      const P = this.p(pi);
+      const pick = await this.decide(opts, () => P.controller.respond(this, pi, Object.assign({ options: opts }, win)), r => opts.indexOf(r));
+      if (pick) await this.activateSupport(pi, pick, win);
+      return pick;
+    }
+    // a player may start chains during a window, one after another
     async responseWindow(pi, win) {
       for (let guard = 0; guard < 6 && !this.over; guard++) {
-        const P = this.p(pi);
-        const pool = P.supports.concat(this.house.handSupports && this.active === pi ? P.hand.filter(c => c.card.support) : []);
-        const opts = pool.filter(s => {
-          if (this.chain.some(l => l.sup === s)) return false; // already activated and waiting to resolve
-          const t = s.card.support.timing;
-          if (this.faceUpChakra(pi) < s.card.support.cost) return false;
-          let okT = false;
-          if (win.kind === 'support') okT = t === 'supportActivated' || t === 'quick';
-          if (win.kind === 'attack') okT = (t === 'oppAttack' && this.active !== pi) || t === 'quick';
-          if (win.kind === 'summon' || win.kind === 'effect') okT = t === 'quick';
-          return okT && this.supportUsable(pi, s, win);
-        });
-        if (!opts.length) return;
-        const pick = await this.decide(opts, () => P.controller.respond(this, pi, Object.assign({ options: opts }, win)), r => opts.indexOf(r));
-        if (!pick) return;
-        await this.activateSupport(pi, pick, win);
-        if (win.kind === 'support' && win.link.negated) return;
+        if (!await this.cutIn(pi, win)) return;
         if (win.kind === 'attack' && win.attack.interrupted) return;
       }
     }

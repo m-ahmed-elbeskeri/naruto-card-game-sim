@@ -678,7 +678,7 @@
           const close = this.chooseClose = this.peekModal(`<h2>Choose a Card</h2><p>${esc(req.prompt)}</p><div class="cards-row">${req.options.map((c, i) => { const [k, t] = from(c); return `<div class="pickable" data-i="${i}"${k ? ` data-note="This copy is in your <b>${k}</b>."` : ''}>${cardHTML(c.card, { w: 170 })}${t ? `<div class="lbl src z-${k}">${t}</div>` : ''}</div>`; }).join('')}</div><div class="row-btns">${req.optional ? '<button class="btn" id="sk">Skip</button>' : ''}</div>`, m => {
             $$('.pickable', m).forEach(b => b.onclick = () => { close(); this.resolveChoice(req.options[+b.dataset.i]); });
             const sk = $('#sk', m); if (sk) sk.onclick = () => { close(); this.resolveChoice(null); };
-          }, { label: 'Show choice', skip: req.optional ? { text: 'Skip', fn: () => { close(); this.resolveChoice(null); } } : null });
+          }, { label: 'Show choice' }); // no Skip on the tab: it sat right under Show choice, and a misclick lost the effect
           return;
         }
         this.resolveChoice(req.optional ? null : req.options[0]);

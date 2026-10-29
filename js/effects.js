@@ -133,7 +133,7 @@
 
   // ---------- [Support] effects ----------
   const koRested = {
-    usable: (g, pi, s, w) => w.kind === 'attack' && allChars(g).some(u => u.rested),
+    usable: (g, pi, s, w) => !!w.attack && allChars(g).some(u => u.rested),
     resolve: async c => {
       const g = c.g; const done = [];
       for (let i = 0; i < 2; i++) {
@@ -164,7 +164,7 @@
     'N-006': koRested,
     'N-017': koRested,
     'N-008': {
-      usable: (g, pi, s, w) => w.kind === 'attack',
+      usable: (g, pi, s, w) => !!w.attack,
       resolve: async c => {
         if (c.g.p(c.pi).chars.length < c.g.house.charLimit) await c.g.summon(c.pi, c.sup, 'support');
         const atk = c.win && c.win.attack;
@@ -175,7 +175,7 @@
       },
     },
     'N-010': {
-      usable: (g, pi, s, w) => w.kind === 'attack',
+      usable: (g, pi, s, w) => !!w.attack,
       resolve: async c => {
         const u = c.g.p(c.pi).chars.length < c.g.house.charLimit ? await c.g.summon(c.pi, c.sup, 'support') : null;
         await c.g.emit('jutsu', { id: 'N-010', player: c.pi, src: u, sup: c.sup, targets: [c.g.p(c.pi).leader] });
@@ -183,11 +183,11 @@
       },
     },
     'N-020': {
-      usable: (g, pi, s, w) => w.kind === 'attack' && allChars(g).length > 0,
+      usable: (g, pi, s, w) => !!w.attack && allChars(g).length > 0,
       resolve: async c => { const t = await pickUnit(c, allChars(c.g), 'Cha! Return 1 Character to its owner\'s hand', { must: true }); if (t) { await c.g.emit('jutsu', { id: 'N-020', player: c.pi, sup: c.sup, targets: [t] }); await c.g.bounce(t, c.pi); } },
     },
     'N-018': {
-      usable: (g, pi, s, w) => w.kind === 'attack' && allChars(g).some(u => u.card.type !== 'ex'),
+      usable: (g, pi, s, w) => !!w.attack && allChars(g).some(u => u.card.type !== 'ex'),
       resolve: async c => { const t = await pickUnit(c, allChars(c.g).filter(u => u.card.type !== 'ex'), 'Air Palm: choose 1 non-EX Character to K.O.', { must: true }); if (t) { await c.g.emit('jutsu', { id: 'N-018', player: c.pi, sup: c.sup, targets: [t] }); await c.g.ko(t, c.pi); } },
     },
     'N-002': {

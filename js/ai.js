@@ -96,7 +96,7 @@
 
   function scoreResponse(g, pi, s, win) {
     const id = s.card.id, cost = s.card.support.cost;
-    if (win.kind === 'support') {
+    if (win.kind === 'support' && s.card.support.timing !== 'oppAttack') { // an attack Support cut in on a chain is judged against the attack
       // negate an opponent Support if it hurts us
       const other = win.link.sup.card;
       const bad = { 'N-004': 4, 'N-015': 4, 'N-006': 4, 'N-017': 4, 'N-018': 3, 'N-020': 2.5, 'N-008': 3, 'N-010': 1.5, 'N-002': 2, 'N-021': 1.5, 'N-009': 3, 'N-016': 3 }[other.id] || 1;
