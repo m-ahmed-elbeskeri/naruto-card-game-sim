@@ -230,15 +230,17 @@
     const all = list();
     const side = (r, i) => { const L = NS.Cards.byId[r.leaders[i]]; return `<span class="rl-p ${r.winner === i ? 'won' : ''}"><i style="${L ? NS.View.portraitCSS(L, 1.5) : ''}"></i><span><b>${esc(r.names[i])}</b><small>${esc(r.who[i])}${L ? ' · ' + esc(L.name) : ''}</small></span></span>`; };
     const rows = all.map(r => `<div class="rl-row" data-id="${r.id}">${side(r, 0)}<span class="rl-vs">vs</span>${side(r, 1)}
-      <span class="rl-meta">${r.winner != null ? esc(r.names[r.winner]) + ' won' : 'Unfinished'} · Turn ${r.turns}<br><small>${when(r.at)}</small></span>
-      <button class="btn small primary" data-w="${r.id}">${NS.icon('play')} Watch</button><button class="btn small ghost" data-d="${r.id}">Delete</button></div>`).join('');
-    const close = NS.View.modal(`<h2>Replays</h2><p>Your last ${MAX} finished games are kept in this browser. Replays show both players' hands and face-down Supports.</p>
+      <span class="rl-meta">${r.winner != null ? esc(r.names[r.winner]) + ' won' : 'Unfinished'} · Turn ${r.turns}<br><small>${r.shared ? 'Shared · ' : ''}${when(r.at)}</small></span>
+      <button class="btn small primary" data-w="${r.id}">${NS.icon('play')} Watch</button><button class="btn small ghost" data-s="${r.id}">Share</button><button class="btn small ghost" data-d="${r.id}">Delete</button></div>`).join('');
+    const close = NS.View.modal(`<h2>Replays</h2><p>Your last ${MAX} finished games are kept in this browser. Replays show both players' hands and face-down Supports. Share one as a code or a file, and anyone with the simulator can watch it.</p>
       <div class="rl-list">${rows || '<div class="rl-empty">No replays yet. Finish a match and it appears here.</div>'}</div>
-      <div class="row-btns"><button class="btn" id="rlClose">Close</button></div>`, m => {
+      <div class="row-btns"><button class="btn" id="rlOpen">Open a shared replay</button><button class="btn" id="rlClose">Close</button></div>`, m => {
       $('#rlClose', m).onclick = () => close();
+      $('#rlOpen', m).onclick = () => { NS.Audio.play('click'); close(); openShared(); };
       m.onclick = e => {
-        const w = e.target.closest('[data-w]'), d = e.target.closest('[data-d]');
+        const w = e.target.closest('[data-w]'), s = e.target.closest('[data-s]'), d = e.target.closest('[data-d]');
         if (w) { NS.Audio.play('click'); close(); watch(w.dataset.w); }
+        if (s) { NS.Audio.play('click'); close(); share(s.dataset.s); }
         if (d) {
           if (d.dataset.sure) { remove(d.dataset.d); close(); openList(); return; }
           d.dataset.sure = '1'; d.textContent = 'Delete?'; d.classList.add('sure');
@@ -247,5 +249,95 @@
     }, 'replays');
   }
 
-  NS.Replay = { save, watch, openList, list, _scan: scan };
+  // ---------------- sharing ----------------
+  // A replay travels as a short code: "NCG1." and the record, deflated and base64url-encoded ("NCG0." uncompressed,
+  // for browsers without CompressionStream), or as a .json file of the record. Nothing goes through a server.
+  const b64 = {
+    enc: u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
+    dec: t => { const s = atob(t.replace(/-/g, '+').replace(/_/g, '/')), u8 = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u8[i] = s.charCodeAt(i); return u8; },
+  };
+  const through = async (u8, stream) => new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(stream)).arrayBuffer());
+  const portable = rec => { const o = Object.assign({}, rec); delete o.id; delete o.shared; return o; };
+  async function toCode(rec) {
+    const raw = new TextEncoder().encode(JSON.stringify(portable(rec)));
+    if (typeof CompressionStream === 'function') return 'NCG1.' + b64.enc(await through(raw, new CompressionStream('deflate-raw')));
+    return 'NCG0.' + b64.enc(raw);
+  }
+  const problem = msg => Object.assign(new Error(msg), { shown: true }); // a reason worth showing the player as it is
+  // a code or a file's text back into a replay record; it came from someone else, so only known fields of the right
+  // kind are kept
+  async function fromText(t) {
+    t = String(t || '').trim();
+    let r;
+    if (t[0] === '{') r = JSON.parse(t);
+    else {
+      const m = t.replace(/\s+/g, '').match(/^NCG([01])\.([A-Za-z0-9_-]+)$/);
+      if (!m) throw problem('That is not a replay code. It starts with NCG1.');
+      let u8 = b64.dec(m[2]);
+      if (m[1] === '1') {
+        if (typeof DecompressionStream !== 'function') throw problem('This browser cannot open replay codes. Try the replay file instead.');
+        u8 = await through(u8, new DecompressionStream('deflate-raw'));
+      }
+      r = JSON.parse(new TextDecoder().decode(u8));
+    }
+    const two = x => Array.isArray(x) && x.length === 2;
+    if (!r || r.v !== 1 || !two(r.names) || !two(r.leaders) || !two(r.decks) || !r.decks.every(Array.isArray) || !Array.isArray(r.log)) throw problem('This replay is damaged or from a newer version of the simulator.');
+    const house = {};
+    for (const k in NS.HOUSE_DEFAULTS) if (r.house && typeof r.house[k] === typeof NS.HOUSE_DEFAULTS[k]) house[k] = r.house[k];
+    const side = i => i === 0 || i === 1 ? i : null;
+    return {
+      v: 1, id: 'r' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36), at: +r.at || Date.now(), ver: String(r.ver || '').slice(0, 20), shared: true,
+      names: r.names.map(s => String(s).slice(0, 40)), leaders: r.leaders.map(String), who: (two(r.who) ? r.who : ['', '']).map(s => String(s).slice(0, 20)),
+      decks: r.decks.map(d => d.slice(0, 80).map(String)), seed: r.seed >>> 0, first: side(r.first) == null ? undefined : r.first, noShuffle: !!r.noShuffle,
+      house: Object.assign({}, NS.HOUSE_DEFAULTS, house), log: r.log.slice(0, 20000).map(k => k | 0), view: side(r.view) || 0,
+      winner: side(r.winner), why: ['time', 'away', 'quit'].includes(r.why) ? r.why : '', turns: +r.turns | 0, end: typeof r.end === 'string' ? r.end.slice(0, 400) : undefined,
+    };
+  }
+  async function share(id) {
+    const rec = get(id);
+    if (!rec) return;
+    const code = await toCode(rec);
+    const close = NS.View.modal(`<h2>Share Replay</h2><p>${esc(rec.names[0])} vs ${esc(rec.names[1])}, turn ${rec.turns}. Send this code to anyone with the simulator: they open it in <b>Replays</b> with <b>Open a shared replay</b>. It shows both players' hands. The file holds the same game, for attaching.</p>
+      <textarea class="rl-code" readonly spellcheck="false">${esc(code)}</textarea><p class="rl-note"></p>
+      <div class="row-btns"><button class="btn primary" id="rsCopy">Copy code</button><button class="btn" id="rsFile">Download file</button><button class="btn" id="rsBack">Back</button></div>`, m => {
+      const ta = $('.rl-code', m), note = $('.rl-note', m);
+      ta.onfocus = () => ta.select();
+      $('#rsCopy', m).onclick = async () => {
+        let ok = false;
+        try { await navigator.clipboard.writeText(code); ok = true; } catch (e) { ta.focus(); ta.select(); try { ok = document.execCommand('copy'); } catch (e2) { /* select it for the player instead */ } }
+        note.textContent = ok ? `Copied (${code.length} characters).` : 'Select the code and copy it.';
+      };
+      $('#rsFile', m).onclick = () => {
+        const a = document.createElement('a'), d = new Date(rec.at), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(portable(rec))], { type: 'application/json' }));
+        a.download = `naruto-replay-${stamp}-${rec.names.join('-vs-').replace(/[^\w-]+/g, '_').slice(0, 60)}.json`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      };
+      $('#rsBack', m).onclick = () => { close(); openList(); };
+    }, 'replays');
+  }
+  function openShared() {
+    const close = NS.View.modal(`<h2>Open a Shared Replay</h2><p>Paste a replay code, or choose a replay file. It is added to your replays and starts playing.</p>
+      <textarea class="rl-code" spellcheck="false" placeholder="NCG1.…"></textarea><p class="rl-note"></p><input type="file" accept=".json,application/json" hidden>
+      <div class="row-btns"><button class="btn primary" id="roWatch">Watch</button><button class="btn" id="roFile">Choose file…</button><button class="btn" id="roBack">Back</button></div>`, m => {
+      const ta = $('.rl-code', m), note = $('.rl-note', m), file = $('input[type=file]', m);
+      const open = async text => {
+        try {
+          const rec = await fromText(text);
+          const sc = await scan(rec);
+          if (sc.error) throw problem(sc.error);
+          keep([rec].concat(list()));
+          close(); watch(rec);
+        } catch (e) { note.textContent = e && e.shown ? e.message : 'That replay could not be read. Check that the whole code was copied.'; }
+      };
+      $('#roWatch', m).onclick = () => { if (ta.value.trim()) open(ta.value); else note.textContent = 'Paste a code first.'; };
+      $('#roFile', m).onclick = () => file.click();
+      file.onchange = async () => { const f = file.files[0]; if (f) open(await f.text()); };
+      $('#roBack', m).onclick = () => { close(); openList(); };
+      ta.focus();
+    }, 'replays');
+  }
+
+  NS.Replay = { save, watch, openList, list, _scan: scan, _toCode: toCode, _fromText: fromText };
 })();
