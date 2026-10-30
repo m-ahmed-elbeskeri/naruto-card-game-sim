@@ -1,0 +1,93 @@
+name: Hokage ship check
+
+# Everything a new champion has to clear before it goes on the site, played in parallel and judged in one table
+# (see "ship check" in tools/az-ci.js):
+#   live   1600 games against the live network at training search: clearly ahead overall, not behind in any matchup
+#   deep   800 games against it at deeper search (12 x 150), closer to what players face: not behind
+#   gen-N  400 games against each of the last generations that were live before it: not behind any of them
+#   kage   400 games against Kage: at least 90%
+# Every job checks out the commit the check was started on, so training that commits meanwhile changes nothing.
+# Nothing is committed: shipping stays a decision made by hand (the verdict prints the export command).
+on:
+  workflow_dispatch:
+    inputs:
+      a:
+        description: Network to check (a weights file)
+        default: ai/best.json
+      past:
+        description: Earlier live generations to play
+        default: '3'
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: m
+        run: node tools/az-ci.js shipplan past="$PAST" >> "$GITHUB_OUTPUT"
+        env:
+          PAST: ${{ inputs.past }}
+
+  match:
+    needs: plan
+    name: ${{ matrix.job.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        job: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Play
+        run: |
+          if [ -n "$REF" ]; then git show "$REF:js/az-weights.js" > opponent.js; B=opponent.js; fi
+          node tools/az-ci.js match games="$GAMES" a="$A" b="$B" worlds="$WORLDS" sims="$SIMS" group="$GROUP" label="$LABEL" json="result-$NAME.json"
+        env:
+          A: ${{ inputs.a }}
+          B: ${{ matrix.job.b }}
+          REF: ${{ matrix.job.ref }}
+          GAMES: ${{ matrix.job.games }}
+          WORLDS: ${{ matrix.job.worlds }}
+          SIMS: ${{ matrix.job.sims }}
+          GROUP: ${{ matrix.job.group }}
+          LABEL: ${{ matrix.job.label }}
+          NAME: ${{ matrix.job.name }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: result-${{ matrix.job.name }}
+          path: result-*.json
+          retention-days: 14
+
+  verdict:
+    needs: match
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          path: results
+          pattern: result-*
+          merge-multiple: true
+      - run: node tools/az-ci.js verdict in=results

@@ -66,6 +66,14 @@ if (!isMainThread) {
         const { g } = newGame([mk(), mk()], swap, undefined, mu);
         await g.start();
         parentPort.postMessage({ id: m.id, samples: pack(samples, g.winner), turns: g.turn, matchup: mu });
+      } else if (m.type === 'league') {
+        // the learner (net cur) against a past champion (net m.opp) in seat 1 - m.seat; only the learner's moves are recorded
+        const samples = [];
+        const L = new AZ.AZController({ net: nets.cur, cfg: Object.assign({ noise: m.noise }, m.search), record: x => samples.push(x), temp: (g, n) => (n < m.tempMoves ? 1 : 0) });
+        const O = new AZ.AZController({ net: nets[m.opp], cfg: m.search });
+        const { g } = newGame(m.seat === 0 ? [L, O] : [O, L], swap, undefined, mu);
+        await g.start();
+        parentPort.postMessage({ id: m.id, samples: pack(samples, g.winner), turns: g.turn, matchup: mu, win: g.winner == null ? 0.5 : g.winner === m.seat ? 1 : 0 });
       } else if (m.type === 'arena') {
         // player A (net m.a) vs player B (net m.b, or the heuristic at m.level, Kage by default, when m.b is null); A sits in seat m.seat
         const A = new AZ.AZController({ net: nets[m.a], cfg: m.search });

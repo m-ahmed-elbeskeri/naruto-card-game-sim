@@ -24,6 +24,9 @@ on:
       lr:
         description: Learning rate
         default: '0.0003'
+      past:
+        description: Share of self-play games against past champions (ai/pool and the current champion)
+        default: '0.25'
 
 permissions:
   contents: write
@@ -57,15 +60,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node tools/az-ci.js selfplay minutes="$MINUTES" mix="$MIX" sims="$SIMS" out="sp-${{ matrix.shard }}.bin.gz"
+      - run: node tools/az-ci.js selfplay minutes="$MINUTES" mix="$MIX" sims="$SIMS" past="$PAST" out="sp-${{ matrix.shard }}.bin.gz"
         env:
           MINUTES: ${{ inputs.minutes }}
           MIX: ${{ inputs.mix }}
           SIMS: ${{ inputs.sims }}
+          PAST: ${{ inputs.past }}
       - uses: actions/upload-artifact@v4
         with:
           name: sp-${{ matrix.shard }}
-          path: sp-*.bin.gz
+          path: |
+            sp-*.bin.gz
+            sp-*.league.json
           retention-days: 2
 
   learn:
@@ -83,11 +89,12 @@ jobs:
           path: sp
           pattern: sp-*
           merge-multiple: true
-      - run: node --max-old-space-size=12000 tools/az-ci.js learn in=sp mix="$MIX" sims="$SIMS" lr="$LR"
+      - run: node --max-old-space-size=12000 tools/az-ci.js learn in=sp mix="$MIX" sims="$SIMS" lr="$LR" past="$PAST"
         env:
           MIX: ${{ inputs.mix }}
           SIMS: ${{ inputs.sims }}
           LR: ${{ inputs.lr }}
+          PAST: ${{ inputs.past }}
       - name: Commit the result
         run: |
           git config user.name "github-actions[bot]"
@@ -98,7 +105,7 @@ jobs:
           git push
       - name: Start the next iteration
         if: ${{ inputs.remaining > 1 }}
-        run: gh workflow run train.yml -f remaining=$(( REMAINING - 1 )) -f shards="$SHARDS" -f minutes="$MINUTES" -f mix="$MIX" -f sims="$SIMS" -f lr="$LR"
+        run: gh workflow run train.yml -f remaining=$(( REMAINING - 1 )) -f shards="$SHARDS" -f minutes="$MINUTES" -f mix="$MIX" -f sims="$SIMS" -f lr="$LR" -f past="$PAST"
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -108,3 +115,4 @@ jobs:
           MIX: ${{ inputs.mix }}
           SIMS: ${{ inputs.sims }}
           LR: ${{ inputs.lr }}
+          PAST: ${{ inputs.past }}
