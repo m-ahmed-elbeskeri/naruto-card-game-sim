@@ -140,13 +140,13 @@
       if (u.card.id === 'N-007' && this.active === u.owner && this.pow(u) >= 10) return true;
       return false;
     }
-    canAttack(u) {
+    canAttack(u, rush) { // rush: as if u had [Rush]
       if (this.active !== u.owner || this.phase !== 'main' || this.over) return false;
       if (u.rested) return false;
       if (u.flags.cantAttackTurn === this.turn) return false;
       if (this.p(u.owner).turns <= 1 && !this.house.firstRoundAttacks) return false;
       if (u.isLeader) return !!this.house.leaderCanAttack;
-      if (u.summonedTurn === this.turn && !this.hasRush(u)) return false;
+      if (u.summonedTurn === this.turn && !rush && !this.hasRush(u)) return false;
       return true;
     }
     targetsFor(pi) {

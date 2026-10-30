@@ -22,6 +22,16 @@
     return normal >= 2 && sup >= 1 ? 10 : 3;
   }
   const supDefensive = s => ['oppAttack', 'supportActivated'].includes(s.card.support.timing);
+  // Moves and choices no bot considers because they cannot change anything (a player can still make them);
+  // the request or the Leader ability says which through `sensible`
+  function pointless(g, pi, a) {
+    const L = a.kind === 'leaderAbility' && NS.LEADER[g.p(pi).leader.card.id];
+    return !!(L && L.sensible && !L.sensible(g, pi));
+  }
+  function sensibleOptions(req) {
+    const o = req.sensible ? req.options.filter(req.sensible) : req.options;
+    return o.length ? o : req.options;
+  }
 
   function scoreMain(g, pi, a) {
     const P = g.p(pi), O = g.p(1 - pi);
@@ -131,6 +141,7 @@
       await this.wait();
       let best = null, bs = -Infinity;
       for (const a of acts) {
+        if (pointless(g, pi, a)) continue;
         const s = scoreMain(g, pi, a) + (a.kind === 'end' ? 0 : (this.rand() - 0.5) * this.lv.noise);
         if (s > bs) { bs = s; best = a; }
       }
@@ -150,12 +161,12 @@
       await this.wait(180);
       const sc = req.ai || (() => this.rand());
       let best = null, bs = -Infinity;
-      for (const o of req.options) { const v = sc(o); if (v > bs) { bs = v; best = o; } }
+      for (const o of sensibleOptions(req)) { const v = sc(o); if (v > bs) { bs = v; best = o; } }
       if (req.optional && req.kind === 'unit' && bs <= 0) return null;
       return best;
     }
   }
 
-  NS.AI = { AIController, unitValue, cardValue, handScore, LEVELS, scoreMain, scoreResponse };
+  NS.AI = { AIController, unitValue, cardValue, handScore, LEVELS, scoreMain, scoreResponse, pointless, sensibleOptions };
   NS.wait = ms => new Promise(r => setTimeout(r, ms));
 })();

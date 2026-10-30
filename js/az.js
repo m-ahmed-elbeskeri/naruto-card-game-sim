@@ -28,11 +28,12 @@
     return { S, A, n };
   }
 
-  // Describe a decision: the candidate moves in a fixed order (index = what the engine logs)
+  // Describe a decision: the candidate moves in a fixed order, leaving out the ones that cannot change anything
+  // (NS.AI.pointless); `ret` is what the controller returns and the engine logs as its own option index
   function describe(kind, g, pi, x) {
-    if (kind === 'main') return { kind, pi, x, cands: x.map(a => ({ ret: a, a })) };
+    if (kind === 'main') return { kind, pi, x, cands: x.filter(a => !NS.AI.pointless(g, pi, a)).map(a => ({ ret: a, a })) };
     if (kind === 'respond') return { kind, pi, x, cands: [{ ret: null, pass: true }].concat(x.options.map(s => ({ ret: s, s }))) };
-    const c = x.options.map(o => ({ ret: o, o }));
+    const c = NS.AI.sensibleOptions(x).map(o => ({ ret: o, o }));
     if (x.optional) c.push({ ret: null, none: true });
     return { kind, pi, x, cands: c };
   }

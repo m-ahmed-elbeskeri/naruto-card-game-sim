@@ -12,7 +12,7 @@
   async function pickUnit(c, options, prompt, o) {
     o = o || {};
     if (!options.length) return null;
-    return c.g.choose({ player: o.chooser != null ? o.chooser : c.pi, kind: 'unit', options, prompt, optional: !o.must, cancel: !!o.cancel, ai: o.ai || harm(c.g, c.pi) });
+    return c.g.choose({ player: o.chooser != null ? o.chooser : c.pi, kind: 'unit', options, prompt, optional: !o.must, cancel: !!o.cancel, ai: o.ai || harm(c.g, c.pi), sensible: o.sensible });
   }
   async function revealTop(c) {
     const P = c.g.p(c.pi);
@@ -31,6 +31,23 @@
     'N-014': [(g, u) => true, (g, u) => hasTrait(u.card, 'The Taka')],
     'N-022': [(g, u) => true],
   };
+  const EX_NEEDS_10_POWER = ['N-003', 'N-005'];
+  const TEAM10 = ['Ino Yamanaka', 'Shikamaru Nara', 'Choji Akimichi'];
+
+  // Whether extra power for the rest of this turn can change anything for u. Power counts only when a Character
+  // attacks a Character (a K.O. once it reaches the HP left), for the 10-power EX Summon Requirements and for
+  // Minato's [Rush]; attacks on a Leader use damage. The bots never boost a Character this cannot help.
+  function boostMatters(g, pi, u) {
+    if (u.owner !== pi || g.active !== pi) return false;
+    const P = g.p(pi), pw = g.pow(u);
+    if (pw < 10 && P.hand.some(x => EX_NEEDS_10_POWER.includes(x.card.id)) && (!g.house.exUsesSummonCard || !P.summonRested)) return true;
+    let attacks = g.canAttack(u);
+    if (!attacks && g.canAttack(u, true)) { // summoned this turn: it attacks only if it gains [Rush]
+      if (u.card.id === 'N-007' && !u.negated && pw < 10) return true;
+      attacks = TEAM10.includes(u.card.name) && P.chars.some(v => v.card.id === 'N-011' && !v.negated && NS.ABILITY['N-011'].usable(g, pi, v));
+    }
+    return attacks && g.targetsFor(pi).some(t => !t.isLeader && pw < (g.house.damagePersists ? g.hpLeft(t) : t.card.hp));
+  }
 
   // ---------- [On Summon] ----------
   NS.ON_SUMMON = {
@@ -87,10 +104,11 @@
     'N-001': {
       label: '+3 Power (flip 1 Chakra)',
       usable: (g, pi) => g.faceUpChakra(pi) >= 1 && allChars(g).length > 0,
+      sensible: (g, pi) => g.p(pi).chars.some(u => boostMatters(g, pi, u)),
       run: async c => {
         const g = c.g;
         const ai = u => help(g, c.pi)(u) + (u.owner === c.pi && g.pow(u) < 10 && g.pow(u) + 3 >= 10 ? 6 : 0) + (u.owner === c.pi && g.canAttack(u) ? 3 : 0);
-        const t = await pickUnit(c, allChars(g), 'Naruto: choose 1 Character to get +3 power this turn', { must: true, cancel: true, ai });
+        const t = await pickUnit(c, allChars(g), 'Naruto: choose 1 Character to get +3 power this turn', { must: true, cancel: true, ai, sensible: u => boostMatters(g, c.pi, u) });
         if (!t) return false; // cancelled: nothing paid
         await c.g.payChakra(c.pi, 1, c.g.p(c.pi).leader.uid);
         await c.g.emit('jutsu', { id: 'N-001', player: c.pi, src: c.g.p(c.pi).leader, targets: [t] });
@@ -120,7 +138,7 @@
       usable: (g, pi, u) => !g.p(pi).once['N-011:' + u.uid] && g.hasName(pi, 'Shikamaru Nara') && g.hasName(pi, 'Choji Akimichi'),
       run: async c => {
         c.g.p(c.pi).once['N-011:' + c.self.uid] = true;
-        const team = c.g.p(c.pi).chars.filter(u => ['Ino Yamanaka', 'Shikamaru Nara', 'Choji Akimichi'].includes(u.card.name));
+        const team = c.g.p(c.pi).chars.filter(u => TEAM10.includes(u.card.name));
         await c.g.emit('jutsu', { id: 'N-011', player: c.pi, src: c.self, targets: team });
         for (const u of team) {
           u.buffs.push({ pow: 5, dmg: 1, rush: true, until: 'turn' });
