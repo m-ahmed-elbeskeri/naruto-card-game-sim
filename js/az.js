@@ -278,7 +278,7 @@
   function expand(node, net, g, dpi, D, rootNoise, rng) {
     const s = stateFeat(g, dpi, D);
     const acts = D.cands.map(c => actFeat(g, dpi, D, c));
-    const out = net ? net.forward(s, acts) : { v: 0, priors: new Float32Array(acts.length).fill(1 / acts.length) };
+    const out = net ? net.forward(s, acts, false, g, dpi, D) : { v: 0, priors: new Float32Array(acts.length).fill(1 / acts.length) }; // the position too, for networks that encode it their own way
     let P = out.priors;
     if (rootNoise) {
       const a = rootNoise.alpha, eps = rootNoise.eps, gam = [];

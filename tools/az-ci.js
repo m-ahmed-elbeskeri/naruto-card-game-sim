@@ -4,10 +4,11 @@
 //       sims= is the search per world (8 worlds), deeper than the gate's 24 so the moves learned from are sharper;
 //       past= is the share of games played against past champions (ai/pool/gen-N.json and the current champion)
 //       instead of itself, and writes the learner's score against each to sp-1.league.json
-//   node tools/az-ci.js learn in=sp [steps=3000] [lr=0.0003] [sims=48] [past=0] [gate=200] [gatewin=0.55] [kage=200] [threads=4]
-//       trains on every sample file under `in`, gates the result against the champion (always at 8 x 24; it takes
-//       the gatewin share of the games to replace it), and updates ai/; sims= and past= only label the log line.
-//       A champion that is replaced moves to ai/pool/.
+//   node tools/az-ci.js learn in=sp [prev=dir] [prevkeep=0.5] [buffer=600000] [steps=3000] [lr=0.0003] [sims=48] [past=0] [gate=200] [gatewin=0.55] [kage=200] [threads=4]
+//       trains on every sample file under `in` (this round's self-play) and a random prevkeep share of those under
+//       `prev` (earlier rounds' self-play), at most `buffer` samples, gates the result against the champion (always
+//       at 8 x 24; it takes the gatewin share of the games to replace it), and updates ai/; sims= and past= only
+//       label the log line. A champion that is replaced moves to ai/pool/.
 //   node tools/az-ci.js match [games=400] [a=ai/best.json] [b=js/az-weights.js | b=genin|chunin|jonin|kage] [threads=4]
 //       plays network a against network b, or against one of the heuristic levels (default: the champion against the
 //       network the site ships), and prints a's score: overall, per matchup, per deck side and per turn order;
@@ -35,7 +36,7 @@ const DIR = process.env.AZ_DIR || path.join(__dirname, '..', 'ai');
 const THREADS = +(args.threads || os.cpus().length);
 const SEARCH = { worlds: 8, sims: 24, cpuct: 1.6 }, NOISE = { alpha: 0.3, eps: 0.25 }, TEMP_MOVES = 12;
 const SP_SEARCH = Object.assign({}, SEARCH, { sims: +args.sims || 48 }); // self-play only
-const BATCH = 128, LR = +args.lr || 3e-4, GATE_WIN = +args.gatewin || 0.55, BUFFER_MAX = 600000; // the cap keeps the learn stage inside a CI runner's memory
+const BATCH = 128, LR = +args.lr || 3e-4, GATE_WIN = +args.gatewin || 0.55, BUFFER_MAX = +args.buffer || 600000; // the cap keeps the learn stage inside a CI runner's memory
 const MIX = args.mix == null || args.mix === '' ? 0.5 : Math.max(0, Math.min(1, +args.mix));
 // score per matchup, e.g. "rb 61% (402) / rr 58% (199) / bb 57% (199)"
 const cell = (rs, label) => rs.length ? `${label} ${(100 * rs.reduce((t, r) => t + r.win, 0) / rs.length).toFixed(0)}% (${rs.length})` : '';
@@ -83,10 +84,12 @@ function encode(samples) {
   }
   return zlib.gzipSync(Buffer.from(f.buffer), { level: 6 });
 }
-function decode(buf, into) {
+function decode(buf, into, keep = 1) { // keep: the share of samples kept, at random
   const raw = zlib.gunzipSync(buf), f = new Float32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4); let o = 0; const n = f[o++];
   for (let j = 0; j < n; j++) {
-    const k = f[o++], z = f[o++], s = f.slice(o, o + S); o += S; const a = [];
+    const k = f[o++], z = f[o++];
+    if (keep < 1 && Math.random() >= keep) { o += S + k * A + k; continue; }
+    const s = f.slice(o, o + S); o += S; const a = [];
     for (let c = 0; c < k; c++) { a.push(f.slice(o, o + A)); o += A; }
     const pi_t = f.slice(o, o + k); o += k;
     into.push({ s, a, pi_t, z });
@@ -144,14 +147,17 @@ async function arena(pool, a, b, games, by) {
 
 async function learn() {
   const buffer = [], league = {};
-  const walk = d => fs.readdirSync(d, { withFileTypes: true }).forEach(e => {
+  const walk = (d, keep) => fs.readdirSync(d, { withFileTypes: true }).forEach(e => {
     const p = path.join(d, e.name);
-    if (e.isDirectory()) walk(p);
-    else if (p.endsWith('.bin.gz')) decode(fs.readFileSync(p), buffer);
-    else if (p.endsWith('.league.json')) for (const r of JSON.parse(fs.readFileSync(p, 'utf8'))) { const t = league[r.gen] = league[r.gen] || { gen: r.gen, n: 0, w: 0 }; t.n += r.n; t.w += r.w; }
+    if (e.isDirectory()) walk(p, keep);
+    else if (p.endsWith('.bin.gz')) decode(fs.readFileSync(p), buffer, keep);
+    else if (keep === 1 && p.endsWith('.league.json')) for (const r of JSON.parse(fs.readFileSync(p, 'utf8'))) { const t = league[r.gen] = league[r.gen] || { gen: r.gen, n: 0, w: 0 }; t.n += r.n; t.w += r.w; }
   });
-  walk(args.in || 'sp');
-  const total = buffer.length;
+  walk(args.in || 'sp', 1);
+  // earlier rounds' self-play (a replay window): more and more varied positions per round than one round's games
+  const fresh = buffer.length;
+  if (args.prev && fs.existsSync(args.prev)) walk(args.prev, +(args.prevkeep || 0.5));
+  const total = buffer.length, older = total - fresh;
   if (total > BUFFER_MAX) { for (let i = 0; i < BUFFER_MAX; i++) { const j = i + ((Math.random() * (total - i)) | 0), t = buffer[i]; buffer[i] = buffer[j]; buffer[j] = t; } buffer.length = BUFFER_MAX; log(`kept ${BUFFER_MAX} of ${total} samples`); }
   if (buffer.length < 1000 && !args.force) { log('too few samples:', buffer.length); process.exit(1); }
   const state = JSON.parse(fs.readFileSync(path.join(DIR, 'state.json'), 'utf8'));
@@ -175,7 +181,7 @@ async function learn() {
   const sb = {}, sk = {}, vb = await arena(pool, 'cur', 'best', gate, sb), vk = await arena(pool, 'cur', null, kage, sk);
   pool.close();
   const lg = leagueText(Object.values(league).sort((x, y) => x.gen - y.gen));
-  let msg = `iter ${state.iter}: ${buffer.length} samples (self-play ${SP_SEARCH.worlds} x ${SP_SEARCH.sims}${PAST > 0 ? `, ${Math.round(PAST * 100)}% v past champions` : ''}), train ${((t1 - t0) / 1000).toFixed(0)}s lr ${LR} loss v=${loss.v} p=${loss.p} | vs champion ${(vb * 100).toFixed(1)}% (${gate} games: ${sb.text}) | vs Kage ${(vk * 100).toFixed(1)}% (${kage} games: ${sk.text})` +
+  let msg = `iter ${state.iter}: ${buffer.length} samples (${older ? `${Math.round(100 * fresh / total)}% this round, ` : ''}self-play ${SP_SEARCH.worlds} x ${SP_SEARCH.sims}${PAST > 0 ? `, ${Math.round(PAST * 100)}% v past champions` : ''}), train ${((t1 - t0) / 1000).toFixed(0)}s lr ${LR} loss v=${loss.v} p=${loss.p} | vs champion ${(vb * 100).toFixed(1)}% (${gate} games: ${sb.text}) | vs Kage ${(vk * 100).toFixed(1)}% (${kage} games: ${sk.text})` +
     (lg ? ` | self-play learner v past champions: ${lg}` : '');
   if (vb >= GATE_WIN) {
     // the champion being replaced joins the past champions; the oldest beyond POOL_KEEP drop out

@@ -27,6 +27,12 @@ on:
       past:
         description: Share of self-play games against past champions (ai/pool and the current champion)
         default: '0.25'
+      window:
+        description: Rounds of self-play to learn from (this one and the ones before it; half of each older round's positions)
+        default: '4'
+      steps:
+        description: Training steps per round
+        default: '6000'
 
 permissions:
   contents: write
@@ -89,12 +95,26 @@ jobs:
           path: sp
           pattern: sp-*
           merge-multiple: true
-      - run: node --max-old-space-size=12000 tools/az-ci.js learn in=sp mix="$MIX" sims="$SIMS" lr="$LR" past="$PAST"
+      # the previous rounds' self-play files (kept 2 days), for the replay window
+      - name: Earlier rounds' self-play
+        if: ${{ inputs.window > 1 }}
+        run: |
+          for id in $(gh run list --workflow train.yml --status success --limit $(( WINDOW - 1 )) --json databaseId -q '.[].databaseId'); do
+            gh run download "$id" --pattern 'sp-*' --dir "prev/$id" || echo "run $id: no self-play files"
+          done
+          ls prev 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WINDOW: ${{ inputs.window }}
+      - run: node --max-old-space-size=12000 tools/az-ci.js learn in=sp prev=prev prevkeep=0.5 buffer=$(( 600000 + (WINDOW - 1) * 300000 )) steps="$STEPS" mix="$MIX" sims="$SIMS" lr="$LR" past="$PAST"
         env:
           MIX: ${{ inputs.mix }}
           SIMS: ${{ inputs.sims }}
           LR: ${{ inputs.lr }}
           PAST: ${{ inputs.past }}
+          WINDOW: ${{ inputs.window }}
+          STEPS: ${{ inputs.steps }}
       - name: Commit the result
         run: |
           git config user.name "github-actions[bot]"
@@ -105,7 +125,7 @@ jobs:
           git push
       - name: Start the next iteration
         if: ${{ inputs.remaining > 1 }}
-        run: gh workflow run train.yml -f remaining=$(( REMAINING - 1 )) -f shards="$SHARDS" -f minutes="$MINUTES" -f mix="$MIX" -f sims="$SIMS" -f lr="$LR" -f past="$PAST"
+        run: gh workflow run train.yml -f remaining=$(( REMAINING - 1 )) -f shards="$SHARDS" -f minutes="$MINUTES" -f mix="$MIX" -f sims="$SIMS" -f lr="$LR" -f past="$PAST" -f window="$WINDOW" -f steps="$STEPS"
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -116,3 +136,5 @@ jobs:
           SIMS: ${{ inputs.sims }}
           LR: ${{ inputs.lr }}
           PAST: ${{ inputs.past }}
+          WINDOW: ${{ inputs.window }}
+          STEPS: ${{ inputs.steps }}
