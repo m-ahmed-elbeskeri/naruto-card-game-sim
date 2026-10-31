@@ -4,12 +4,14 @@
 (function () {
   const NS = window.NTCG = window.NTCG || {};
   const SPEEDS = { slow: 1.5, normal: 1, fast: 0.5, turbo: 0.15 };
+  const THINK = { quick: 0.5, normal: 1, long: 2.5, 'very long': 5, extreme: 20 }; // the Hokage bot's thinking time
 
-  const defaults = { music: true, sfx: true, cutins: true, fx: 'full', speed: 'normal' }; // fx: full | low | off
+  const defaults = { music: true, sfx: true, cutins: true, fx: 'full', speed: 'normal', think: 'normal' }; // fx: full | low | off
   const saved = (() => { try { return JSON.parse(localStorage.getItem('ntcg.settings') || '{}'); } catch (e) { return {}; } })();
   if (saved.fx == null && saved.lowfx) saved.fx = 'low'; // the old "Reduced effects" switch
   NS.settings = Object.assign({}, defaults, saved, {
     speedMul() { return SPEEDS[this.speed] || 1; },
+    thinkMul() { return THINK[this.think] || 1; },
     save(patch) {
       Object.assign(this, patch);
       const o = {}; Object.keys(defaults).forEach(k => { o[k] = this[k]; });

@@ -483,9 +483,22 @@
     return out;
   }
   const BUDGET = { main: 1400, respond: 900, choose: 800 };
+  const SIM_CAP = 100000; // per worker per decision: a search tree takes about 1.1 KB per simulation, so this keeps one near 110 MB
+  // a small note during long searches, so the game does not look frozen
+  function thinkingNote() {
+    if (typeof document === 'undefined') return () => {};
+    const timer = setTimeout(() => {
+      let el = document.getElementById('azThink');
+      if (!el) { el = document.createElement('div'); el.id = 'azThink'; el.className = 'az-think'; el.textContent = 'Hokage is thinking'; document.body.appendChild(el); }
+      el.classList.add('on');
+    }, 2000);
+    return () => { clearTimeout(timer); const el = document.getElementById('azThink'); if (el) el.classList.remove('on'); };
+  }
   function hokage() {
     getPool();
-    return new AZController({ remote: remoteSearch, cfgFor: kind => ({ worlds: 3, ms: BUDGET[kind] || 900, cpuct: 1.6 }) });
+    const remote = async (spec, pi, cfg) => { const done = thinkingNote(); try { return await remoteSearch(spec, pi, cfg); } finally { done(); } };
+    const mul = () => (NS.settings && NS.settings.thinkMul ? NS.settings.thinkMul() : 1);
+    return new AZController({ remote, cfgFor: kind => ({ worlds: 3, ms: (BUDGET[kind] || 900) * mul(), maxSims: SIM_CAP, cpuct: 1.6 }) });
   }
 
   Object.assign(AZ, { dims, describe, stateFeat, actFeat, Net, Adam, softmax, search, determinize, pickFromVisits, AZController, hokage, warm: getPool });

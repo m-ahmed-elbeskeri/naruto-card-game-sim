@@ -309,6 +309,8 @@
       <div class="set-row"><div>Visual effects<small>Reduced: fewer particles, no light layer. Off: no particles, flashes, screen shake or cut-ins; cards still move. Use on slower PCs</small></div><div class="seg" style="width:320px;flex:none">${[['full', 'Full'], ['low', 'Reduced'], ['off', 'Off']].map(([k, l]) => `<button data-fx="${k}" class="${st.fx === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       ${tog('music', 'Music', 'Generated soundtrack')}${tog('sfx', 'Sound effects', 'Hits, jutsu, chakra')}${tog('cutins', 'Jutsu cut-ins', 'Big banners for Supports and EX summons')}
       <div class="set-row"><div>Animation speed</div><div class="seg" style="width:320px">${['slow', 'normal', 'fast', 'turbo'].map(s => `<button data-sp="${s}" class="${st.speed === s ? 'on' : ''}">${s}</button>`).join('')}</div></div>
+      <h4>Hokage bot</h4>
+      <div class="set-row"><div>Thinking time<small>Longer search plays stronger but makes games slower. Per move on its own turn: quick 0.7s, normal 1.4s, long 3.5s, very long 7s, extreme up to 28s. Extreme uses a lot of memory and battery</small></div><div class="seg" style="width:470px;flex:none">${['quick', 'normal', 'long', 'very long', 'extreme'].map(s => `<button data-th="${s}" class="${st.think === s ? 'on' : ''}">${s}</button>`).join('')}</div></div>
       <h4>House Rules (defaults follow the community rulebook v1.4)</h4>
       ${num('deckSize', 'Deck size', 'Gen Con demo: 30 (retail: 50)', 10, 60)}
       ${num('copyLimit', 'Copies per card', 'Gen Con demo decks: 3', 1, 10)}
@@ -336,6 +338,7 @@
       $$('[data-fx]', m).forEach(b => b.onclick = () => { st.save({ fx: b.dataset.fx }); st.applyFx(); $$('[data-fx]', m).forEach(x => x.classList.toggle('on', x === b)); });
       $$('[data-n]', m).forEach(i => i.onchange = () => { H[i.dataset.n] = Math.max(+i.min, Math.min(+i.max, +i.value || 0)); store.set('house', H); });
       $$('[data-sp]', m).forEach(b => b.onclick = () => { st.save({ speed: b.dataset.sp }); $$('[data-sp]', m).forEach(x => x.classList.toggle('on', x === b)); });
+      $$('[data-th]', m).forEach(b => b.onclick = () => { st.save({ think: b.dataset.th }); $$('[data-th]', m).forEach(x => x.classList.toggle('on', x === b)); });
       $('#hrReset', m).onclick = () => { Object.assign(H, NS.HOUSE_DEFAULTS); store.set('house', H); close(); openSettings(); };
       $('#sDone', m).onclick = () => close();
     });
