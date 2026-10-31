@@ -1,22 +1,13 @@
 name: Search option matches
 
-# Head to head between search settings on the same network (tools/exp/ab.js): each option in js/az.js's AZ.opts
-# against the search without it. Each job plays 4 processes in parallel; the last job adds them up per pairing.
+# Head to head between search settings on the same network (tools/exp/ab.js). `pairs` is a JSON list of jobs, each
+# { "name", "a", "b", "games", "seed" }; every job plays 4 processes of `games` games. The last job adds up each pairing.
 on:
   workflow_dispatch:
     inputs:
-      sims:
-        description: Search simulations per world for both players (8 worlds)
-        default: '24'
-      games:
-        description: Games per process (2 jobs x 4 processes per pairing)
-        default: '100'
-      ms:
-        description: Thinking time per decision in ms, in place of sims (equal time instead of equal search)
-        default: ''
-      worlds:
-        description: Worlds per decision
-        default: '8'
+      pairs:
+        description: JSON list of matches
+        required: true
 
 permissions:
   contents: read
@@ -24,33 +15,25 @@ permissions:
 jobs:
   play:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { name: merge-1, a: merge, seed: 1 }
-          - { name: merge-2, a: merge, seed: 2 }
-          - { name: knowntop-1, a: knownTop, seed: 3 }
-          - { name: knowntop-2, a: knownTop, seed: 4 }
-          - { name: both-1, a: 'merge,knownTop', seed: 5 }
-          - { name: both-2, a: 'merge,knownTop', seed: 6 }
+        include: ${{ fromJSON(inputs.pairs) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: |
-          for i in 1 2 3 4; do node tools/exp/ab.js "$A" base "$GAMES" $(( SEED * 10 + i )) sims="$SIMS" ms="$MS" worlds="$WORLDS" > "r-$i.json" & done
+          for i in 1 2 3 4; do node tools/exp/ab.js "$A" "$B" "$GAMES" $(( SEED * 10 + i )) > "r-$i.json" & done
           wait
           cat r-*.json
         env:
           A: ${{ matrix.a }}
-          GAMES: ${{ inputs.games }}
+          B: ${{ matrix.b }}
+          GAMES: ${{ matrix.games }}
           SEED: ${{ matrix.seed }}
-          SIMS: ${{ inputs.sims }}
-          MS: ${{ inputs.ms }}
-          WORLDS: ${{ inputs.worlds }}
       - uses: actions/upload-artifact@v4
         with:
           name: m-${{ matrix.name }}
