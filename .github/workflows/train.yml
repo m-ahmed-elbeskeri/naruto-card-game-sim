@@ -82,6 +82,7 @@ jobs:
           path: |
             sp-*.bin.gz
             sp-*.league.json
+            sp-*.sides.json
           retention-days: 2
 
   learn:

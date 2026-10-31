@@ -51,7 +51,7 @@ if (!isMainThread) {
   parentPort.on('message', async m => {
     try {
       if (m.nets) for (const k in m.nets) getNet(k, m.nets[k]);
-      const swap = Math.random() < 0.5;
+      const swap = m.deck ? (m.deck === 'r') === (m.seat === 1) : Math.random() < 0.5; // m.deck: the deck the player in m.seat gets, red v blue
       // decks of this game: a fixed matchup, or a share `mix` of mirror matches (half red, half blue) and red against blue otherwise
       const mu = m.matchup || (Math.random() < (m.mix || 0) ? (Math.random() < (m.redMirror == null ? 0.5 : m.redMirror) ? 'rr' : 'bb') : 'rb');
       if (m.type === 'imitate') {
@@ -63,9 +63,9 @@ if (!isMainThread) {
       } else if (m.type === 'selfplay') {
         const samples = [];
         const mk = () => new AZ.AZController({ net: nets.cur, cfg: Object.assign({ noise: m.noise }, m.search), record: x => samples.push(x), temp: (g, n) => (n < m.tempMoves ? 1 : 0) });
-        const { g } = newGame([mk(), mk()], swap, undefined, mu);
+        const { g, decks } = newGame([mk(), mk()], swap, undefined, mu);
         await g.start();
-        parentPort.postMessage({ id: m.id, samples: pack(samples, g.winner), turns: g.turn, matchup: mu });
+        parentPort.postMessage({ id: m.id, samples: pack(samples, g.winner), turns: g.turn, matchup: mu, blueWon: mu === 'rb' && g.winner != null ? +(decks[g.winner] === NS.STARTERS[1]) : null });
       } else if (m.type === 'league') {
         // the learner (net cur) against a past champion (net m.opp) in seat 1 - m.seat; only the learner's moves are recorded
         const samples = [];

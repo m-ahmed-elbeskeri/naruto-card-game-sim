@@ -8,8 +8,11 @@
 //       trains on every sample file under `in` (this round's self-play) and a random prevkeep share of those under
 //       `prev` (earlier rounds' self-play), at most `buffer` samples, gates the result against the champion (always
 //       at 8 x 24; it takes the gatewin share of the games to go further), and updates ai/; sims= and past= only
-//       label the log line. A gate pass then plays confirm=200 fresh games in each matchup: it replaces the champion
-//       only at confirmwin=0.52 overall (weighted like the gate) and confirmfloor=0.47 or better in every matchup.
+//       label the log line. A gate pass then plays fresh games on each side: red v blue as red, as blue, and each
+//       mirror, confirm=200 each and twice that on the losing side of red v blue (the deck that wins less between
+//       equal bots, measured from this round's self-play). None may fall behind what level play would score, and
+//       then it replaces the champion if it is ahead overall (confirmwin=0.52, weighted like the gate) or if the
+//       losing side is clearly better (5 points) and it is not behind overall (0.505).
 //       A champion that is replaced moves to ai/pool/.
 //   node tools/az-ci.js match [games=400] [a=ai/best.json] [b=js/az-weights.js | b=genin|chunin|jonin|kage] [threads=4]
 //       plays network a against network b, or against one of the heuristic levels (default: the champion against the
@@ -39,8 +42,9 @@ const DIR = process.env.AZ_DIR || path.join(__dirname, '..', 'ai');
 const THREADS = +(args.threads || os.cpus().length);
 const SEARCH = { worlds: 8, sims: 24, cpuct: 1.6 }, NOISE = { alpha: 0.3, eps: 0.25 }, TEMP_MOVES = 12;
 const SP_SEARCH = Object.assign({}, SEARCH, { sims: +args.sims || 48 }); // self-play only
-const CONFIRM = args.confirm == null ? 200 : +args.confirm, CONFIRM_WIN = +args.confirmwin || 0.52, CONFIRM_FLOOR = +args.confirmfloor || 0.47; // a gate pass is checked on fresh games per matchup: level overall is not enough, and none may fall behind
-const BATCH = 128, LR = +args.lr || 3e-4, GATE_WIN = args.gatewin == null ? 0.55 : +args.gatewin, BUFFER_MAX = +args.buffer || 600000; // the cap keeps the learn stage inside a CI runner's memory
+const CONFIRM = args.confirm == null ? 200 : +args.confirm, CONFIRM_WIN = args.confirmwin == null ? 0.52 : +args.confirmwin; // a gate pass is checked on fresh games per side
+const SLACK = args.slack == null ? 0.03 : +args.slack, LOSING_SLACK = args.losingslack == null ? 0.02 : +args.losingslack, LOSING_GAIN = 0.05, LEVEL_OVERALL = 0.505, BLUE_EDGE = 0.055; // BLUE_EDGE when self-play did not measure it
+const BATCH = 128, LR = +args.lr || 3e-4, GATE_WIN = args.gatewin == null ? 0.52 : +args.gatewin, BUFFER_MAX = +args.buffer || 600000; // the cap keeps the learn stage inside a CI runner's memory
 const MIX = args.mix == null || args.mix === '' ? 0.5 : Math.max(0, Math.min(1, +args.mix));
 const RED_MIRROR = args.redmirror == null || args.redmirror === '' ? 0.5 : Math.max(0, Math.min(1, +args.redmirror));
 // score per matchup, e.g. "rb 61% (402) / rr 58% (199) / bb 57% (199)"
@@ -121,7 +125,7 @@ async function selfplay() {
   const samples = []; let games = 0, turns = 0, errs = 0, started = 0;
   log(`selfplay: ${THREADS} threads, ${args.minutes || 40} min, ${Math.round(MIX * 100)}% mirror matches (${Math.round(RED_MIRROR * 100)}% of them red), search ${SP_SEARCH.worlds} x ${SP_SEARCH.sims}` +
     (past.length ? `, ${Math.round(PAST * 100)}% of games against past champions (gen ${past.map(c => c.gen).join(', ')})` : ''));
-  const seen = { rb: 0, rr: 0, bb: 0 };
+  const seen = { rb: 0, rr: 0, bb: 0 }, deckWins = { n: 0, blue: 0 };
   const one = async () => {
     while (Date.now() < end && (!max || started < max)) {
       const seat = started++ % 2, k = past.length && Math.random() < PAST ? (Math.random() * past.length) | 0 : -1;
@@ -129,6 +133,7 @@ async function selfplay() {
       const r = await pool.run(k < 0 ? Object.assign(job, { type: 'selfplay' }) : Object.assign(job, { type: 'league', opp: 'past' + k, seat }));
       if (r.error) { if (++errs < 3) log('selfplay error', r.error.slice(0, 400)); continue; }
       for (const x of r.samples) samples.push(x); games++; turns += r.turns; seen[r.matchup]++;
+      if (r.blueWon != null) { deckWins.n++; deckWins.blue += r.blueWon; }
       if (k >= 0) { league[k].n++; league[k].w += r.win; }
       if (games % 20 === 0) log(`${games} games, ${samples.length} samples`);
     }
@@ -137,25 +142,27 @@ async function selfplay() {
   pool.close();
   const out = args.out || 'sp.bin.gz', buf = encode(samples);
   fs.writeFileSync(out, buf);
+  fs.writeFileSync(out.replace(/\.bin\.gz$/, '') + '.sides.json', JSON.stringify(deckWins));
   if (past.length) { fs.writeFileSync(out.replace(/\.bin\.gz$/, '') + '.league.json', JSON.stringify(league)); log(`learner against past champions: ${leagueText(league)}`); }
   log(`matchups: red v blue ${seen.rb}, red mirror ${seen.rr}, blue mirror ${seen.bb}`);
   log(`done: ${games} games (avg ${(turns / Math.max(1, games)).toFixed(1)} turns), ${samples.length} samples, ${errs} errors, ${(buf.length / 1048576).toFixed(1)} MB -> ${out}`);
   if (!games) process.exit(1);
 }
 
-async function arena(pool, a, b, games, by, matchup) {
-  const rs = await Promise.all(Array.from({ length: games }, (_, i) => pool.run({ type: 'arena', a, b, seat: i % 2, search: SEARCH, mix: MIX, matchup })));
+async function arena(pool, a, b, games, by, matchup, deck) {
+  const rs = await Promise.all(Array.from({ length: games }, (_, i) => pool.run({ type: 'arena', a, b, seat: i % 2, search: SEARCH, mix: MIX, matchup, deck })));
   const ok = rs.filter(r => !r.error); if (ok.length < rs.length) log('arena errors', rs.length - ok.length, (rs.find(r => r.error).error || '').slice(0, 300));
-  if (by) by.text = split(ok);
+  if (by) { by.text = split(ok); by.sides = sides(ok); }
   return ok.reduce((t, r) => t + r.win, 0) / Math.max(1, ok.length);
 }
 
 async function learn() {
-  const buffer = [], league = {};
+  const buffer = [], league = {}, deckWins = { n: 0, blue: 0 };
   const walk = (d, keep) => fs.readdirSync(d, { withFileTypes: true }).forEach(e => {
     const p = path.join(d, e.name);
     if (e.isDirectory()) walk(p, keep);
     else if (p.endsWith('.bin.gz')) decode(fs.readFileSync(p), buffer, keep);
+    else if (keep === 1 && p.endsWith('.sides.json')) { const r = JSON.parse(fs.readFileSync(p, 'utf8')); deckWins.n += r.n; deckWins.blue += r.blue; }
     else if (keep === 1 && p.endsWith('.league.json')) for (const r of JSON.parse(fs.readFileSync(p, 'utf8'))) { const t = league[r.gen] = league[r.gen] || { gen: r.gen, n: 0, w: 0 }; t.n += r.n; t.w += r.w; }
   });
   walk(args.in || 'sp', 1);
@@ -186,12 +193,20 @@ async function learn() {
   const sb = {}, sk = {}, vb = await arena(pool, 'cur', 'best', gate, sb), vk = await arena(pool, 'cur', null, kage, sk);
   let promote = vb >= GATE_WIN, confirmed = '';
   if (promote && CONFIRM) {
-    const sc = {}, weigh = { rb: 1 - MIX, rr: MIX / 2, bb: MIX / 2 }, score = {};
-    for (const m of ['rb', 'rr', 'bb']) score[m] = await arena(pool, 'cur', 'best', CONFIRM, sc, m);
-    const all = Object.keys(score).reduce((t, m) => t + weigh[m] * score[m], 0), behind = Object.keys(score).filter(m => score[m] < CONFIRM_FLOOR);
-    promote = all >= CONFIRM_WIN && !behind.length;
-    confirmed = ` | confirm ${(100 * all).toFixed(1)}% (${Object.keys(score).map(m => `${m} ${Math.round(100 * score[m])}%`).join(' / ')}, ${CONFIRM} games each)` +
-      (promote ? '' : ` -> not promoted: ${behind.length ? `behind in ${behind.join(', ')}` : 'not ahead overall'}`);
+    // what a level network scores on each side, from the blue deck's edge in this round's self-play
+    const edge = deckWins.n >= 200 ? deckWins.blue / deckWins.n - 0.5 : BLUE_EDGE, losing = edge >= 0 ? 'red' : 'blue';
+    const sc = {}, score = {}, sidesOf = { red: ['rb', 'r'], blue: ['rb', 'b'], rr: ['rr'], bb: ['bb'] }, level = { red: 0.5 - edge, blue: 0.5 + edge, rr: 0.5, bb: 0.5 }, weigh = { red: (1 - MIX) / 2, blue: (1 - MIX) / 2, rr: MIX / 2, bb: MIX / 2 };
+    for (const k of Object.keys(sidesOf)) {
+      const n = k === losing ? 2 * CONFIRM : CONFIRM;
+      score[k] = await arena(pool, 'cur', 'best', n, sc, ...sidesOf[k]);
+      log(`confirm ${k}: ${(100 * score[k]).toFixed(1)}% of ${n}, level would be ${(100 * level[k]).toFixed(1)}% (${sc.sides || sc.text})`);
+    }
+    const all = Object.keys(score).reduce((t, k) => t + weigh[k] * score[k], 0);
+    const behind = Object.keys(score).filter(k => score[k] < level[k] - (k === losing ? LOSING_SLACK : SLACK));
+    const ahead = all >= CONFIRM_WIN, better = score[losing] >= level[losing] + LOSING_GAIN && all >= LEVEL_OVERALL;
+    promote = !behind.length && (ahead || better);
+    confirmed = ` | confirm ${(100 * all).toFixed(1)}% (${Object.keys(score).map(k => `${k} ${Math.round(100 * score[k])}%`).join(' / ')}; level ${Object.keys(score).slice(0, 2).map(k => `${k} ${Math.round(100 * level[k])}%`).join(' / ')})` +
+      (promote ? (ahead ? '' : ' losing side better') : ` -> not promoted: ${behind.length ? `behind in ${behind.join(', ')}` : 'not ahead'}`);
   }
   pool.close();
   const lg = leagueText(Object.values(league).sort((x, y) => x.gen - y.gen));
