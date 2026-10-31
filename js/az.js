@@ -31,7 +31,7 @@
   // Search options, compared head to head by tools/exp/ab.js: merge = one candidate per distinct move;
   // knownTop = worlds keep the top deck cards the searching player has seen
   AZ.opts = AZ.opts || { merge: true, knownTop: true };
-  const unitKey = (g, u) => u.isLeader ? u.uid : [u.card.id, u.owner, +!!u.rested, +!!u.negated, g.pow(u), g.dmg(u), g.hpLeft(u), u.summonedTurn === g.turn ? 1 : 0, u.buffs.length, JSON.stringify(u.flags), g.p(u.owner).once['N-011:' + u.uid] ? 1 : 0].join('/');
+  const unitKey = (g, u) => u.isLeader ? u.uid : [u.card.id, u.owner, +!!u.rested, +!!u.negated, g.pow(u), g.dmg(u), g.hpLeft(u), u.summonedTurn === g.turn ? 1 : 0, u.buffs.length, u.flags.cantAttackTurn, u.flags.immuneSupportTurn, u.flags.immuneFrom, g.p(u.owner).once['N-011:' + u.uid] ? 1 : 0].join('/');
   function cardKey(g, c) {
     const Q = g.p(c.owner);
     return c.card.id + ':' + (Q.hand.includes(c) ? 'h' : Q.supports.includes(c) ? 's' : Q.deck.includes(c) ? 'd' : Q.trash.includes(c) ? 't' : 'x');
@@ -43,8 +43,13 @@
     return c.none ? 'none' : optKey(g, c.o);
   }
   // Copies of a card, or Characters in exactly the same state, are one choice; each copy would count as its own move in search
+  const idOf = o => (o && o.card && o.card.id) || '';
+  const roughKey = (kind, c) => kind === 'main' ? c.a.kind + idOf(c.a.attacker) + idOf(c.a.target) + idOf(c.a.unit) + idOf(c.a.card) + idOf(c.a.sup) : kind === 'respond' ? idOf(c.s) : idOf(c.o);
   function distinct(g, kind, cands) {
-    if (!AZ.opts.merge) return cands;
+    if (!AZ.opts.merge || cands.length < 2) return cands;
+    // the full comparison is slow and runs at every search step: only make it when two options name the same cards
+    const rough = new Set();
+    if (cands.every(c => { const k = roughKey(kind, c); if (rough.has(k)) return false; rough.add(k); return true; })) return cands;
     const seen = new Set();
     return cands.filter(c => { const k = moveKey(g, kind, c); if (k == null) return true; if (seen.has(k)) return false; seen.add(k); return true; });
   }
