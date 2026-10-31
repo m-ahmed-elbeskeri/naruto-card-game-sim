@@ -11,6 +11,12 @@ on:
       games:
         description: Games per process (2 jobs x 4 processes per pairing)
         default: '100'
+      ms:
+        description: Thinking time per decision in ms, in place of sims (equal time instead of equal search)
+        default: ''
+      worlds:
+        description: Worlds per decision
+        default: '8'
 
 permissions:
   contents: read
@@ -35,7 +41,7 @@ jobs:
         with:
           node-version: 22
       - run: |
-          for i in 1 2 3 4; do node tools/exp/ab.js "$A" base "$GAMES" $(( SEED * 10 + i )) sims="$SIMS" > "r-$i.json" & done
+          for i in 1 2 3 4; do node tools/exp/ab.js "$A" base "$GAMES" $(( SEED * 10 + i )) sims="$SIMS" ms="$MS" worlds="$WORLDS" > "r-$i.json" & done
           wait
           cat r-*.json
         env:
@@ -43,6 +49,8 @@ jobs:
           GAMES: ${{ inputs.games }}
           SEED: ${{ matrix.seed }}
           SIMS: ${{ inputs.sims }}
+          MS: ${{ inputs.ms }}
+          WORLDS: ${{ inputs.worlds }}
       - uses: actions/upload-artifact@v4
         with:
           name: m-${{ matrix.name }}

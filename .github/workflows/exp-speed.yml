@@ -1,0 +1,19 @@
+name: Search option speed
+
+# Simulations per second under each search option in js/az.js's AZ.opts, on one machine at a time (tools/exp/speed.js)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  speed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node tools/exp/speed.js rounds=7
