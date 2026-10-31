@@ -7,8 +7,10 @@
 //   node tools/az-ci.js learn in=sp [prev=dir] [prevkeep=0.5] [buffer=600000] [steps=3000] [lr=0.0003] [sims=48] [past=0] [gate=200] [gatewin=0.55] [kage=200] [threads=4]
 //       trains on every sample file under `in` (this round's self-play) and a random prevkeep share of those under
 //       `prev` (earlier rounds' self-play), at most `buffer` samples, gates the result against the champion (always
-//       at 8 x 24; it takes the gatewin share of the games to replace it), and updates ai/; sims= and past= only
-//       label the log line. A champion that is replaced moves to ai/pool/.
+//       at 8 x 24; it takes the gatewin share of the games to go further), and updates ai/; sims= and past= only
+//       label the log line. A gate pass then plays confirm=200 fresh games in each matchup: it replaces the champion
+//       only at confirmwin=0.52 overall (weighted like the gate) and confirmfloor=0.47 or better in every matchup.
+//       A champion that is replaced moves to ai/pool/.
 //   node tools/az-ci.js match [games=400] [a=ai/best.json] [b=js/az-weights.js | b=genin|chunin|jonin|kage] [threads=4]
 //       plays network a against network b, or against one of the heuristic levels (default: the champion against the
 //       network the site ships), and prints a's score: overall, per matchup, per deck side and per turn order;
@@ -37,7 +39,8 @@ const DIR = process.env.AZ_DIR || path.join(__dirname, '..', 'ai');
 const THREADS = +(args.threads || os.cpus().length);
 const SEARCH = { worlds: 8, sims: 24, cpuct: 1.6 }, NOISE = { alpha: 0.3, eps: 0.25 }, TEMP_MOVES = 12;
 const SP_SEARCH = Object.assign({}, SEARCH, { sims: +args.sims || 48 }); // self-play only
-const BATCH = 128, LR = +args.lr || 3e-4, GATE_WIN = +args.gatewin || 0.55, BUFFER_MAX = +args.buffer || 600000; // the cap keeps the learn stage inside a CI runner's memory
+const CONFIRM = args.confirm == null ? 200 : +args.confirm, CONFIRM_WIN = +args.confirmwin || 0.52, CONFIRM_FLOOR = +args.confirmfloor || 0.47; // a gate pass is checked on fresh games per matchup: level overall is not enough, and none may fall behind
+const BATCH = 128, LR = +args.lr || 3e-4, GATE_WIN = args.gatewin == null ? 0.55 : +args.gatewin, BUFFER_MAX = +args.buffer || 600000; // the cap keeps the learn stage inside a CI runner's memory
 const MIX = args.mix == null || args.mix === '' ? 0.5 : Math.max(0, Math.min(1, +args.mix));
 const RED_MIRROR = args.redmirror == null || args.redmirror === '' ? 0.5 : Math.max(0, Math.min(1, +args.redmirror));
 // score per matchup, e.g. "rb 61% (402) / rr 58% (199) / bb 57% (199)"
@@ -140,8 +143,8 @@ async function selfplay() {
   if (!games) process.exit(1);
 }
 
-async function arena(pool, a, b, games, by) {
-  const rs = await Promise.all(Array.from({ length: games }, (_, i) => pool.run({ type: 'arena', a, b, seat: i % 2, search: SEARCH, mix: MIX })));
+async function arena(pool, a, b, games, by, matchup) {
+  const rs = await Promise.all(Array.from({ length: games }, (_, i) => pool.run({ type: 'arena', a, b, seat: i % 2, search: SEARCH, mix: MIX, matchup })));
   const ok = rs.filter(r => !r.error); if (ok.length < rs.length) log('arena errors', rs.length - ok.length, (rs.find(r => r.error).error || '').slice(0, 300));
   if (by) by.text = split(ok);
   return ok.reduce((t, r) => t + r.win, 0) / Math.max(1, ok.length);
@@ -181,11 +184,20 @@ async function learn() {
   pool.setNet('cur', cur); pool.setNet('best', best);
   const gate = +(args.gate || 200), kage = +(args.kage || 200);
   const sb = {}, sk = {}, vb = await arena(pool, 'cur', 'best', gate, sb), vk = await arena(pool, 'cur', null, kage, sk);
+  let promote = vb >= GATE_WIN, confirmed = '';
+  if (promote && CONFIRM) {
+    const sc = {}, weigh = { rb: 1 - MIX, rr: MIX / 2, bb: MIX / 2 }, score = {};
+    for (const m of ['rb', 'rr', 'bb']) score[m] = await arena(pool, 'cur', 'best', CONFIRM, sc, m);
+    const all = Object.keys(score).reduce((t, m) => t + weigh[m] * score[m], 0), behind = Object.keys(score).filter(m => score[m] < CONFIRM_FLOOR);
+    promote = all >= CONFIRM_WIN && !behind.length;
+    confirmed = ` | confirm ${(100 * all).toFixed(1)}% (${Object.keys(score).map(m => `${m} ${Math.round(100 * score[m])}%`).join(' / ')}, ${CONFIRM} games each)` +
+      (promote ? '' : ` -> not promoted: ${behind.length ? `behind in ${behind.join(', ')}` : 'not ahead overall'}`);
+  }
   pool.close();
   const lg = leagueText(Object.values(league).sort((x, y) => x.gen - y.gen));
   let msg = `iter ${state.iter}: ${buffer.length} samples (${older ? `${Math.round(100 * fresh / total)}% this round, ` : ''}self-play ${SP_SEARCH.worlds} x ${SP_SEARCH.sims}${PAST > 0 ? `, ${Math.round(PAST * 100)}% v past champions` : ''}${RED_MIRROR !== 0.5 ? `, ${Math.round(RED_MIRROR * 100)}% of mirrors red` : ''}), train ${((t1 - t0) / 1000).toFixed(0)}s lr ${LR} loss v=${loss.v} p=${loss.p} | vs champion ${(vb * 100).toFixed(1)}% (${gate} games: ${sb.text}) | vs Kage ${(vk * 100).toFixed(1)}% (${kage} games: ${sk.text})` +
-    (lg ? ` | self-play learner v past champions: ${lg}` : '');
-  if (vb >= GATE_WIN) {
+    (lg ? ` | self-play learner v past champions: ${lg}` : '') + confirmed;
+  if (promote) {
     // the champion being replaced joins the past champions; the oldest beyond POOL_KEEP drop out
     const dir = path.join(DIR, 'pool');
     fs.mkdirSync(dir, { recursive: true });
