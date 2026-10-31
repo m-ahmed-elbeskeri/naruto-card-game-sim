@@ -18,6 +18,9 @@ on:
       mix:
         description: Share of mirror matches (red v red, blue v blue); the rest is red v blue
         default: '0.5'
+      redmirror:
+        description: Share of self-play mirror matches on the red deck (the gate always splits them evenly)
+        default: '0.7'
       sims:
         description: Self-play search simulations per world (the gate always uses 24)
         default: '48'
@@ -66,10 +69,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node tools/az-ci.js selfplay minutes="$MINUTES" mix="$MIX" sims="$SIMS" past="$PAST" out="sp-${{ matrix.shard }}.bin.gz"
+      - run: node tools/az-ci.js selfplay minutes="$MINUTES" mix="$MIX" redmirror="$REDMIRROR" sims="$SIMS" past="$PAST" out="sp-${{ matrix.shard }}.bin.gz"
         env:
           MINUTES: ${{ inputs.minutes }}
           MIX: ${{ inputs.mix }}
+          REDMIRROR: ${{ inputs.redmirror }}
           SIMS: ${{ inputs.sims }}
           PAST: ${{ inputs.past }}
       - uses: actions/upload-artifact@v4
@@ -107,9 +111,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           WINDOW: ${{ inputs.window }}
-      - run: node --max-old-space-size=12000 tools/az-ci.js learn in=sp prev=prev prevkeep=0.5 buffer=$(( 600000 + (WINDOW - 1) * 300000 )) steps="$STEPS" mix="$MIX" sims="$SIMS" lr="$LR" past="$PAST"
+      - run: node --max-old-space-size=12000 tools/az-ci.js learn in=sp prev=prev prevkeep=0.5 buffer=$(( 600000 + (WINDOW - 1) * 300000 )) steps="$STEPS" mix="$MIX" redmirror="$REDMIRROR" sims="$SIMS" lr="$LR" past="$PAST"
         env:
           MIX: ${{ inputs.mix }}
+          REDMIRROR: ${{ inputs.redmirror }}
           SIMS: ${{ inputs.sims }}
           LR: ${{ inputs.lr }}
           PAST: ${{ inputs.past }}
@@ -125,7 +130,7 @@ jobs:
           git push
       - name: Start the next iteration
         if: ${{ inputs.remaining > 1 }}
-        run: gh workflow run train.yml -f remaining=$(( REMAINING - 1 )) -f shards="$SHARDS" -f minutes="$MINUTES" -f mix="$MIX" -f sims="$SIMS" -f lr="$LR" -f past="$PAST" -f window="$WINDOW" -f steps="$STEPS"
+        run: gh workflow run train.yml -f remaining=$(( REMAINING - 1 )) -f shards="$SHARDS" -f minutes="$MINUTES" -f mix="$MIX" -f redmirror="$REDMIRROR" -f sims="$SIMS" -f lr="$LR" -f past="$PAST" -f window="$WINDOW" -f steps="$STEPS"
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -133,6 +138,7 @@ jobs:
           SHARDS: ${{ inputs.shards }}
           MINUTES: ${{ inputs.minutes }}
           MIX: ${{ inputs.mix }}
+          REDMIRROR: ${{ inputs.redmirror }}
           SIMS: ${{ inputs.sims }}
           LR: ${{ inputs.lr }}
           PAST: ${{ inputs.past }}

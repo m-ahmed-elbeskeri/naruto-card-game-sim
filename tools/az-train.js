@@ -53,7 +53,7 @@ if (!isMainThread) {
       if (m.nets) for (const k in m.nets) getNet(k, m.nets[k]);
       const swap = Math.random() < 0.5;
       // decks of this game: a fixed matchup, or a share `mix` of mirror matches (half red, half blue) and red against blue otherwise
-      const mu = m.matchup || (Math.random() < (m.mix || 0) ? (Math.random() < 0.5 ? 'rr' : 'bb') : 'rb');
+      const mu = m.matchup || (Math.random() < (m.mix || 0) ? (Math.random() < (m.redMirror == null ? 0.5 : m.redMirror) ? 'rr' : 'bb') : 'rb');
       if (m.type === 'imitate') {
         const samples = [];
         const lv = ['chunin', 'jonin', 'kage', 'kage'];

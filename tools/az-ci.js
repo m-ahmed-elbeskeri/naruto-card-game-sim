@@ -23,7 +23,8 @@
 //   node tools/az-ci.js export ref=<commit> score=<v live> games=<n> kage=<v Kage> kage-games=<n>
 //       writes ai/best.json from <commit> to js/az-weights.js, the network the site ships, with those results
 // Decks: every stage takes mix=<share of mirror matches> (default 0.5: half red against blue, a quarter each red
-// and blue mirror), so the bot is trained and judged on every matchup the two decks allow.
+// and blue mirror), so the bot is trained and judged on every matchup the two decks allow. Self-play also takes
+// redmirror=<share of its mirrors on the red deck> (default 0.5); the gate and matches always split them evenly.
 // The game workers are the ones in az-train.js.
 const { Worker } = require('worker_threads');
 const fs = require('fs'), path = require('path'), os = require('os'), zlib = require('zlib');
@@ -38,6 +39,7 @@ const SEARCH = { worlds: 8, sims: 24, cpuct: 1.6 }, NOISE = { alpha: 0.3, eps: 0
 const SP_SEARCH = Object.assign({}, SEARCH, { sims: +args.sims || 48 }); // self-play only
 const BATCH = 128, LR = +args.lr || 3e-4, GATE_WIN = +args.gatewin || 0.55, BUFFER_MAX = +args.buffer || 600000; // the cap keeps the learn stage inside a CI runner's memory
 const MIX = args.mix == null || args.mix === '' ? 0.5 : Math.max(0, Math.min(1, +args.mix));
+const RED_MIRROR = args.redmirror == null || args.redmirror === '' ? 0.5 : Math.max(0, Math.min(1, +args.redmirror));
 // score per matchup, e.g. "rb 61% (402) / rr 58% (199) / bb 57% (199)"
 const cell = (rs, label) => rs.length ? `${label} ${(100 * rs.reduce((t, r) => t + r.win, 0) / rs.length).toFixed(0)}% (${rs.length})` : '';
 const split = rs => ['rb', 'rr', 'bb'].map(k => cell(rs.filter(r => r.matchup === k), k)).filter(Boolean).join(' / ');
@@ -114,13 +116,13 @@ async function selfplay() {
   past.forEach((c, i) => pool.setNet('past' + i, loadNet(c.file)));
   const end = Date.now() + (+(args.minutes || 40)) * 60000, max = +(args.games || 0);
   const samples = []; let games = 0, turns = 0, errs = 0, started = 0;
-  log(`selfplay: ${THREADS} threads, ${args.minutes || 40} min, ${Math.round(MIX * 100)}% mirror matches, search ${SP_SEARCH.worlds} x ${SP_SEARCH.sims}` +
+  log(`selfplay: ${THREADS} threads, ${args.minutes || 40} min, ${Math.round(MIX * 100)}% mirror matches (${Math.round(RED_MIRROR * 100)}% of them red), search ${SP_SEARCH.worlds} x ${SP_SEARCH.sims}` +
     (past.length ? `, ${Math.round(PAST * 100)}% of games against past champions (gen ${past.map(c => c.gen).join(', ')})` : ''));
   const seen = { rb: 0, rr: 0, bb: 0 };
   const one = async () => {
     while (Date.now() < end && (!max || started < max)) {
       const seat = started++ % 2, k = past.length && Math.random() < PAST ? (Math.random() * past.length) | 0 : -1;
-      const job = { search: SP_SEARCH, noise: NOISE, tempMoves: TEMP_MOVES, mix: MIX };
+      const job = { search: SP_SEARCH, noise: NOISE, tempMoves: TEMP_MOVES, mix: MIX, redMirror: RED_MIRROR };
       const r = await pool.run(k < 0 ? Object.assign(job, { type: 'selfplay' }) : Object.assign(job, { type: 'league', opp: 'past' + k, seat }));
       if (r.error) { if (++errs < 3) log('selfplay error', r.error.slice(0, 400)); continue; }
       for (const x of r.samples) samples.push(x); games++; turns += r.turns; seen[r.matchup]++;
@@ -181,7 +183,7 @@ async function learn() {
   const sb = {}, sk = {}, vb = await arena(pool, 'cur', 'best', gate, sb), vk = await arena(pool, 'cur', null, kage, sk);
   pool.close();
   const lg = leagueText(Object.values(league).sort((x, y) => x.gen - y.gen));
-  let msg = `iter ${state.iter}: ${buffer.length} samples (${older ? `${Math.round(100 * fresh / total)}% this round, ` : ''}self-play ${SP_SEARCH.worlds} x ${SP_SEARCH.sims}${PAST > 0 ? `, ${Math.round(PAST * 100)}% v past champions` : ''}), train ${((t1 - t0) / 1000).toFixed(0)}s lr ${LR} loss v=${loss.v} p=${loss.p} | vs champion ${(vb * 100).toFixed(1)}% (${gate} games: ${sb.text}) | vs Kage ${(vk * 100).toFixed(1)}% (${kage} games: ${sk.text})` +
+  let msg = `iter ${state.iter}: ${buffer.length} samples (${older ? `${Math.round(100 * fresh / total)}% this round, ` : ''}self-play ${SP_SEARCH.worlds} x ${SP_SEARCH.sims}${PAST > 0 ? `, ${Math.round(PAST * 100)}% v past champions` : ''}${RED_MIRROR !== 0.5 ? `, ${Math.round(RED_MIRROR * 100)}% of mirrors red` : ''}), train ${((t1 - t0) / 1000).toFixed(0)}s lr ${LR} loss v=${loss.v} p=${loss.p} | vs champion ${(vb * 100).toFixed(1)}% (${gate} games: ${sb.text}) | vs Kage ${(vk * 100).toFixed(1)}% (${kage} games: ${sk.text})` +
     (lg ? ` | self-play learner v past champions: ${lg}` : '');
   if (vb >= GATE_WIN) {
     // the champion being replaced joins the past champions; the oldest beyond POOL_KEEP drop out
