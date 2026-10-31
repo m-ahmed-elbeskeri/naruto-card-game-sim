@@ -10,7 +10,7 @@
 //       at 8 x 24; it takes the gatewin share of the games to go further), and updates ai/; sims= and past= only
 //       label the log line. A gate pass then plays fresh games on each side: red v blue as red, as blue, and each
 //       mirror, confirm=200 each and twice that on the losing side of red v blue (the deck that wins less between
-//       equal bots, measured from this round's self-play). None may fall behind what level play would score, and
+//       equal bots, blueedge=0.05 from gate-strength matches). None may fall behind what level play would score, and
 //       then it replaces the champion if it is ahead overall (confirmwin=0.52, weighted like the gate) or if the
 //       losing side is clearly better (5 points) and it is not behind overall (0.505).
 //       A champion that is replaced moves to ai/pool/.
@@ -43,7 +43,10 @@ const THREADS = +(args.threads || os.cpus().length);
 const SEARCH = { worlds: 8, sims: 24, cpuct: 1.6 }, NOISE = { alpha: 0.3, eps: 0.25 }, TEMP_MOVES = 12;
 const SP_SEARCH = Object.assign({}, SEARCH, { sims: +args.sims || 48 }); // self-play only
 const CONFIRM = args.confirm == null ? 200 : +args.confirm, CONFIRM_WIN = args.confirmwin == null ? 0.52 : +args.confirmwin; // a gate pass is checked on fresh games per side
-const SLACK = args.slack == null ? 0.03 : +args.slack, LOSING_SLACK = args.losingslack == null ? 0.02 : +args.losingslack, LOSING_GAIN = 0.05, LEVEL_OVERALL = 0.505, BLUE_EDGE = 0.055; // BLUE_EDGE when self-play did not measure it
+const SLACK = args.slack == null ? 0.03 : +args.slack, LOSING_SLACK = args.losingslack == null ? 0.02 : +args.losingslack, LOSING_GAIN = 0.05, LEVEL_OVERALL = 0.505;
+// The blue deck's edge between equal bots, from gate-strength matches under current rules (gen 20 v gen 19: 4.7 points, 6 at deeper search).
+// Self-play does not measure it: the same networks with exploration noise showed blue at about 49%.
+const BLUE_EDGE = args.blueedge == null ? 0.05 : +args.blueedge;
 const BATCH = 128, LR = +args.lr || 3e-4, GATE_WIN = args.gatewin == null ? 0.52 : +args.gatewin, BUFFER_MAX = +args.buffer || 600000; // the cap keeps the learn stage inside a CI runner's memory
 const MIX = args.mix == null || args.mix === '' ? 0.5 : Math.max(0, Math.min(1, +args.mix));
 const RED_MIRROR = args.redmirror == null || args.redmirror === '' ? 0.5 : Math.max(0, Math.min(1, +args.redmirror));
@@ -193,8 +196,9 @@ async function learn() {
   const sb = {}, sk = {}, vb = await arena(pool, 'cur', 'best', gate, sb), vk = await arena(pool, 'cur', null, kage, sk);
   let promote = vb >= GATE_WIN, confirmed = '';
   if (promote && CONFIRM) {
-    // what a level network scores on each side, from the blue deck's edge in this round's self-play
-    const edge = deckWins.n >= 200 ? deckWins.blue / deckWins.n - 0.5 : BLUE_EDGE, losing = edge >= 0 ? 'red' : 'blue';
+    // what a level network scores on each side
+    const edge = BLUE_EDGE, losing = edge >= 0 ? 'red' : 'blue';
+    if (deckWins.n) log(`blue deck in this round's self-play: ${(100 * deckWins.blue / deckWins.n).toFixed(1)}% of ${deckWins.n} games`);
     const sc = {}, score = {}, sidesOf = { red: ['rb', 'r'], blue: ['rb', 'b'], rr: ['rr'], bb: ['bb'] }, level = { red: 0.5 - edge, blue: 0.5 + edge, rr: 0.5, bb: 0.5 }, weigh = { red: (1 - MIX) / 2, blue: (1 - MIX) / 2, rr: MIX / 2, bb: MIX / 2 };
     for (const k of Object.keys(sidesOf)) {
       const n = k === losing ? 2 * CONFIRM : CONFIRM;
