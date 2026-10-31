@@ -28,14 +28,35 @@
     return { S, A, n };
   }
 
+  // Search options still being tested head to head (tools/exp/ab.js): merge = one candidate per distinct move;
+  // knownTop = worlds keep the top deck cards the searching player has seen
+  AZ.opts = AZ.opts || { merge: false, knownTop: false };
+  const unitKey = (g, u) => u.isLeader ? u.uid : [u.card.id, u.owner, +!!u.rested, +!!u.negated, g.pow(u), g.dmg(u), g.hpLeft(u), u.summonedTurn === g.turn ? 1 : 0, u.buffs.length, JSON.stringify(u.flags), g.p(u.owner).once['N-011:' + u.uid] ? 1 : 0].join('/');
+  function cardKey(g, c) {
+    const Q = g.p(c.owner);
+    return c.card.id + ':' + (Q.hand.includes(c) ? 'h' : Q.supports.includes(c) ? 's' : Q.deck.includes(c) ? 'd' : Q.trash.includes(c) ? 't' : 'x');
+  }
+  const optKey = (g, o) => o == null || typeof o !== 'object' ? String(o) : o.uid ? unitKey(g, o) : o.card ? cardKey(g, o) : null;
+  function moveKey(g, kind, c) {
+    if (kind === 'main') { const a = c.a; return [a.kind, optKey(g, a.attacker), optKey(g, a.target), optKey(g, a.unit), optKey(g, a.card), optKey(g, a.sup), a.fromHand ? 1 : 0].join('|'); }
+    if (kind === 'respond') return c.pass ? 'pass' : cardKey(g, c.s);
+    return c.none ? 'none' : optKey(g, c.o);
+  }
+  // Copies of a card, or Characters in exactly the same state, are one choice; each copy would count as its own move in search
+  function distinct(g, kind, cands) {
+    if (!AZ.opts.merge) return cands;
+    const seen = new Set();
+    return cands.filter(c => { const k = moveKey(g, kind, c); if (k == null) return true; if (seen.has(k)) return false; seen.add(k); return true; });
+  }
+
   // Describe a decision: the candidate moves in a fixed order, leaving out the ones that cannot change anything
   // (NS.AI.pointless); `ret` is what the controller returns and the engine logs as its own option index
   function describe(kind, g, pi, x) {
-    if (kind === 'main') return { kind, pi, x, cands: x.filter(a => !NS.AI.pointless(g, pi, a)).map(a => ({ ret: a, a })) };
-    if (kind === 'respond') return { kind, pi, x, cands: [{ ret: null, pass: true }].concat(x.options.map(s => ({ ret: s, s }))) };
+    if (kind === 'main') return { kind, pi, x, cands: distinct(g, kind, x.filter(a => !NS.AI.pointless(g, pi, a)).map(a => ({ ret: a, a }))) };
+    if (kind === 'respond') return { kind, pi, x, cands: distinct(g, kind, [{ ret: null, pass: true }].concat(x.options.map(s => ({ ret: s, s })))) };
     const c = NS.AI.sensibleOptions(x).map(o => ({ ret: o, o }));
     if (x.optional) c.push({ ret: null, none: true });
-    return { kind, pi, x, cands: c };
+    return { kind, pi, x, cands: distinct(g, kind, c) };
   }
 
   const cardOf = o => o && (o.card || null);
@@ -260,6 +281,7 @@
   function determinize(g, pi, rng) {
     const O = g.p(1 - pi), P = g.p(pi);
     const pinned = new Set(g.chain.map(l => l.sup));
+    if (AZ.opts.knownTop) O.deck.slice(0, O.known[pi]).forEach(c => pinned.add(c));
     const zones = [O.hand, O.supports, O.deck];
     let pool = [];
     zones.forEach(z => z.forEach(c => { if (!pinned.has(c)) pool.push(c); }));
@@ -272,7 +294,9 @@
     }
     let k = 0;
     for (const z of [O.hand, O.deck]) for (let i = 0; i < z.length; i++) if (!pinned.has(z[i])) z[i] = pool[k++];
+    const seen = AZ.opts.knownTop ? P.deck.splice(0, P.known[pi]) : [];
     NS.shuffle(P.deck, rng);
+    P.deck.unshift(...seen);
   }
 
   function expand(node, net, g, dpi, D, rootNoise, rng) {

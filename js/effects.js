@@ -18,6 +18,7 @@
     const P = c.g.p(c.pi);
     const top = P.deck[0];
     if (!top) return null;
+    P.known = P.known.map(n => Math.max(n, 1)); // both players have seen it
     c.g.say(`${P.name} reveals the top card of their deck: ${top.card.name}.`, 'sys');
     await c.g.emit('revealTop', { player: c.pi, card: top, by: c.self });
     return top;
@@ -61,7 +62,7 @@
       const fromDeck = P.deck.includes(pick);
       await c.g.emit('jutsu', { id: 'N-003', player: c.pi, src: c.self });
       await c.g.summon(c.pi, pick, fromDeck ? 'deck' : 'trash', { negated: true });
-      if (fromDeck) NS.shuffle(P.deck, c.g.rng);
+      if (fromDeck) { NS.shuffle(P.deck, c.g.rng); P.known = [0, 0]; }
     },
     'N-005': async c => {
       if (!space(c)) return;
@@ -73,7 +74,7 @@
     'N-013': async c => {
       const g = c.g;
       const opts = [g.p(c.opp).leader].concat(allChars(g));
-      const t = await pickUnit(c, opts, 'Itachi: choose a Leader or Character (it may be unable to attack next turn)', { must: true, ai: u => (u.owner !== c.pi ? 1 : -2) * (u.isLeader ? 2 : val(g, u)) });
+      const t = await pickUnit(c, opts, 'Itachi: choose a Leader or Character (it may be unable to attack next turn)', { must: true, sensible: u => u.owner !== c.pi, ai: u => (u.owner !== c.pi ? 1 : -2) * (u.isLeader ? 2 : val(g, u)) });
       const top = await revealTop(c);
       if (t && top && hasTrait(top.card, 'Uchiha Clan')) {
         t.flags.cantAttackTurn = g.turn + 1;
@@ -126,7 +127,7 @@
         await c.g.emit('jutsu', { id: 'N-012', player: c.pi, src: P.leader });
         await c.g.draw(c.pi, 1);
         const k = await c.g.choose({ player: c.pi, kind: 'card', options: P.hand.slice(), prompt: 'Place 1 card from your hand on top of your deck', optional: false, zone: 'hand', ai: x => -NS.AI.cardValue(c.g, c.pi, x) });
-        if (k) { P.hand.splice(P.hand.indexOf(k), 1); P.deck.unshift(k); await c.g.emit('toDeck', { player: c.pi }); }
+        if (k) { P.hand.splice(P.hand.indexOf(k), 1); P.deck.unshift(k); P.known = P.known.map((n, i) => i === c.pi ? n + 1 : 0); await c.g.emit('toDeck', { player: c.pi }); }
       },
     },
   };

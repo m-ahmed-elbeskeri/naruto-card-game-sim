@@ -46,6 +46,7 @@
         hand: [], trash: [], exclusion: [],
         chars: [], supports: [],
         setThisTurn: 0, once: {}, turns: 0,
+        known: [0, 0], // how many cards from the top of this deck each player has seen
       }));
       this.turn = 0;
       this.active = 0;
@@ -93,7 +94,7 @@
           leader: unitS(P.leader), summonRested: P.summonRested, chakra: P.chakra.slice(), chakraLockUntil: P.chakraLockUntil,
           deck: P.deck.map(instS), hand: P.hand.map(instS), trash: P.trash.map(instS), exclusion: P.exclusion.map(instS),
           chars: P.chars.map(unitS), supports: P.supports.map(instS),
-          setThisTurn: P.setThisTurn, once: Object.assign({}, P.once), turns: P.turns,
+          setThisTurn: P.setThisTurn, once: Object.assign({}, P.once), turns: P.turns, known: P.known.slice(),
         })),
       };
     }
@@ -104,7 +105,7 @@
         leader: unitL(q.leader), summonRested: q.summonRested, chakra: q.chakra.slice(), chakraLockUntil: q.chakraLockUntil,
         deck: q.deck.map(instL), hand: q.hand.map(instL), trash: q.trash.map(instL), exclusion: q.exclusion.map(instL),
         chars: q.chars.map(unitL), supports: q.supports.map(instL),
-        setThisTurn: q.setThisTurn, once: Object.assign({}, q.once), turns: q.turns,
+        setThisTurn: q.setThisTurn, once: Object.assign({}, q.once), turns: q.turns, known: (q.known || [0, 0]).slice(),
       }));
     }
     // everything a search worker needs to rebuild the current decision point
@@ -222,7 +223,7 @@
           const r = await this.choose({ player: i, kind: 'mulligan', options: ['keep', 'mulligan'], prompt: 'Keep this hand or mulligan?', ai: o => o === 'keep' ? NS.AI.handScore(this, i) : 5 });
           if (r === 'mulligan') {
             const P = this.p(i);
-            P.deck.push(...P.hand); P.hand = []; shuffle(P.deck, this.rng);
+            P.deck.push(...P.hand); P.hand = []; shuffle(P.deck, this.rng); P.known = [0, 0];
             this.say(`${P.name} redraws their hand.`, 'sys');
             await this.draw(i, H.handSize, true);
             await this.emit('mulligan', { player: i });
@@ -289,6 +290,7 @@
           break;
         }
         const c = P.deck.shift();
+        P.known = P.known.map(n => Math.max(0, n - 1));
         P.hand.push(c);
         await this.emit('draw', { player: pi, card: c, silent });
       }
@@ -362,6 +364,8 @@
       o = o || {};
       const P = this.p(pi);
       if (P.chars.length >= this.house.charLimit) { this.say('The Character Area is full.', 'sys'); return null; }
+      const inDeck = P.deck.indexOf(ci);
+      if (inDeck >= 0) P.known = P.known.map(n => inDeck < n ? n - 1 : n);
       [P.hand, P.deck, P.trash, P.supports].forEach(z => { const i = z.indexOf(ci); if (i >= 0) z.splice(i, 1); });
       const u = { uid: 'U' + (UID++), card: ci.card, iid: ci.iid, owner: pi, rested: false, summonedTurn: this.turn, buffs: [], flags: {}, negated: !!o.negated };
       P.chars.push(u);

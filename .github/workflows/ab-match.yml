@@ -1,0 +1,75 @@
+name: Search option matches
+
+# Head to head between search settings on the same network (tools/exp/ab.js): each option in js/az.js's AZ.opts
+# against the search without it. Each job plays 4 processes in parallel; the last job adds them up per pairing.
+on:
+  workflow_dispatch:
+    inputs:
+      sims:
+        description: Search simulations per world for both players (8 worlds)
+        default: '24'
+      games:
+        description: Games per process (2 jobs x 4 processes per pairing)
+        default: '100'
+
+permissions:
+  contents: read
+
+jobs:
+  play:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: merge-1, a: merge, seed: 1 }
+          - { name: merge-2, a: merge, seed: 2 }
+          - { name: knowntop-1, a: knownTop, seed: 3 }
+          - { name: knowntop-2, a: knownTop, seed: 4 }
+          - { name: both-1, a: 'merge,knownTop', seed: 5 }
+          - { name: both-2, a: 'merge,knownTop', seed: 6 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: |
+          for i in 1 2 3 4; do node tools/exp/ab.js "$A" base "$GAMES" $(( SEED * 10 + i )) sims="$SIMS" > "r-$i.json" & done
+          wait
+          cat r-*.json
+        env:
+          A: ${{ matrix.a }}
+          GAMES: ${{ inputs.games }}
+          SEED: ${{ matrix.seed }}
+          SIMS: ${{ inputs.sims }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m-${{ matrix.name }}
+          path: r-*.json
+          retention-days: 7
+
+  total:
+    needs: play
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: m
+          pattern: m-*
+      - run: |
+          node -e '
+          const fs = require("fs"), path = require("path"), t = {};
+          for (const d of fs.readdirSync("m")) for (const f of fs.readdirSync(path.join("m", d))) {
+            const txt = fs.readFileSync(path.join("m", d, f), "utf8").trim(); if (!txt) continue;
+            const r = JSON.parse(txt), k = `${r.a} v ${r.b}`, x = t[k] = t[k] || { w: 0, n: 0, by: {} };
+            x.w += r.wins; x.n += r.games;
+            for (const [m, [w, n]] of Object.entries(r.by)) { const y = x.by[m] = x.by[m] || [0, 0]; y[0] += w; y[1] += n; }
+          }
+          for (const [k, x] of Object.entries(t)) {
+            const p = x.w / x.n, ci = 196 * Math.sqrt(p * (1 - p) / x.n);
+            const line = `${k}: ${(100 * p).toFixed(1)}% +-${ci.toFixed(1)} over ${x.n} games | ` + Object.entries(x.by).map(([m, [w, n]]) => `${m} ${Math.round(100 * w / n)}% (${n})`).join(" / ");
+            console.log("AB RESULT " + line);
+            if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, line + "\n\n");
+          }'
