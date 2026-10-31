@@ -31,7 +31,7 @@ on:
         description: Share of self-play games against past champions (ai/pool and the current champion)
         default: '0.25'
       window:
-        description: Rounds of self-play to learn from (this one and the ones before it; half of each older round's positions)
+        description: Rounds of self-play to learn from (this one and the ones before it; of each older round's positions, half at 8 jobs and a quarter at 16)
         default: '4'
       steps:
         description: Training steps per round
@@ -111,8 +111,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           WINDOW: ${{ inputs.window }}
-      - run: node --max-old-space-size=12000 tools/az-ci.js learn in=sp prev=prev prevkeep=0.5 buffer=$(( 600000 + (WINDOW - 1) * 300000 )) steps="$STEPS" mix="$MIX" redmirror="$REDMIRROR" sims="$SIMS" lr="$LR" past="$PAST"
+      - run: node --max-old-space-size=12000 tools/az-ci.js learn in=sp prev=prev prevkeep="$(awk "BEGIN { print 4 / $SHARDS }")" buffer=$(( SHARDS * 75000 + (WINDOW - 1) * SHARDS * 37500 )) steps="$STEPS" mix="$MIX" redmirror="$REDMIRROR" sims="$SIMS" lr="$LR" past="$PAST"
         env:
+          SHARDS: ${{ inputs.shards }}
           MIX: ${{ inputs.mix }}
           REDMIRROR: ${{ inputs.redmirror }}
           SIMS: ${{ inputs.sims }}
