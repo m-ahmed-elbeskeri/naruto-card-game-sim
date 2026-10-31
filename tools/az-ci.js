@@ -4,15 +4,14 @@
 //       sims= is the search per world (8 worlds), deeper than the gate's 24 so the moves learned from are sharper;
 //       past= is the share of games played against past champions (ai/pool/gen-N.json and the current champion)
 //       instead of itself, and writes the learner's score against each to sp-1.league.json
-//   node tools/az-ci.js learn in=sp [prev=dir] [prevkeep=0.5] [buffer=600000] [steps=3000] [lr=0.0003] [sims=48] [past=0] [gate=200] [gatewin=0.55] [kage=200] [threads=4]
+//   node tools/az-ci.js learn in=sp [prev=dir] [prevkeep=0.5] [buffer=600000] [steps=3000] [lr=0.0003] [sims=48] [past=0] [gate=200] [kage=200] [sprtevery=4] [threads=4]
 //       trains on every sample file under `in` (this round's self-play) and a random prevkeep share of those under
-//       `prev` (earlier rounds' self-play), at most `buffer` samples, gates the result against the champion (always
-//       at 8 x 24; it takes the gatewin share of the games to go further), and updates ai/; sims= and past= only
-//       label the log line. A gate pass then plays fresh games on each side: red v blue as red, as blue, and each
-//       mirror, confirm=200 each and twice that on the losing side of red v blue (the deck that wins less between
-//       equal bots, blueedge=0.05 from gate-strength matches). None may fall behind what level play would score, and
-//       then it replaces the champion if it is ahead overall (confirmwin=0.52, weighted like the gate) or if the
-//       losing side is clearly better (5 points) and it is not behind overall (0.505).
+//       `prev` (earlier rounds' self-play), at most `buffer` samples, and updates ai/; sims= and past= only label the
+//       log line. Each round plays gate=200 games against the champion at 8 x 24, a check for broken networks only.
+//       Every sprtevery rounds a sequential test decides promotion: it plays all four sides in equal shares until the
+//       evidence is clear between level and 10 Elo better (5% error each way, at most sprtmax=8000 games). A side more
+//       than 2.5 standard errors below what level play would score (blueedge=0.05) blocks promotion. A network that
+//       passes, or whose losing side is clearly better while it is not behind overall, replaces the champion.
 //       A champion that is replaced moves to ai/pool/.
 //   node tools/az-ci.js match [games=400] [a=ai/best.json] [b=js/az-weights.js | b=genin|chunin|jonin|kage] [threads=4]
 //       plays network a against network b, or against one of the heuristic levels (default: the champion against the
@@ -21,6 +20,9 @@
 //       the same thinking time per decision instead, as the browser does, which is the fair test between networks
 //       of different sizes (a larger one searches less in the same time); json=<file> also writes every game's
 //       result there for `verdict`, tagged with group= and label=
+//   node tools/az-ci.js panel [games=200] [threads=4]
+//       plays the champion against each past champion in ai/pool and Kage, the long-range measure of progress: scores
+//       between neighbouring generations inflate, and small gains show up only across many rounds
 //   node tools/az-ci.js shipplan [past=3]
 //       prints the match jobs of a ship check (see .github/workflows/shipcheck.yml) as a GitHub Actions matrix
 //   node tools/az-ci.js verdict in=results
@@ -42,12 +44,12 @@ const DIR = process.env.AZ_DIR || path.join(__dirname, '..', 'ai');
 const THREADS = +(args.threads || os.cpus().length);
 const SEARCH = { worlds: 8, sims: 24, cpuct: 1.6 }, NOISE = { alpha: 0.3, eps: 0.25 }, TEMP_MOVES = 12;
 const SP_SEARCH = Object.assign({}, SEARCH, { sims: +args.sims || 48 }); // self-play only
-const CONFIRM = args.confirm == null ? 200 : +args.confirm, CONFIRM_WIN = args.confirmwin == null ? 0.52 : +args.confirmwin; // a gate pass is checked on fresh games per side
-const SLACK = args.slack == null ? 0.03 : +args.slack, LOSING_SLACK = args.losingslack == null ? 0.02 : +args.losingslack, LOSING_GAIN = 0.05, LEVEL_OVERALL = 0.505;
+const SANITY = args.sanity == null ? 0.45 : +args.sanity, SPRT_EVERY = args.sprtevery == null ? 4 : +args.sprtevery, SPRT_ELO = 10, SPRT_MAX = +args.sprtmax || 8000, SPRT_BATCH = +args.sprtbatch || 100;
+const SIDE_Z = 2.5, LOSING_GAIN = 0.05, LEVEL_OVERALL = 0.505;
 // The blue deck's edge between equal bots, from gate-strength matches under current rules (gen 20 v gen 19: 4.7 points, 6 at deeper search).
 // Self-play does not measure it: the same networks with exploration noise showed blue at about 49%.
 const BLUE_EDGE = args.blueedge == null ? 0.05 : +args.blueedge;
-const BATCH = 128, LR = +args.lr || 3e-4, GATE_WIN = args.gatewin == null ? 0.52 : +args.gatewin, BUFFER_MAX = +args.buffer || 600000; // the cap keeps the learn stage inside a CI runner's memory
+const BATCH = 128, LR = +args.lr || 3e-4, BUFFER_MAX = +args.buffer || 600000; // the cap keeps the learn stage inside a CI runner's memory
 const MIX = args.mix == null || args.mix === '' ? 0.5 : Math.max(0, Math.min(1, +args.mix));
 const RED_MIRROR = args.redmirror == null || args.redmirror === '' ? 0.5 : Math.max(0, Math.min(1, +args.redmirror));
 // score per matchup, e.g. "rb 61% (402) / rr 58% (199) / bb 57% (199)"
@@ -159,6 +161,30 @@ async function arena(pool, a, b, games, by, matchup, deck) {
   return ok.reduce((t, r) => t + r.win, 0) / Math.max(1, ok.length);
 }
 
+// Sequential test (SPRT, as chess engine testing uses): every game moves one running score, and it stops as soon as the
+// evidence favours level play or a 10 Elo gain strongly enough. Far fewer games than a fixed test of the same strength.
+async function promotionTest(pool) {
+  const edge = BLUE_EDGE, losing = edge >= 0 ? 'red' : 'blue', by = {};
+  const sides = { red: ['rb', 'r'], blue: ['rb', 'b'], rr: ['rr'], bb: ['bb'] }, level = { red: 0.5 - edge, blue: 0.5 + edge, rr: 0.5, bb: 0.5 }, weigh = { red: (1 - MIX) / 2, blue: (1 - MIX) / 2, rr: MIX / 2, bb: MIX / 2 };
+  const p1 = 1 / (1 + Math.pow(10, -SPRT_ELO / 400)), onWin = Math.log(p1 / 0.5), onLoss = Math.log((1 - p1) / 0.5), bound = Math.log(0.95 / 0.05);
+  const wins = { red: 0, blue: 0, rr: 0, bb: 0 }, n = { red: 0, blue: 0, rr: 0, bb: 0 };
+  let llr = 0, games = 0;
+  while (Math.abs(llr) < bound && games < SPRT_MAX) {
+    for (const k of Object.keys(sides)) {
+      const w = SPRT_BATCH * await arena(pool, 'cur', 'best', SPRT_BATCH, by, ...sides[k]);
+      wins[k] += w; n[k] += SPRT_BATCH; games += SPRT_BATCH; llr += w * onWin + (SPRT_BATCH - w) * onLoss;
+    }
+    log(`test: ${games} games, score ${(wins.red + wins.blue + wins.rr + wins.bb) * 100 / games | 0}%, running evidence ${llr.toFixed(2)} (stops at +-${bound.toFixed(2)})`);
+  }
+  const score = {}, se = {}; for (const k in sides) { score[k] = wins[k] / Math.max(1, n[k]); se[k] = Math.sqrt(0.25 / Math.max(1, n[k])); }
+  const all = Object.keys(sides).reduce((t, k) => t + weigh[k] * score[k], 0), behind = Object.keys(sides).filter(k => score[k] < level[k] - SIDE_Z * se[k]);
+  const ahead = llr >= bound, better = score[losing] >= level[losing] + Math.max(LOSING_GAIN, SIDE_Z * se[losing]) && all >= LEVEL_OVERALL;
+  const promote = !behind.length && (ahead || better);
+  const outcome = llr >= bound ? 'passed' : llr <= -bound ? 'level or worse' : 'no decision';
+  return { promote, text: ` | test ${outcome}: ${(100 * all).toFixed(1)}% over ${games} games (${Object.keys(sides).map(k => `${k} ${Math.round(100 * score[k])}%`).join(' / ')}; level red ${Math.round(100 * level.red)}% / blue ${Math.round(100 * level.blue)}%)` +
+    (promote ? (ahead ? '' : ' losing side better') : behind.length ? ` -> not promoted: behind in ${behind.join(', ')}` : ' -> not promoted') };
+}
+
 async function learn() {
   const buffer = [], league = {}, deckWins = { n: 0, blue: 0 };
   const walk = (d, keep) => fs.readdirSync(d, { withFileTypes: true }).forEach(e => {
@@ -180,6 +206,8 @@ async function learn() {
   const cur = fs.existsSync(path.join(DIR, 'cur.json')) ? loadNet('cur.json') : best.clone();
   state.iter++;
   const steps = +(args.steps || 3000), opt = new AZ.Adam(cur, LR), t0 = Date.now();
+  // avg=<decay>: the result is a running average of the weights over the second half of training
+  const decay = +args.avg || 0, avg = decay ? {} : null;
   let loss = {};
   for (let done = 0; done < steps;) {
     const n = Math.min(500, steps - done); let vl = 0, pl = 0, cnt = 0;
@@ -187,31 +215,17 @@ async function learn() {
       const G = cur.zeros();
       for (let b = 0; b < BATCH; b++) { const x = buffer[(Math.random() * buffer.length) | 0], r = cur.backward(cur.forward(x.s, x.a, true), x.z, x.pi_t, G, 1); vl += r.vl; pl += r.pl; cnt++; }
       opt.step(G, 1 / BATCH);
+      if (decay && done + st >= steps / 2) for (const k in cur.p) { const w = cur.p[k], a = avg[k] || (avg[k] = w.slice()); for (let i = 0; i < w.length; i++) a[i] = decay * a[i] + (1 - decay) * w[i]; }
     }
     done += n; loss = { v: (vl / cnt).toFixed(3), p: (pl / cnt).toFixed(3) }; log(`train ${done}/${steps} v=${loss.v} p=${loss.p}`);
   }
+  if (decay) for (const k in cur.p) cur.p[k] = avg[k];
   const t1 = Date.now(), pool = new Pool(THREADS);
   pool.setNet('cur', cur); pool.setNet('best', best);
   const gate = +(args.gate || 200), kage = +(args.kage || 200);
   const sb = {}, sk = {}, vb = await arena(pool, 'cur', 'best', gate, sb), vk = await arena(pool, 'cur', null, kage, sk);
-  let promote = vb >= GATE_WIN, confirmed = '';
-  if (promote && CONFIRM) {
-    // what a level network scores on each side
-    const edge = BLUE_EDGE, losing = edge >= 0 ? 'red' : 'blue';
-    if (deckWins.n) log(`blue deck in this round's self-play: ${(100 * deckWins.blue / deckWins.n).toFixed(1)}% of ${deckWins.n} games`);
-    const sc = {}, score = {}, sidesOf = { red: ['rb', 'r'], blue: ['rb', 'b'], rr: ['rr'], bb: ['bb'] }, level = { red: 0.5 - edge, blue: 0.5 + edge, rr: 0.5, bb: 0.5 }, weigh = { red: (1 - MIX) / 2, blue: (1 - MIX) / 2, rr: MIX / 2, bb: MIX / 2 };
-    for (const k of Object.keys(sidesOf)) {
-      const n = k === losing ? 2 * CONFIRM : CONFIRM;
-      score[k] = await arena(pool, 'cur', 'best', n, sc, ...sidesOf[k]);
-      log(`confirm ${k}: ${(100 * score[k]).toFixed(1)}% of ${n}, level would be ${(100 * level[k]).toFixed(1)}% (${sc.sides || sc.text})`);
-    }
-    const all = Object.keys(score).reduce((t, k) => t + weigh[k] * score[k], 0);
-    const behind = Object.keys(score).filter(k => score[k] < level[k] - (k === losing ? LOSING_SLACK : SLACK));
-    const ahead = all >= CONFIRM_WIN, better = score[losing] >= level[losing] + LOSING_GAIN && all >= LEVEL_OVERALL;
-    promote = !behind.length && (ahead || better);
-    confirmed = ` | confirm ${(100 * all).toFixed(1)}% (${Object.keys(score).map(k => `${k} ${Math.round(100 * score[k])}%`).join(' / ')}; level ${Object.keys(score).slice(0, 2).map(k => `${k} ${Math.round(100 * level[k])}%`).join(' / ')})` +
-      (promote ? (ahead ? '' : ' losing side better') : ` -> not promoted: ${behind.length ? `behind in ${behind.join(', ')}` : 'not ahead'}`);
-  }
+  const test = SPRT_EVERY && state.iter % SPRT_EVERY === 0 ? await promotionTest(pool) : null;
+  const promote = !!test && test.promote, confirmed = (vb < SANITY ? ' | BELOW THE SANITY MARK' : '') + (test ? test.text : '');
   pool.close();
   const lg = leagueText(Object.values(league).sort((x, y) => x.gen - y.gen));
   let msg = `iter ${state.iter}: ${buffer.length} samples (${older ? `${Math.round(100 * fresh / total)}% this round, ` : ''}self-play ${SP_SEARCH.worlds} x ${SP_SEARCH.sims}${PAST > 0 ? `, ${Math.round(PAST * 100)}% v past champions` : ''}${RED_MIRROR !== 0.5 ? `, ${Math.round(RED_MIRROR * 100)}% of mirrors red` : ''}), train ${((t1 - t0) / 1000).toFixed(0)}s lr ${LR} loss v=${loss.v} p=${loss.p} | vs champion ${(vb * 100).toFixed(1)}% (${gate} games: ${sb.text}) | vs Kage ${(vk * 100).toFixed(1)}% (${kage} games: ${sk.text})` +
@@ -230,6 +244,23 @@ async function learn() {
   fs.writeFileSync(path.join(DIR, 'state.json'), JSON.stringify(state));
   fs.appendFileSync(path.join(DIR, 'log.txt'), log(msg) + '\n');
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, msg + '\n');
+}
+
+// The champion against every past champion and Kage: the record of long-range progress
+async function panel() {
+  const games = +(args.games || 200), pool = new Pool(THREADS), past = pastChampions().filter(c => c.file !== 'best.json'), lines = [], state = JSON.parse(fs.readFileSync(path.join(DIR, 'state.json'), 'utf8'));
+  pool.setNet('best', loadNet('best.json'));
+  for (const c of past) {
+    pool.setNet('past' + c.gen, loadNet(c.file));
+    const by = {}, v = await arena(pool, 'best', 'past' + c.gen, games, by);
+    lines.push(`v gen ${c.gen}: ${(100 * v).toFixed(1)}% (${by.text})`); log(lines[lines.length - 1]);
+  }
+  const by = {}, v = await arena(pool, 'best', null, games, by);
+  lines.push(`v Kage: ${(100 * v).toFixed(1)}% (${by.text})`); log(lines[lines.length - 1]);
+  pool.close();
+  const text = `PANEL gen ${state.gen} at iter ${state.iter}, ${games} games each at 8 x 24\n` + lines.join('\n');
+  console.log(text);
+  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, text.replace(/\n/g, '\n\n') + '\n');
 }
 
 // Head to head. A .js weights file is the exported form: the same JSON assigned to window.NTCG.AZ_WEIGHTS.
@@ -345,5 +376,5 @@ function exportNet() {
   log(`exported gen ${state.gen} (iter ${iter}) from ${args.ref} over gen ${prev}; cache version ${old} -> ${v}`);
 }
 
-const run = { selfplay, learn, match, shipplan, verdict, export: exportNet }[cmd];
-(run ? Promise.resolve().then(run) : Promise.reject(new Error('usage: az-ci.js selfplay|learn|match|shipplan|verdict|export'))).catch(e => { console.error(e); process.exit(1); });
+const run = { selfplay, learn, match, panel, shipplan, verdict, export: exportNet }[cmd];
+(run ? Promise.resolve().then(run) : Promise.reject(new Error('usage: az-ci.js selfplay|learn|match|panel|shipplan|verdict|export'))).catch(e => { console.error(e); process.exit(1); });

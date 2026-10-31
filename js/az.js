@@ -181,22 +181,24 @@
     // forward pass; keeps activations when `keep` is set (for training)
     forward(s, acts, keep) {
       const p = this.p, { S, A } = dims(), { H, HV, HP } = this.size;
-      const dense = (x, W, bias, I, O, relu) => {
-        const y = new Float32Array(O);
+      // search does not keep the activations, so it reuses one set of arrays: this runs at every simulation
+      const m = keep ? null : this.mem || (this.mem = { h1: new Float32Array(H), h2: new Float32Array(H), v1: new Float32Array(HV), v2: new Float32Array(1), ph: new Float32Array(HP), z: new Float32Array(HP) });
+      const dense = (x, W, bias, I, O, relu, into) => {
+        const y = into || new Float32Array(O);
         y.set(bias);
         for (let i = 0; i < I; i++) { const xi = x[i]; if (xi === 0) continue; const r = i * O; for (let j = 0; j < O; j++) y[j] += xi * W[r + j]; }
         if (relu) for (let j = 0; j < O; j++) if (y[j] < 0) y[j] = 0;
         return y;
       };
-      const h1 = dense(s, p.W1, p.b1, S, H, true);
-      const h2 = dense(h1, p.W2, p.b2, H, H, true);
-      const v1 = dense(h2, p.Wv1, p.bv1, H, HV, true);
-      const v2 = dense(v1, p.Wv2, p.bv2, HV, 1, false);
+      const h1 = dense(s, p.W1, p.b1, S, H, true, m && m.h1);
+      const h2 = dense(h1, p.W2, p.b2, H, H, true, m && m.h2);
+      const v1 = dense(h2, p.Wv1, p.bv1, H, HV, true, m && m.v1);
+      const v2 = dense(v1, p.Wv2, p.bv2, HV, 1, false, m && m.v2);
       const v = Math.tanh(v2[0]);
-      const ph = dense(h2, p.Wph, p.bph, H, HP, false);
+      const ph = dense(h2, p.Wph, p.bph, H, HP, false, m && m.ph);
       const logits = new Float32Array(acts.length), pa = [];
       for (let k = 0; k < acts.length; k++) {
-        const z = dense(acts[k], p.Wpa, p.bpa, A, HP, false);
+        const z = dense(acts[k], p.Wpa, p.bpa, A, HP, false, m && m.z);
         for (let j = 0; j < HP; j++) { z[j] += ph[j]; if (z[j] < 0) z[j] = 0; }
         let l = p.bp2[0];
         for (let j = 0; j < HP; j++) l += z[j] * p.Wp2[j];
@@ -286,7 +288,7 @@
   function determinize(g, pi, rng) {
     const O = g.p(1 - pi), P = g.p(pi);
     const pinned = new Set(g.chain.map(l => l.sup));
-    if (AZ.opts.knownTop) O.deck.slice(0, O.known[pi]).forEach(c => pinned.add(c));
+    if (AZ.opts.knownTop) { O.deck.slice(0, O.known[pi]).forEach(c => pinned.add(c)); O.hand.forEach(c => { if (c.pub) pinned.add(c); }); }
     const zones = [O.hand, O.supports, O.deck];
     let pool = [];
     zones.forEach(z => z.forEach(c => { if (!pinned.has(c)) pool.push(c); }));

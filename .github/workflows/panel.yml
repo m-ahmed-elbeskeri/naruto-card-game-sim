@@ -1,0 +1,25 @@
+name: Hokage panel
+
+# The champion against each past champion in ai/pool and Kage: the long-range measure of progress. Commits nothing.
+on:
+  workflow_dispatch:
+    inputs:
+      games:
+        description: Games against each opponent
+        default: '200'
+
+permissions:
+  contents: read
+
+jobs:
+  panel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node tools/az-ci.js panel games="$GAMES"
+        env:
+          GAMES: ${{ inputs.games }}

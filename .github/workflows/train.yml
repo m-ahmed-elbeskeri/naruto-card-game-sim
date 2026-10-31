@@ -130,6 +130,13 @@ jobs:
           git commit -m "Hokage training: $(tail -n 1 ai/log.txt | cut -c23-90)" || exit 0
           git pull --rebase
           git push
+      - name: Panel every 8 rounds
+        run: |
+          iter=$(node -p "require('./ai/state.json').iter")
+          if [ $(( iter % 8 )) -eq 0 ]; then gh workflow run panel.yml; fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
       - name: Start the next iteration
         if: ${{ inputs.remaining > 1 }}
         run: gh workflow run train.yml -f remaining=$(( REMAINING - 1 )) -f shards="$SHARDS" -f minutes="$MINUTES" -f mix="$MIX" -f redmirror="$REDMIRROR" -f sims="$SIMS" -f lr="$LR" -f past="$PAST" -f window="$WINDOW" -f steps="$STEPS"

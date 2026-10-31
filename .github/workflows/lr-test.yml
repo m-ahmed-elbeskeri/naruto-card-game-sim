@@ -1,0 +1,56 @@
+name: Learning rate test
+
+# Trains the current learner once per setting on the same recent self-play, then plays each result against the champion.
+# Nothing is committed. Needs recent training rounds: their self-play files last 2 days.
+on:
+  workflow_dispatch:
+    inputs:
+      games:
+        description: Games against the champion for each setting
+        default: '1600'
+      steps:
+        description: Training steps
+        default: '12000'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: lr-3e-4, lr: '0.0003', avg: '0' }
+          - { name: lr-1e-4, lr: '0.0001', avg: '0' }
+          - { name: lr-3e-5, lr: '0.00003', avg: '0' }
+          - { name: lr-3e-4-avg, lr: '0.0003', avg: '0.999' }
+          - { name: lr-1e-4-avg, lr: '0.0001', avg: '0.999' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Recent self-play
+        run: |
+          latest=1
+          for id in $(gh run list --workflow train.yml --status success --limit 4 --json databaseId -q '.[].databaseId'); do
+            if [ "$latest" = 1 ]; then gh run download "$id" --pattern 'sp-*' --dir sp; latest=0; else gh run download "$id" --pattern 'sp-*' --dir "prev/$id"; fi
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+      - name: Train and play
+        run: |
+          mkdir work && cp -r ai work/ai
+          AZ_DIR=work/ai node --max-old-space-size=12000 tools/az-ci.js learn in=sp prev=prev prevkeep=0.25 buffer=3000000 steps="$STEPS" lr="$LR" avg="$AVG" gate=2 kage=2 sprtevery=0
+          node tools/az-ci.js match games="$GAMES" a=work/ai/cur.json b=ai/best.json | tee result.txt
+          echo "LR TEST lr=$LR avg=$AVG: $(grep 'MATCH RESULT:' result.txt | sed 's/.*MATCH RESULT: //')" | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          STEPS: ${{ inputs.steps }}
+          GAMES: ${{ inputs.games }}
+          LR: ${{ matrix.lr }}
+          AVG: ${{ matrix.avg }}

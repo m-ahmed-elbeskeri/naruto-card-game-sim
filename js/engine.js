@@ -22,8 +22,8 @@
   const isAbort = e => e && e.message === 'aborted';
   const sameAct = (x, a) => x.kind === a.kind && x.card === a.card && x.sup === a.sup && x.unit === a.unit && x.attacker === a.attacker && x.target === a.target;
   // plain-data (de)serialisation of cards and units; card definitions travel as ids
-  const instS = c => ({ iid: c.iid, id: c.card.id, owner: c.owner, setTurn: c.setTurn });
-  const instL = o => { const c = { iid: o.iid, card: NS.Cards.byId[o.id], owner: o.owner }; if (o.setTurn != null) c.setTurn = o.setTurn; return c; };
+  const instS = c => ({ iid: c.iid, id: c.card.id, owner: c.owner, setTurn: c.setTurn, pub: c.pub });
+  const instL = o => { const c = { iid: o.iid, card: NS.Cards.byId[o.id], owner: o.owner }; if (o.setTurn != null) c.setTurn = o.setTurn; if (o.pub) c.pub = true; return c; };
   const unitS = u => { const o = Object.assign({}, u, { card: u.card.id, buffs: (u.buffs || []).map(b => Object.assign({}, b)), flags: Object.assign({}, u.flags) }); return o; };
   const unitL = o => Object.assign({}, o, { card: NS.Cards.byId[o.card], buffs: o.buffs.map(b => Object.assign({}, b)), flags: Object.assign({}, o.flags) });
 
@@ -87,7 +87,8 @@
     }
 
     // ---------------- snapshots (taken at every turn start) ----------------
-    snapshot() {
+    snapshot() { return this.state(); } // turn starts only: the replay viewer and its test count these
+    state() {
       return {
         turn: this.turn, active: this.active, first: this.first, rng: this.rng.get(),
         players: this.players.map(P => ({
@@ -117,6 +118,7 @@
       try {
         this.load(snap);
         this.replay = replay || []; this.rp = 0;
+        if (snap.opening) await this.mulligan();
         await this.loop();
       } catch (e) { if (isAbort(e)) return; throw e; }
     }
@@ -219,22 +221,26 @@
         await this.emit('coin', { player: this.first });
         for (const i of [0, 1]) await this.draw(i, H.handSize, true);
         await this.emit('dealt');
-        if (H.mulligan) for (const i of [1 - this.first]) {
-          const r = await this.choose({ player: i, kind: 'mulligan', options: ['keep', 'mulligan'], prompt: 'Keep this hand or mulligan?', ai: o => o === 'keep' ? NS.AI.handScore(this, i) : 5 });
-          if (r === 'mulligan') {
-            const P = this.p(i);
-            P.deck.push(...P.hand); P.hand = []; shuffle(P.deck, this.rng); P.known = [0, 0];
-            this.say(`${P.name} redraws their hand.`, 'sys');
-            await this.draw(i, H.handSize, true);
-            await this.emit('mulligan', { player: i });
-          }
-        }
-        this.active = this.first;
+        if (!this.noSnap) { this.snap = Object.assign(this.state(), { opening: true }); this.snapLog = this.log.length; } // so bots can search the mulligan
+        await this.mulligan();
         await this.loop();
       } catch (e) {
         if (isAbort(e)) return;
         console.error(e); throw e;
       }
+    }
+    async mulligan() {
+      if (this.house.mulligan) for (const i of [1 - this.first]) {
+        const r = await this.choose({ player: i, kind: 'mulligan', options: ['keep', 'mulligan'], prompt: 'Keep this hand or mulligan?', ai: o => o === 'keep' ? NS.AI.handScore(this, i) : 5 });
+        if (r === 'mulligan') {
+          const P = this.p(i);
+          P.deck.push(...P.hand); P.hand = []; shuffle(P.deck, this.rng); P.known = [0, 0];
+          this.say(`${P.name} redraws their hand.`, 'sys');
+          await this.draw(i, this.house.handSize, true);
+          await this.emit('mulligan', { player: i });
+        }
+      }
+      this.active = this.first;
     }
     async loop() {
       while (!this.over && this.turn < 200) {
@@ -290,6 +296,7 @@
           break;
         }
         const c = P.deck.shift();
+        c.pub = P.known[1 - pi] > 0; // the opponent saw this card on top, so it stays known in hand
         P.known = P.known.map(n => Math.max(0, n - 1));
         P.hand.push(c);
         await this.emit('draw', { player: pi, card: c, silent });
@@ -398,7 +405,7 @@
       if (this.immune(u, viaSupportOf)) { await this.emit('immune', { unit: u }); return false; }
       await this.emit('bounce', { unit: u });
       P.chars.splice(P.chars.indexOf(u), 1);
-      P.hand.push({ iid: u.iid, card: u.card, owner: u.owner });
+      P.hand.push({ iid: u.iid, card: u.card, owner: u.owner, pub: true });
       this.say(`${u.card.name} returns to its owner's hand.`, 'move');
       return true;
     }
