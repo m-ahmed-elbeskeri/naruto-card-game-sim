@@ -680,5 +680,6 @@ body.nofx .slot .flag.rush, body.nofx .slot.atk::after, body.nofx .gb .lowlife, 
 .rl-code { display: block; width: 100%; height: 96px; margin: 12px 0 4px; padding: 10px 12px; resize: vertical; font: 13px/1.4 Consolas, "Courier New", monospace; color: #ddd; background: #0e0e12; border: 1px solid #2a2a32; word-break: break-all; }
 .rl-code:focus { outline: none; border-color: var(--orange); }
 .rl-note { min-height: 20px; margin: 0 0 10px; font-size: 13px; color: var(--dim); }
+.think-note { margin-top: 8px; font-size: 13px; line-height: 1.4; color: var(--dim); }
 .az-think { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 60; padding: 6px 14px; border-radius: 6px; background: rgba(12,14,20,.82); border: 1px solid rgba(255,255,255,.14); color: #d8d4c8; font-size: 13px; pointer-events: none; opacity: 0; transition: opacity .25s; }
 .az-think.on { opacity: 1; }

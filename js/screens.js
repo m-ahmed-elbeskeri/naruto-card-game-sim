@@ -81,10 +81,24 @@
 
   // ---------------- setup ----------------
   const setup = { hot: false, pick: 'me', me: 'st-red', opp: 'st-blue', lv: 'chunin' };
+  const THINK_NOTES = {
+    quick: 'Plays faster but weaker. Up to 0.7s per move, about 40 seconds of thinking per game.',
+    normal: 'The standard Hokage. Up to 1.4s per move, about a minute of thinking per game.',
+    long: 'Searches deeper, so it usually plays stronger. Up to 3.5s per move, about 3 minutes of thinking per game.',
+    'very long': 'Searches deeper still. Up to 7s per move, about 6 minutes of thinking per game.',
+    extreme: 'As deep as it goes. Up to 28s per move, about 25 minutes of thinking per game. Uses a lot of memory and battery, so it may struggle on phones and older PCs.',
+  };
+  function syncThink() {
+    $('#thinkField').style.display = !setup.hot && setup.lv === 'hokage' ? '' : 'none';
+    const t = THINK_NOTES[NS.settings.think] ? NS.settings.think : 'normal';
+    $$('#thinkSeg button').forEach(b => b.classList.toggle('on', b.dataset.th === t));
+    $('#thinkNote').textContent = THINK_NOTES[t] + ' A faster device gets more out of the same time.';
+  }
   function openSetup(hot) {
     setup.hot = hot;
     $('#setupTitle').textContent = hot ? 'Local Duel' : 'Choose Your Deck';
     $('#aiField').style.display = hot ? 'none' : '';
+    syncThink();
     $('#nameMe').value = store.get('myName', 'Player');
     $('#nameOpp').value = hot ? 'Player 2' : store.get('oppName', 'Rival');
     renderDecks();
@@ -111,7 +125,8 @@
     };
     $('#pickMe').onclick = () => { setup.pick = 'me'; $('#pickMe').classList.add('on'); $('#pickOpp').classList.remove('on'); };
     $('#pickOpp').onclick = () => { setup.pick = 'opp'; $('#pickOpp').classList.add('on'); $('#pickMe').classList.remove('on'); };
-    $$('#aiSeg button').forEach(b => b.onclick = () => { $$('#aiSeg button').forEach(x => x.classList.remove('on')); b.classList.add('on'); setup.lv = b.dataset.lv; if (setup.lv === 'hokage' && NS.AZ) NS.AZ.warm(); });
+    $$('#aiSeg button').forEach(b => b.onclick = () => { $$('#aiSeg button').forEach(x => x.classList.remove('on')); b.classList.add('on'); setup.lv = b.dataset.lv; if (setup.lv === 'hokage' && NS.AZ) NS.AZ.warm(); syncThink(); });
+    $$('#thinkSeg button').forEach(b => b.onclick = () => { NS.settings.save({ think: b.dataset.th }); syncThink(); });
     $('#startBtn').onclick = startGame;
   }
 
@@ -309,8 +324,6 @@
       <div class="set-row"><div>Visual effects<small>Reduced: fewer particles, no light layer. Off: no particles, flashes, screen shake or cut-ins; cards still move. Use on slower PCs</small></div><div class="seg" style="width:320px;flex:none">${[['full', 'Full'], ['low', 'Reduced'], ['off', 'Off']].map(([k, l]) => `<button data-fx="${k}" class="${st.fx === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       ${tog('music', 'Music', 'Generated soundtrack')}${tog('sfx', 'Sound effects', 'Hits, jutsu, chakra')}${tog('cutins', 'Jutsu cut-ins', 'Big banners for Supports and EX summons')}
       <div class="set-row"><div>Animation speed</div><div class="seg" style="width:320px">${['slow', 'normal', 'fast', 'turbo'].map(s => `<button data-sp="${s}" class="${st.speed === s ? 'on' : ''}">${s}</button>`).join('')}</div></div>
-      <h4>Hokage bot</h4>
-      <div class="set-row"><div>Thinking time<small>Longer search plays stronger but makes games slower. Per move on its own turn: quick 0.7s, normal 1.4s, long 3.5s, very long 7s, extreme up to 28s. Extreme uses a lot of memory and battery</small></div><div class="seg" style="width:470px;flex:none">${['quick', 'normal', 'long', 'very long', 'extreme'].map(s => `<button data-th="${s}" class="${st.think === s ? 'on' : ''}">${s}</button>`).join('')}</div></div>
       <h4>House Rules (defaults follow the community rulebook v1.4)</h4>
       ${num('deckSize', 'Deck size', 'Gen Con demo: 30 (retail: 50)', 10, 60)}
       ${num('copyLimit', 'Copies per card', 'Gen Con demo decks: 3', 1, 10)}
@@ -338,7 +351,6 @@
       $$('[data-fx]', m).forEach(b => b.onclick = () => { st.save({ fx: b.dataset.fx }); st.applyFx(); $$('[data-fx]', m).forEach(x => x.classList.toggle('on', x === b)); });
       $$('[data-n]', m).forEach(i => i.onchange = () => { H[i.dataset.n] = Math.max(+i.min, Math.min(+i.max, +i.value || 0)); store.set('house', H); });
       $$('[data-sp]', m).forEach(b => b.onclick = () => { st.save({ speed: b.dataset.sp }); $$('[data-sp]', m).forEach(x => x.classList.toggle('on', x === b)); });
-      $$('[data-th]', m).forEach(b => b.onclick = () => { st.save({ think: b.dataset.th }); $$('[data-th]', m).forEach(x => x.classList.toggle('on', x === b)); });
       $('#hrReset', m).onclick = () => { Object.assign(H, NS.HOUSE_DEFAULTS); store.set('house', H); close(); openSettings(); };
       $('#sDone', m).onclick = () => close();
     });

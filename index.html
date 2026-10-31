@@ -60,6 +60,10 @@
           <div class="field" id="aiField"><label>AI difficulty</label>
             <div class="seg" id="aiSeg"><button data-lv="genin">Genin</button><button data-lv="chunin" class="on">Chunin</button><button data-lv="jonin">Jonin</button><button data-lv="kage">Kage</button><button data-lv="hokage" title="AlphaZero-style neural network + tree search">Hokage</button></div>
           </div>
+          <div class="field" id="thinkField" style="display:none"><label>Hokage thinking time</label>
+            <div class="seg" id="thinkSeg"><button data-th="quick">Quick</button><button data-th="normal">Normal</button><button data-th="long">Long</button><button data-th="very long">Very long</button><button data-th="extreme">Extreme</button></div>
+            <div class="think-note" id="thinkNote"></div>
+          </div>
           <div class="field"><label>Matchup</label><div id="matchup" style="font-size:18px;line-height:1.5"></div></div>
           <div style="flex:1"></div>
           <button class="btn primary" id="startBtn" style="text-align:center">Start Battle <i data-icon="play"></i></button>
