@@ -1,0 +1,10 @@
+# Cloudflare Pages project. The site is this folder as it is; functions/ holds the ranked-play server (/api/ranked/*),
+# which keeps its data in the D1 database below. Free plan: 100,000 Function requests and 100,000 database writes a day.
+name = "narutcgsim"
+pages_build_output_dir = "."
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "narutcgsim-ranked"
+database_id = "b99f4117-677b-48ab-9368-07c2df5d0245"

@@ -777,6 +777,41 @@ body.narrow .modal-back.lib .modal { width: auto; }
 body.narrow .lib-row { flex-wrap: wrap; }
 body.narrow .lib-tools .seg { flex: 1 1 100%; }
 
+/* Ranked: the box on the Online Match screen, the leaderboard, the rating line on the result screen */
+.rk-box { padding: 12px 14px; background: #0c0c10; border: 1px solid #2a2a32; border-left: 3px solid var(--orange); display: flex; flex-direction: column; gap: 10px; }
+.rk-head { display: flex; align-items: center; justify-content: space-between; }
+.rk-head span { font-family: var(--display); font-size: 18px; letter-spacing: 3px; text-transform: uppercase; color: var(--orange2); }
+.rk-link { background: none; border: none; padding: 0; cursor: pointer; color: var(--dim); font: 700 13px var(--font); text-decoration: underline; text-underline-offset: 3px; }
+.rk-link:hover { color: #fff; }
+.rk-text { margin: 0; font-size: 13px; line-height: 1.45; color: #c9c9d1; }
+.rk-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.rk-btns .btn { flex: 1; }
+.rk-me { display: flex; align-items: center; gap: 10px; }
+.rk-who { flex: 1; min-width: 0; }
+.rk-who b { display: block; font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rk-who small { font-size: 12px; color: var(--dim); }
+.rk-badge { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; border: 2px solid currentColor; font-family: var(--display); font-size: 20px; background: #16161c; }
+.rk-play { text-align: center; }
+.t-placement, .t-academy { color: #9a9aa4; } .t-genin { color: #8fc1a0; } .t-chunin { color: #7fb4e0; } .t-jonin { color: #c9a0ff; } .t-kage { color: #ffb86a; } .t-hokage { color: #ff8a5a; }
+.modal-back.lb .modal { width: 640px; }
+.lb-sub { font-size: 14px !important; color: var(--dim) !important; }
+.lb-sub b { color: #fff; }
+.lb-list { display: flex; flex-direction: column; gap: 4px; max-height: 60vh; overflow: auto; margin: 8px 0 16px; }
+.lb-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) 80px 56px 80px; align-items: center; gap: 10px; padding: 7px 12px; background: #121217; border: 1px solid #23232b; font-size: 15px; }
+.lb-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-row.me { border-color: var(--orange); background: #1f170f; }
+.lb-pos { font-family: var(--display); font-size: 18px; color: var(--dim); text-align: right; }
+.lb-row:nth-child(-n+3) .lb-pos { color: var(--orange2); }
+.lb-tier { font-size: 12px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+.lb-rt { font-family: var(--display); font-size: 18px; text-align: right; font-variant-numeric: tabular-nums; }
+.lb-wl { font-size: 13px; color: var(--dim); text-align: right; }
+.result .r-rank { margin: -1.6vh 0 2.6vh; padding: 8px 14px; font-size: clamp(14px, 1.9vh, 18px); color: #ddd; background: rgba(14, 14, 19, .82); border-left: 3px solid var(--rk); width: fit-content; animation: resUp .4s ease-out both; }
+.result .r-rank b { font-family: var(--display); letter-spacing: 2px; text-transform: uppercase; color: var(--rk); margin-right: 8px; }
+.result .r-rank .up { color: #6fe39a; font-weight: 900; } .result .r-rank .dn { color: #ff8a7a; font-weight: 900; }
+body.narrow .modal-back.lb .modal { width: auto; }
+body.narrow .lb-row { grid-template-columns: 30px minmax(0, 1fr) 50px; font-size: 14px; }
+body.narrow .lb-row .lb-tier, body.narrow .lb-row .lb-wl { display: none; }
+
 /* ============================================================
    SMALL AND UPRIGHT SCREENS
    body.portrait  the 760-wide upright layout (js/main.js fit, js/ui.js boardLayout)
@@ -944,3 +979,11 @@ body.narrow .dmg-num { font-size: 64px; }
 :is(body.portrait, body.tiny) .dl-row small { font-size: 16px; }
 :is(body.portrait, body.tiny) #stage .dl-btns2 .btn { font-size: 18px; }
 body.tiny:not(.portrait) .dl-row { font-size: 20px; }
+
+/* --- Ranked box upright --- */
+body.portrait .rk-head span { font-size: 26px; }
+body.portrait .rk-link { font-size: 19px; }
+body.portrait .rk-text { font-size: 19px; }
+body.portrait .rk-who b { font-size: 24px; }
+body.portrait .rk-who small { font-size: 17px; }
+body.portrait .rk-badge { width: 56px; height: 56px; font-size: 28px; }

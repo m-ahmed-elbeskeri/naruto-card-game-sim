@@ -69,7 +69,8 @@
   function fail(msg) { quickRun++; reset(); busy(false); status(esc(msg), 'err'); }
 
   // Host side of the handshake: wait for one guest on `peer`, check version + deck, then start.
-  function hostOn(house, mine) {
+  // `fixed`: a ranked match, whose seed, names, decks and rules come from the server.
+  function hostOn(house, mine, fixed) {
     peer.on('connection', c => {
       if (conn) { c.on('open', () => { c.send({ t: 'reject', why: 'full' }); setTimeout(() => c.close(), 300); }); return; }
       conn = c;
@@ -79,9 +80,9 @@
         if (m.t === 'hello' && !S) {
           const no = why => { c.send({ t: 'reject', why }); conn = null; setTimeout(() => c.close(), 300); };
           if (m.proto !== PROTO || m.build !== buildId()) return no('Game versions differ. Both players should refresh the page (Ctrl+Shift+R).');
-          const bad = m.deck && NS.Cards.byId[m.deck.leader] ? NS.Cards.validate(m.deck, house) : ['unknown Leader'];
+          const bad = fixed ? [] : m.deck && NS.Cards.byId[m.deck.leader] ? NS.Cards.validate(m.deck, house) : ['unknown Leader'];
           if (bad.length) return no('Your deck is not legal under the rules of this match: ' + bad[0]);
-          const start = { t: 'start', seed: (Math.random() * 4294967296) >>> 0, names: [myName(), String(m.name || 'Guest').slice(0, 16)], decks: [mine, m.deck], house };
+          const start = fixed ? Object.assign({ t: 'start' }, fixed) : { t: 'start', seed: (Math.random() * 4294967296) >>> 0, names: [myName(), String(m.name || 'Guest').slice(0, 16)], decks: [mine, m.deck], house };
           c.send(start);
           begin(start, 0);
           // the match runs peer-to-peer from here: leave the matchmaking server so the room/queue id is free again
@@ -92,8 +93,8 @@
       c.on('close', () => onClose(c));
     });
   }
-  // Guest side: connect to `id`. `onFail(why, kind)` is called if no match starts.
-  function guestTo(id, onFail, waitMs) {
+  // Guest side: connect to `id`. `onFail(why, kind)` is called if no match starts. `fixed`: as in hostOn.
+  function guestTo(id, onFail, waitMs, fixed) {
     let settled = false;
     const done = (why, kind) => { if (settled) return; settled = true; clearTimeout(timer); onFail(why, kind); };
     const timer = setTimeout(() => done('Could not reach the other player.', 'timeout'), waitMs || 15000);
@@ -104,11 +105,12 @@
         if (c0 !== conn) return;
         if (m.t === 'welcome') {
           if (m.proto !== PROTO || m.build !== buildId()) return done('Game versions differ. Both players should refresh the page (Ctrl+Shift+R).', 'version');
+          if (fixed) return conn.send({ t: 'hello', proto: PROTO, build: buildId(), name: myName(), deck: null });
           const deck = myDeck(m.house), errs = NS.Cards.validate(deck, m.house);
           if (errs.length) return done('Your deck is not legal under the rules of this match: ' + errs[0], 'deck');
           conn.send({ t: 'hello', proto: PROTO, build: buildId(), name: myName(), deck });
         } else if (m.t === 'reject') done(m.why, m.why === 'full' ? 'full' : 'reject');
-        else if (m.t === 'start') { settled = true; clearTimeout(timer); begin(m, 1); }
+        else if (m.t === 'start') { settled = true; clearTimeout(timer); begin(fixed ? Object.assign({ t: 'start' }, fixed) : m, 1); }
         else onData(m);
       });
       conn.on('close', () => { if (!settled) done('The other player went away.', 'closed'); else onClose(c0); });
@@ -181,6 +183,50 @@
     }
     attempt();
   }
+
+  // ---- ranked (js/ranked.js finds the match on the server) ----
+  // The server paired two players and fixed the match: seat 0 opens a peer under the match id, seat 1 connects to it,
+  // trying again for a while because the host may still be opening. rk = { id, seat, start, onEnd(report) }.
+  let rkNext = null;
+  async function ranked(rk, onFail) {
+    quickRun++; reset();
+    try { await loadPeer(); } catch (e) { return onFail(e.message); }
+    rkNext = rk;
+    const id = PREFIX + 'rk-' + rk.id, run = quickRun, t0 = Date.now();
+    const alive = () => run === quickRun && !S;
+    if (rk.seat === 0) {
+      const tryOpen = n => {
+        peer = new Peer(id);
+        peer.on('error', e => {
+          if (!alive()) return;
+          if (e.type === 'unavailable-id' && n < 6) { try { peer.destroy(); } catch (x) { } return setTimeout(() => tryOpen(n + 1), 1500); }
+          onFail('Connection problem: ' + (e.type || e.message));
+        });
+        hostOn(rk.start.house, null, rk.start);
+      };
+      tryOpen(0);
+      setTimeout(() => { if (alive()) { quickRun++; reset(); onFail('Your opponent never connected.'); } }, 45000);
+    } else {
+      const tryJoin = () => {
+        if (!alive()) return;
+        reset(); peer = new Peer();
+        guestTo(id, (why, kind) => {
+          if (!alive()) return;
+          if (kind !== 'version' && Date.now() - t0 < 40000) return setTimeout(tryJoin, 1500); // the host may still be opening
+          onFail(why);
+        }, 10000, rk.start);
+      };
+      tryJoin();
+    }
+  }
+  // how a ranked match ended, as seen from here (reported once)
+  function rkEnd(s, winner, why) {
+    if (!s || !s.rk || s.rk.sent) return;
+    s.rk.sent = true;
+    s.rk.onEnd({ winner, why, log: s.g ? s.g.log.slice() : [] });
+  }
+  // a page closed in the middle of a ranked match concedes it
+  if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('pagehide', () => { if (S && S.rk && !S.over) { send({ t: 'bye' }); rkEnd(S, 1 - S.me, 'quit'); } });
 
   // ---------------- match clock ----------------
   // Each player has a bank for the whole match, a budget for each of their own turns, and a short limit for every
@@ -261,19 +307,20 @@
   function begin(st, me) {
     const ui = new NS.GameUI({ humans: [me === 0, me === 1], hotseat: false, online: true });
     const g = wire(st, me, ui, ui.controllerFor(me));
+    const s = S; s.rk = rkNext; rkNext = null;
     ui.setGame(g);
     NS.Screens.setGame(g, ui);
     NS.Screens.show('game');
     NS.Audio.play('taiko'); NS.Audio.playTrack('battle');
     ui.render({ noFlip: true });
-    g.start().then(() => { if (S && S.g === g) { stopClock(); S.over = true; } });
+    g.start().then(() => { if (g.over && g.winner != null) rkEnd(s, g.winner, 'end'); if (S && S.g === g) { stopClock(); S.over = true; } });
   }
   // One side of the lockstep game. The engine logs every decision as an index: ours are sent, theirs are awaited.
   function wire(st, me, ui, local) {
     const s = S = { me, ui, queue: [], waiter: null, over: false, desync: false, asking: false, gone: '', think: null, used: 0, late: 0, timer: 0, ck: st.house && st.house.clock === false ? null : newClock() };
     const next = () => {
       if (s.queue.length) return Promise.resolve(s.queue.shift());
-      if (s.gone) { ended(s.gone); return NEVER; } // they left and nothing more of theirs is waiting to be played
+      if (s.gone) { ended(s.gone, s.goneWhy); return NEVER; } // they left and nothing more of theirs is waiting to be played
       return new Promise(r => { s.waiter = r; });
     };
     const theirs = async pick => {
@@ -293,7 +340,7 @@
     // a decision of ours: the clock runs while the question is open; `dflt` is the answer when there is no time for it
     const ask = async (run, dflt) => {
       if (S !== s || s.over) return NEVER;
-      if (s.gone) { ended(s.gone); return NEVER; }
+      if (s.gone) { ended(s.gone, s.goneWhy); return NEVER; }
       const ck = s.ck;
       let r;
       if (!ck) { s.asking = true; r = await run(); if (S !== s || s.over) return NEVER; s.asking = false; }
@@ -342,20 +389,21 @@
     else if (m.t === 'think') { S.think = { n: m.n, at: now() }; const w = S.ck && S.ck.wait; if (w && w.n === m.n && !w.t0) { w.t0 = S.think.at; paint(); } }
     else if (m.t === 'flag') finish(S.me, 'time');      // their bank ran out
     else if (m.t === 'claim') finish(1 - S.me, 'away'); // they waited past our limit without an answer from here
-    else if (m.t === 'bye') gone('Your opponent left the match.');
-    else if (m.t === 'desync') ended('The two games fell out of sync, so the match was stopped.');
+    else if (m.t === 'bye') gone('Your opponent left the match.', 'opp-quit');
+    else if (m.t === 'desync') ended('The two games fell out of sync, so the match was stopped.', 'desync');
   }
-  function desync() { if (S.desync) return; S.desync = true; send({ t: 'desync' }); ended('The two games fell out of sync, so the match was stopped.'); }
+  function desync() { if (S.desync) return; S.desync = true; send({ t: 'desync' }); ended('The two games fell out of sync, so the match was stopped.', 'desync'); }
   function onClose(c) { if (c !== conn) return; if (S) gone('Connection to your opponent was lost.'); else conn = null; /* a guest dropped before the match started: keep waiting */ }
   // The other player has gone. Their last decisions may still be waiting to be played out here (they can be a whole
   // animation ahead, even at the result screen), so the match only stops once it needs something they never sent.
-  function gone(msg) {
+  function gone(msg, why) {
     if (!S || S.over || S.g.over) return;
-    if (S.waiter || S.asking) return ended(msg);
-    S.gone = msg;
+    if (S.waiter || S.asking) return ended(msg, why);
+    S.gone = msg; S.goneWhy = why;
   }
-  function ended(msg) {
+  function ended(msg, why) {
     if (!S || S.over) return;
+    rkEnd(S, why === 'opp-quit' ? S.me : null, why || 'lost');
     S.over = true;
     const g = S.g, ui = S.ui;
     stopClock();
@@ -369,6 +417,7 @@
   function finish(winner, why) {
     if (!S || S.over || S.g.over) return;
     const g = S.g, ui = S.ui;
+    rkEnd(S, winner, why);
     stopClock();
     S.over = true;
     g.abort(); g.over = true; g.winner = winner; g.phase = 'over';
@@ -378,7 +427,7 @@
   }
   // called whenever the local player leaves the game screen
   function leave() {
-    if (S) { send({ t: 'bye' }); stopClock(); S.over = true; S = null; }
+    if (S) { if (!S.over && !(S.g && S.g.over)) rkEnd(S, 1 - S.me, 'quit'); send({ t: 'bye' }); stopClock(); S.over = true; S = null; }
     setTimeout(reset, 200);
   }
 
@@ -392,5 +441,5 @@
     $('#onBack').addEventListener('click', () => { if (!S) { quickRun++; reset(); } });
   }
 
-  NS.Net = { init, open, leave, active: () => !!S, defaultChoice, _hash: hash, _test: { wire, recv: onData, tick, CLOCK, state: () => S, out: f => { out = f; }, now: f => { now = f; } } };
+  NS.Net = { init, open, leave, ranked, cancel: () => { quickRun++; reset(); }, busy, status, deck: () => myDeck(NS.HOUSE_DEFAULTS), build: buildId, active: () => !!S, defaultChoice, _hash: hash, _test: { wire, recv: onData, tick, CLOCK, state: () => S, out: f => { out = f; }, now: f => { now = f; } } };
 })();
