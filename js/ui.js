@@ -68,21 +68,33 @@
   // The card inspector is docked: a fixed column at the left edge (or the right edge when the pointer is over the
   // left side of the screen). It never follows the pointer. The action menu opens above the clicked card.
   const DOCK_W = 300;
+  // Small screens (phones) get a compact inspector: the card with its text beside it, in the half of the screen away
+  // from the finger (upright phone) or at the side away from it (phone on its side).
+  const compactDock = () => window.innerWidth < 640 || window.innerHeight < 560;
   function showPreview(card, ev, extra, live, force) {
     const pv = $('#preview');
     if (pv._lock && !force) return; // an action menu is open: keep showing the card it belongs to
-    const w = Math.round(Math.max(180, Math.min(DOCK_W, window.innerHeight * .4 * 600 / 831)));
-    const key = (card.id || card.type) + '|' + (extra || '') + '|' + w, right = ev.clientX < window.innerWidth * .27;
-    const fresh = pv._key !== key || pv._right !== right || !pv.classList.contains('show');
-    if (pv._key !== key) { pv._key = key; pv.innerHTML = cardHTML(card, { w }) + textPanel(card, extra); }
-    pv._right = right; pv.classList.add('show');
+    const W = window.innerWidth, H = window.innerHeight, small = compactDock(), tall = H > W;
+    const w = small ? Math.round(Math.min(W * (tall ? .4 : .2), H * (tall ? .4 : .62) / 1.397, 230)) : Math.round(Math.max(180, Math.min(DOCK_W, H * .4 * 600 / 831)));
+    const tw = small ? Math.round(tall ? W - w - 26 : Math.min(300, W * .34)) : DOCK_W;
+    // where the card is: the element under the pointer, else the pointer (a scripted click has no position)
+    const src = ev.target && ev.target.closest ? ev.target.closest('[data-k],[data-pile],[data-ck],.pickable') : null, sr = src ? src.getBoundingClientRect() : null;
+    const px = sr ? sr.left + sr.width / 2 : ev.clientX, py = sr ? sr.top + sr.height / 2 : ev.clientY;
+    const right = small && tall ? false : px < W * .27, low = small && tall && py < H / 2; // low: shown in the bottom half
+    const key = (card.id || card.type) + '|' + (extra || '') + '|' + w + '|' + tw;
+    const fresh = pv._key !== key || pv._right !== right || pv._low !== low || !pv.classList.contains('show');
+    if (pv._key !== key) { pv._key = key; pv.innerHTML = cardHTML(card, { w }) + textPanel(card, extra); const t = pv.querySelector('.pv-text'); if (t && small) t.style.width = tw + 'px'; }
+    pv.classList.toggle('compact', small);
+    pv._right = right; pv._low = low; pv.classList.add('show');
     if (fresh) layoutDock();
     const n = pv.querySelector('.nc');
-    if (n) { const fx = ev.clientX / window.innerWidth, fy = ev.clientY / window.innerHeight; n.style.setProperty('--ry', ((fx - .5) * 16) + 'deg'); n.style.setProperty('--rx', ((.5 - fy) * 10) + 'deg'); n.style.setProperty('--gx', fx * 100 + '%'); n.style.setProperty('--gy', fy * 100 + '%'); }
+    if (n) { const fx = (ev.clientX || px) / W, fy = (ev.clientY || py) / H; n.style.setProperty('--ry', ((fx - .5) * 16) + 'deg'); n.style.setProperty('--rx', ((.5 - fy) * 10) + 'deg'); n.style.setProperty('--gx', fx * 100 + '%'); n.style.setProperty('--gy', fy * 100 + '%'); }
   }
   function layoutDock() {
-    const pv = $('#preview'), ph = pv.classList.contains('show') ? pv.offsetHeight : 0;
-    const x = pv._right ? window.innerWidth - DOCK_W - 12 : 12, y = Math.max(8, Math.round((window.innerHeight - ph) / 2));
+    const pv = $('#preview'), show = pv.classList.contains('show'), ph = show ? pv.offsetHeight : 0, pw = show ? pv.offsetWidth : DOCK_W;
+    const W = window.innerWidth, H = window.innerHeight, small = pv.classList.contains('compact');
+    let x = pv._right ? W - (small ? pw : DOCK_W) - 12 : 12, y = Math.max(8, Math.round((H - ph) / 2));
+    if (small && H > W) { x = 8; y = pv._low ? Math.max(8, H - ph - 8) : 8; }
     pv.style.transform = `translate(${x}px,${y}px)`;
   }
   function hidePreview(force) { const pv = $('#preview'); if (pv._lock && !force) return; pv._lock = false; pv.classList.remove('show'); }
@@ -135,6 +147,45 @@
   const CHAKRA_CARD = { type: 'chakra', name: 'Chakra Card', id: 'C-001' };
   const SUMMON_CARD = { type: 'summoncard', name: 'Summon Card', id: 'S-001' };
 
+  // ---------------- board geometry ----------------
+  // Landscape is the original 1600 x 900 playmat. Portrait (phones held upright) stacks the same zones in a column
+  // 760 wide and NS.stageH tall: opponent's Leader strip, Supports, Characters, the turn band, then the same for you,
+  // a free band (online clock, replay controls) and your hand. Index 0 of each pair is the opponent's side (top).
+  const LAND = {
+    W: 1600, zx: 230, zw: 1090, supZ: [14, 570], chrZ: [132, 380], lineY: 348, cgap: 34, csz: 120, ssz: 76,
+    ckZ: [{ x: 1340, y: 232, w: 248, h: 72 }, { x: 1340, y: 596, w: 248, h: 72 }],
+    side: [
+      { leader: { x: 1436, y: 8, w: 140 }, life: { x: 1348, y: 14 }, sum: { x: 1356, y: 140 }, ck: { x: 1348, y: 238 }, deck: { x: 16, y: 14 }, trash: { x: 122, y: 14 }, pw: 96, ohand: { x: 16, y: 176, w: 64, lbl: 272 } },
+      { leader: { x: 1436, y: 684, w: 140 }, life: { x: 1348, y: 790 }, sum: { x: 1356, y: 684 }, ck: { x: 1348, y: 602 }, deck: { x: 16, y: 740 }, trash: { x: 122, y: 740 }, pw: 96 },
+    ],
+    hand: null, // the stylesheet's place: along the bottom edge, half below it
+    clock: { x: 1340, y: 352, corner: 10, cols: 1 },
+  };
+  function boardLayout() {
+    if (!NS.portrait) return LAND;
+    const H = NS.stageH || 1300, e = Math.max(0, H - 1280); // 1280: everything at its smallest, the hand band 200
+    const top = 10 + e * .15, strip = 158, gA = 8 + e * .08, gB = 6 + e * .04, band = 70 + e * .25, aux = 64 + e * .2;
+    let y = top;
+    const s0 = y; y += strip + gA;
+    const sup0 = y; y += 112 + gB;
+    const chr0 = y; y += 184;
+    const bandY = y; y += band;
+    const chr1 = y; y += 184 + gB;
+    const sup1 = y; y += 112 + gA;
+    const s1 = y; y += strip;
+    const auxY = y; y += aux;
+    const stripAt = sy => ({ leader: { x: 646, y: sy + 2, w: 100 }, life: { x: 560, y: sy + 22 }, sum: { x: 176, y: sy + 76 }, ck: { x: 176, y: sy + 6 }, deck: { x: 12, y: sy + 22 }, trash: { x: 90, y: sy + 22 }, pw: 70 });
+    const opp = Object.assign(stripAt(s0), { ohand: { x: 262, y: s0 + 82, w: 40, lbl: s0 + 140 } });
+    return {
+      W: 760, H, portrait: true, zx: 10, zw: 740, supZ: [sup0, sup1], chrZ: [chr0, chr1], lineY: bandY + band / 2, cgap: 22, csz: 120, ssz: 76,
+      ckZ: [{ x: 168, y: s0, w: 250, h: 70 }, { x: 168, y: s1, w: 250, h: 70 }],
+      side: [opp, stripAt(s1)], bandY, band, auxY, aux,
+      hand: { top: y, h: H - y },
+      clock: { x: 128, y: auxY + (aux - 66) / 2, corner: 10, cols: 2 },
+    };
+  }
+  NS.boardLayout = boardLayout;
+
   // =====================================================================
   class GameUI {
     constructor(opts) {
@@ -143,6 +194,7 @@
       this.viewPi = opts.view != null ? opts.view : opts.humans[0] ? 0 : 1;
       this.state = 'idle';
       this.acts = [];
+      NS.activeUI = this; // the board's input and the window's resize handler talk to the newest match only
       this.build();
     }
     setGame(g) {
@@ -166,13 +218,13 @@
     build() {
       this.root.innerHTML = `
         <div class="mat-swirl" style="background-image:url('${NS.ASSETS.swirl}')"></div><div class="emblem"></div><div class="vignette"></div><div class="lowlife"></div>
-        <div class="zone" style="left:230px;top:14px;width:1090px;height:112px"><span class="zl" style="left:16px;top:6px">Support Area</span></div>
-        <div class="zone" style="left:230px;top:132px;width:1090px;height:184px"><span class="zl" style="left:16px;top:6px">Character Area</span></div>
-        <div class="zone center-line" style="left:230px;top:348px;width:1090px;height:0"></div>
-        <div class="zone" style="left:230px;top:380px;width:1090px;height:184px"><span class="zl" style="left:16px;bottom:6px">Character Area <i>※Characters cannot attack the turn they are played</i></span></div>
-        <div class="zone" style="left:230px;top:570px;width:1090px;height:112px"><span class="zl" style="left:16px;bottom:6px">Support Area <i>※Up to 5 face-down</i></span></div>
-        <div class="zone" style="left:1340px;top:232px;width:248px;height:72px"><span class="zl" style="left:8px;bottom:-20px;font-size:11px">Chakra Area</span></div>
-        <div class="zone" style="left:1340px;top:596px;width:248px;height:72px"><span class="zl" style="left:8px;top:-20px;font-size:11px">Chakra Area</span></div>
+        <div class="zone" data-z="sup0"><span class="zl" style="left:16px;top:6px">Support Area</span></div>
+        <div class="zone" data-z="chr0"><span class="zl" style="left:16px;top:6px">Character Area</span></div>
+        <div class="zone center-line" data-z="line"></div>
+        <div class="zone" data-z="chr1"><span class="zl" style="left:16px;bottom:6px">Character Area <i>※Characters cannot attack the turn they are played</i></span></div>
+        <div class="zone" data-z="sup1"><span class="zl" style="left:16px;bottom:6px">Support Area <i>※Up to 5 face-down</i></span></div>
+        <div class="zone ck-zone" data-z="ck0"><span class="zl" style="left:8px;bottom:-20px;font-size:11px">Chakra Area</span></div>
+        <div class="zone ck-zone" data-z="ck1"><span class="zl" style="left:8px;top:-20px;font-size:11px">Chakra Area</span></div>
         <div id="layer"></div>
         <div class="center-band"><div class="turn-chip" id="turnChip">—</div><div class="phase-dots" id="phaseDots"><span data-p="refresh">REFRESH</span><span data-p="draw">DRAW</span><span data-p="main">MAIN</span><span data-p="end">END</span></div><button class="end-btn" id="endBtn" disabled>End Turn</button></div>
         <div class="topbtns"><button class="iconbtn" id="logBtn" title="Battle log">${NS.icon('menu')}</button><button class="iconbtn" id="sndBtn" title="Music">${NS.icon('music')}</button><button class="iconbtn" id="spdBtn" title="Animation speed">${NS.icon('fast')}</button><button class="iconbtn" id="quitBtn" title="Quit">${NS.icon('close')}</button></div>
@@ -188,15 +240,47 @@
       $('#spdBtn').onclick = () => { NS.settings.cycleSpeed(); this.toast(`Animation speed: ${NS.settings.speed}`); };
       $('#quitBtn').onclick = () => this.opts.replay ? this.opts.replay.exit() : NS.Screens.confirmQuit();
       this.root.classList.toggle('replay', !!this.opts.replay);
-      this.root.addEventListener('mousemove', e => {
-        this._hv = e;
-        if (this._hvq) return;
-        this._hvq = true;
-        requestAnimationFrame(() => { this._hvq = false; this.onHover(this._hv); });
-      });
-      this.root.addEventListener('mouseleave', hidePreview);
-      this.root.addEventListener('click', e => this.onClick(e));
-      this.root.addEventListener('contextmenu', e => { e.preventDefault(); this.cancel(); });
+      this.placeChrome();
+      // one set of listeners on the board element for the whole session, always passed to the current match
+      // (each match used to add its own, so earlier matches' handlers kept running)
+      if (!this.root._wired) {
+        this.root._wired = true;
+        const R = this.root, ui = () => NS.activeUI;
+        R.addEventListener('mousemove', e => {
+          const u = ui(); if (!u) return;
+          u._hv = e;
+          if (u._hvq) return;
+          u._hvq = true;
+          requestAnimationFrame(() => { u._hvq = false; u.onHover(u._hv); });
+        });
+        R.addEventListener('mouseleave', hidePreview);
+        R.addEventListener('click', e => { const u = ui(); if (u) u.onClick(e); });
+        R.addEventListener('contextmenu', e => { e.preventDefault(); const u = ui(); if (u) u.cancel(); });
+      }
+    }
+    // put the playmat zones and the turn band where the current layout has them (see boardLayout)
+    placeChrome() {
+      const L = boardLayout(), R = this.root, put = (el, x, y, w, h) => { if (!el) return; el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.width = w + 'px'; el.style.height = h + 'px'; };
+      const z = k => R.querySelector(`[data-z="${k}"]`);
+      put(z('sup0'), L.zx, L.supZ[0], L.zw, 112); put(z('sup1'), L.zx, L.supZ[1], L.zw, 112);
+      put(z('chr0'), L.zx, L.chrZ[0], L.zw, 184); put(z('chr1'), L.zx, L.chrZ[1], L.zw, 184);
+      put(z('line'), L.zx, L.lineY, L.zw, 0);
+      L.ckZ.forEach((c, i) => put(z('ck' + i), c.x, c.y, c.w, c.h));
+      // the band, prompt, toasts, log and replay bar read these in portrait (see the stylesheet)
+      const host = R.parentElement || R, v = (k, n) => host.style.setProperty(k, n == null ? '' : Math.round(n) + 'px'); // on the game screen: the replay bar sits beside the board
+      v('--band-y', L.portrait ? L.bandY + (L.band - 64) / 2 : null);
+      v('--line-y', L.portrait ? L.lineY : null);
+      v('--toast-y', L.portrait ? L.bandY + L.band + 4 : null);
+      v('--aux-y', L.portrait ? L.auxY + (L.aux - 46) / 2 : null);
+      v('--log-top', L.portrait ? L.supZ[0] : null);
+      v('--log-bottom', L.portrait ? L.H - L.supZ[1] - 112 : null);
+    }
+    // the window changed shape (a phone turned, a window resized across the portrait / landscape line)
+    relayout() {
+      if (NS.activeUI !== this || !this.root.querySelector('#layer')) return;
+      this.closePop(); hidePreview(true);
+      this.placeChrome();
+      if (this.g) { this.render({ noFlip: true }); this.updateArrow(); }
     }
     toast(msg) {
       const t = document.createElement('div');
@@ -316,10 +400,11 @@
     sideHTML(pi, top) {
       const g = this.g, P = g.p(pi), H = g.house;
       const side = top ? 'side-opp' : 'side-me';
+      const L = boardLayout(), Q = L.side[top ? 0 : 1], k = top ? 0 : 1;
       let h = '';
       // supports
-      const supY = top ? 20 : 576, charY = top ? 140 : 388;
-      h += `<div class="row ${side}" data-zone="support-${pi}" style="left:230px;width:1090px;top:${supY}px;height:106px">`;
+      const supY = L.supZ[k] + 6, charY = L.chrZ[k] + 8;
+      h += `<div class="row ${side}" data-zone="support-${pi}" style="left:${L.zx}px;width:${L.zw}px;top:${supY}px;height:106px">`;
       for (let i = 0; i < 5; i++) {
         const s = P.supports[i];
         if (!s) { h += `<div class="slot" style="width:76px;height:106px;border:1px dashed rgba(240,124,20,.18);border-radius:4px"></div>`; continue; }
@@ -330,7 +415,7 @@
       }
       h += `</div>`;
       // characters
-      h += `<div class="row ${side}" data-zone="chars-${pi}" style="left:230px;width:1090px;top:${charY}px;height:168px;gap:34px">`;
+      h += `<div class="row ${side}" data-zone="chars-${pi}" style="left:${L.zx}px;width:${L.zw}px;top:${charY}px;height:168px;gap:${L.cgap}px">`;
       this.slotMap = this.slotMap || [[], []];
       const sm = this.slotMap[pi]; sm.length = H.charLimit;
       for (let i = 0; i < H.charLimit; i++) if (sm[i] && !P.chars.some(u => u.uid === sm[i])) sm[i] = null;
@@ -345,25 +430,26 @@
       }
       h += `</div>`;
       // leader, life, summon, chakra
-      const L = P.leader;
-      const lY = top ? 8 : 684, lifeY = top ? 14 : 790, sumY = top ? 140 : 684, ckY = top ? 238 : 602;
-      const lifePct = Math.max(0, Math.min(100, L.life / 15 * 100)), ghostPct = Math.max(lifePct, Math.min(100, ((this.ghost && this.ghost[pi] != null ? this.ghost[pi] : L.life) / 15) * 100));
-      h += `<div class="leader-box ${g.active === pi ? 'active' : ''}" style="left:1436px;top:${lY}px;width:140px"><div class="slot ${side} ${L.rested ? 'rested' : ''} ${this.atkUid === L.uid ? 'atk' : ''}" data-k="${L.uid}" data-unit="${L.uid}">${cardHTML(L.card, { w: 140, statbar: true, life: L.life, live: { pow: g.pow(L), dmg: g.dmg(L) } })}</div></div>`;
-      h += `<div class="leader-box" style="left:1348px;top:${lifeY}px;width:72px"><div class="life ${L.life <= 5 ? 'low' : ''}" style="position:static;width:72px" data-life="${pi}" data-zone="life-${pi}"><small>LIFE</small><b>${L.life}</b></div><div class="pname" style="font-size:13px">${esc(P.name)}</div></div>`;
-      h += `<div class="slot ${P.summonRested ? 'rested' : ''} ${side}" data-k="SUM${pi}" style="position:absolute;left:1356px;top:${sumY}px">${cardHTML(SUMMON_CARD, { w: 58 })}</div>`;
-      h += `<div class="chakra-row" data-zone="chakra-${pi}" style="left:1348px;top:${ckY}px">${P.chakra.map((up, i) => `<div class="ck" data-ck="${pi}-${i}">${up ? cardHTML(CHAKRA_CARD, { w: 42 }) : backHTML('chakra', 42)}</div>`).join('')}</div>`;
+      const Ld = P.leader, lw = Q.leader.w;
+      h += `<div class="leader-box ${g.active === pi ? 'active' : ''}" style="left:${Q.leader.x}px;top:${Q.leader.y}px;width:${lw}px"><div class="slot ${side} ${Ld.rested ? 'rested' : ''} ${this.atkUid === Ld.uid ? 'atk' : ''}" data-k="${Ld.uid}" data-unit="${Ld.uid}">${cardHTML(Ld.card, { w: lw, statbar: true, life: Ld.life, live: { pow: g.pow(Ld), dmg: g.dmg(Ld) } })}</div></div>`;
+      h += `<div class="leader-box" style="left:${Q.life.x}px;top:${Q.life.y}px;width:72px"><div class="life ${Ld.life <= 5 ? 'low' : ''}" style="position:static;width:72px" data-life="${pi}" data-zone="life-${pi}"><small>LIFE</small><b>${Ld.life}</b></div><div class="pname" style="font-size:13px">${esc(P.name)}</div></div>`;
+      h += `<div class="slot ${P.summonRested ? 'rested' : ''} ${side}" data-k="SUM${pi}" style="position:absolute;left:${Q.sum.x}px;top:${Q.sum.y}px">${cardHTML(SUMMON_CARD, { w: 58 })}</div>`;
+      h += `<div class="chakra-row" data-zone="chakra-${pi}" style="left:${Q.ck.x}px;top:${Q.ck.y}px">${P.chakra.map((up, i) => `<div class="ck" data-ck="${pi}-${i}">${up ? cardHTML(CHAKRA_CARD, { w: 42 }) : backHTML('chakra', 42)}</div>`).join('')}</div>`;
       // deck / trash / hand
-      const dY = top ? 14 : 740;
-      h += `<div class="pile" data-pile="deck-${pi}" style="left:16px;top:${dY}px">${P.deck.length ? backHTML('', 96) : '<div class="empty" style="width:96px;height:134px"></div>'}<div class="cnt">DECK ${P.deck.length}</div></div>`;
+      const pw = Q.pw, ph = Math.round(pw * 1.397);
+      h += `<div class="pile" data-pile="deck-${pi}" style="left:${Q.deck.x}px;top:${Q.deck.y}px">${P.deck.length ? backHTML('', pw) : `<div class="empty" style="width:${pw}px;height:${ph}px"></div>`}<div class="cnt">DECK ${P.deck.length}</div></div>`;
       const tt = P.trash[P.trash.length - 1];
-      h += `<div class="pile trash" data-pile="trash-${pi}" style="left:122px;top:${dY}px">${tt ? cardHTML(tt.card, { w: 96 }) : '<div class="empty">TRASH</div>'}<div class="cnt">TRASH ${P.trash.length}</div></div>`;
+      h += `<div class="pile trash" data-pile="trash-${pi}" style="left:${Q.trash.x}px;top:${Q.trash.y}px">${tt ? cardHTML(tt.card, { w: pw }) : `<div class="empty" style="width:${pw}px;height:${ph}px">TRASH</div>`}<div class="cnt">TRASH ${P.trash.length}</div></div>`;
       if (top) {
-        const rv = this.opts.reveal;
-        h += `<div style="position:absolute;left:16px;top:176px;display:flex">${P.hand.map((c, i) => `<div data-k="${c.iid}"${rv ? ` data-ohand="${c.iid}" class="ohand"` : ''} style="margin-right:-44px;transform:rotate(${(i - P.hand.length / 2) * 3}deg)">${rv ? cardHTML(c.card, { w: 64 }) : backHTML('', 64)}</div>`).join('')}</div><div style="position:absolute;left:16px;top:272px;font-size:12px;font-weight:900;color:var(--dim);letter-spacing:2px">HAND ${P.hand.length}</div>`;
+        const rv = this.opts.reveal, O = Q.ohand, n = P.hand.length, ov = Math.round(O.w * (n > 8 && L.portrait ? .8 : .69)); // overlap: the fan stays inside its strip
+        h += `<div style="position:absolute;left:${O.x}px;top:${O.y}px;display:flex">${P.hand.map((c, i) => `<div data-k="${c.iid}"${rv ? ` data-ohand="${c.iid}" class="ohand"` : ''} style="margin-right:-${ov}px;transform:rotate(${(i - n / 2) * 3}deg)">${rv ? cardHTML(c.card, { w: O.w }) : backHTML('', O.w)}</div>`).join('')}</div><div class="ohand-lbl" style="position:absolute;left:${O.x}px;top:${O.lbl}px;font-size:12px;font-weight:900;color:var(--dim);letter-spacing:2px">HAND ${n}</div>`;
       } else {
         const n = P.hand.length;
         const can = new Set(this.state === 'main' ? this.acts.filter(a => a.card).map(a => a.card.iid) : []);
-        h += `<div class="hand" data-zone="hand">${P.hand.map((c, i) => { const rot = (i - (n - 1) / 2) * Math.min(4, 30 / Math.max(1, n)); return `<div class="hc ${can.has(c.iid) ? 'can-act' : this.state === 'main' ? 'dim' : ''}" data-k="${c.iid}" data-hand="${c.iid}" style="--r:${rot}deg;--ty:${Math.abs(i - (n - 1) / 2) * 4}px"><div class="lift">${cardHTML(c.card, { w: 128 })}</div></div>`; }).join('')}</div>`;
+        // portrait: the whole hand shows in its own band, overlapping more when it would not fit the width
+        const hb = L.hand, room = L.zw - 20, cw = 128, gap = hb && n > 1 ? Math.min(-14, Math.floor((room - n * cw) / (n - 1) / 2)) : -14;
+        const box = hb ? ` style="left:${L.zx}px;right:auto;width:${L.zw}px;top:${Math.round(hb.top)}px;bottom:auto;height:${Math.round(hb.h)}px;--hgap:${gap}px"` : '';
+        h += `<div class="hand" data-zone="hand"${box}>${P.hand.map((c, i) => { const rot = (i - (n - 1) / 2) * Math.min(4, 30 / Math.max(1, n)); return `<div class="hc ${can.has(c.iid) ? 'can-act' : this.state === 'main' ? 'dim' : ''}" data-k="${c.iid}" data-hand="${c.iid}" style="--r:${rot}deg;--ty:${Math.abs(i - (n - 1) / 2) * 4}px"><div class="lift">${cardHTML(c.card, { w: cw })}</div></div>`; }).join('')}</div>`;
       }
       return h;
     }
@@ -430,7 +516,7 @@
         }
       }
       if (sup) { const s = this.findSup(sup.dataset.sup); if (s && g.chain.some(l => l.sup === s)) return showPreview(s.card, e, 'Activated. Waiting to resolve.'); if (s && this.opts.reveal) return showPreview(s.card, e, `Face-down in ${esc(g.p(s.owner).name)}'s Support Area. Activates for <b>${s.card.support.cost}</b> Chakra.`); if (s && s.owner === this.viewPi) return showPreview(s.card, e, `Face-down in your Support Area. Activate for <b>${s.card.support.cost}</b> Chakra.`); }
-      if (pile) { const pi = +pile.dataset.pile.split('-')[1]; const t = g.p(pi).trash; if (t.length) return showPreview(t[t.length - 1].card, e, `Trash: ${t.length} cards (click to view)`); }
+      if (pile) { const pi = +pile.dataset.pile.split('-')[1]; const t = g.p(pi).trash; if (t.length) return showPreview(t[t.length - 1].card, e, `Trash: ${t.length} cards (${NS.touch ? 'tap' : 'click'} to view)`); }
       const ck = e.target.closest('[data-ck]'); if (ck) return showPreview(CHAKRA_CARD, e, `Face-up Chakra: <b>${g.faceUpChakra(+ck.dataset.ck[0])}</b>/5`);
       if (e.target.closest('[data-k^=SUM]')) return showPreview(SUMMON_CARD, e);
       hidePreview();
@@ -439,7 +525,7 @@
       if (this.state !== 'main') return '';
       const a = this.acts.filter(x => x.card === c);
       if (!a.length) return '<span style="color:#ff9a8a">No legal action for this card right now.</span>';
-      return 'Click to ' + a.map(x => ({ summon: 'summon', ex: 'EX summon', set: 'set as Support', support: 'activate from hand' }[x.kind])).join(' / ') + '.';
+      return (NS.touch ? 'Tap' : 'Click') + ' to ' + a.map(x => ({ summon: 'summon', ex: 'EX summon', set: 'set as Support', support: 'activate from hand' }[x.kind])).join(' / ') + '.';
     }
     onClick(e) {
       if (e.target.closest('.popover')) return;
@@ -513,7 +599,7 @@
           this.state = 'target';
           this.pendingAttack = a.list;
           this.targets = a.list.map(x => x.target);
-          this.showPrompt(`Choose a target for ${a.attacker.isLeader ? 'your Leader' : a.attacker.card.name} (right-click to cancel)`);
+          this.showPrompt(`Choose a target for ${a.attacker.isLeader ? 'your Leader' : a.attacker.card.name} (${NS.touch ? 'tap anywhere else' : 'right-click'} to cancel)`);
           return this.highlight();
         }
         this.resolveMain(a);
@@ -661,7 +747,7 @@
         this.req = req;
         if (req.kind === 'unit') {
           this.state = 'choose';
-          this.showPrompt(req.prompt + (req.cancel ? ' (right-click to cancel)' : ''), req.optional || req.cancel, () => this.resolveChoice(null), req.cancel && !req.optional ? 'Cancel' : 'Skip');
+          this.showPrompt(req.prompt + (req.cancel ? ` (${NS.touch ? 'tap anywhere else' : 'right-click'} to cancel)` : ''), req.optional || req.cancel, () => this.resolveChoice(null), req.cancel && !req.optional ? 'Cancel' : 'Skip');
           this.highlight();
           return;
         }

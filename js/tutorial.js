@@ -58,7 +58,7 @@
       const box = document.createElement('div');
       box.className = 'coach';
       const L = NS.Cards.byId['N-001'];
-      box.innerHTML = `<div class="coach-ava" style="${NS.View.portraitCSS(L, 1.7)}"></div><div class="coach-body"><div class="coach-name">Tutorial · ${this.i + 1}/${STEPS.length}</div><div class="coach-text">${s.text}</div>${needNext ? `<button class="btn small" id="coachNext">${s.final ? 'Finish' : 'Next'} ${NS.icon('next')}</button>` : ''}<button class="coach-skip" id="coachSkip">Skip tutorial</button></div>`;
+      box.innerHTML = `<div class="coach-ava" style="${NS.View.portraitCSS(L, 1.7)}"></div><div class="coach-body"><div class="coach-name">Tutorial · ${this.i + 1}/${STEPS.length}</div><div class="coach-text">${NS.touch ? s.text.replace(/\bClick\b/g, 'Tap').replace(/\bclick\b/g, 'tap') : s.text}</div>${needNext ? `<button class="btn small" id="coachNext">${s.final ? 'Finish' : 'Next'} ${NS.icon('next')}</button>` : ''}<button class="coach-skip" id="coachSkip">Skip tutorial</button></div>`;
       document.body.appendChild(box);
       this.box = box;
       if (s.focus) { const f = document.querySelector(s.focus); if (f) { f.classList.add('coach-focus'); this.focused = f; } }

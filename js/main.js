@@ -26,10 +26,24 @@
     },
   });
 
+  // The stage is a fixed-size page scaled to the window. Wide screens get the 1600 x 900 table; tall screens (phones
+  // held upright, tablets in portrait) get a 760-wide column whose height follows the screen, whichever shows the
+  // game larger. Small stages (phones) get bigger text and buttons through body.tiny.
   function fit() {
-    const s = Math.min(window.innerWidth / 1600, window.innerHeight / 900);
-    NS.stageScale = s;
-    document.getElementById('stage').style.transform = `translate(-50%,-50%) scale(${s})`;
+    const W = window.innerWidth, H = window.innerHeight;
+    const pH = Math.max(1300, Math.min(2000, Math.round(760 * H / W / 20) * 20)); // steps of 20: a phone's address bar sliding in and out moves it less often
+    const sL = Math.min(W / 1600, H / 900), sP = Math.min(W / 760, H / pH);
+    const portrait = sP > sL * 1.15;
+    const sw = portrait ? 760 : 1600, sh = portrait ? pH : 900, s = portrait ? sP : sL;
+    const changed = NS.portrait !== portrait || NS.stageH !== sh;
+    NS.stageScale = s; NS.stageW = sw; NS.stageH = sh; NS.portrait = portrait;
+    const st = document.getElementById('stage');
+    st.style.width = sw + 'px'; st.style.height = sh + 'px';
+    st.style.transform = `translate(-50%,-50%) scale(${s})`;
+    document.body.classList.toggle('portrait', portrait);
+    document.body.classList.toggle('tiny', s < 0.62);
+    document.body.classList.toggle('narrow', W < 640);
+    if (changed && NS.activeUI && NS.activeUI.relayout) NS.activeUI.relayout();
   }
 
   NS.UIx = {
@@ -42,6 +56,9 @@
       setTimeout(() => el.remove(), 1500);
     },
   };
+
+  // touch screens: no hover and no right-click, so prompts say "tap"
+  NS.touch = !!(window.matchMedia && window.matchMedia('(hover: none)').matches);
 
   window.addEventListener('DOMContentLoaded', () => {
     NS.Cards.build();

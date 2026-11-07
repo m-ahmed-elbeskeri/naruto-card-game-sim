@@ -235,7 +235,7 @@
   function renderBuilder() {
     const L = NS.Cards.byId[deck.leader];
     const H = NS.house;
-    $('#bFilters').innerHTML = NS.Cards.leaders().map(l => `<span class="chip ${deck.leader === l.id ? 'on' : ''}" data-l="${l.id}">Leader: ${esc(l.name)} (${l.color})</span>`).join('') + `<span style="margin-left:auto;color:var(--dim);font-size:13px">Click to add · right-click to remove · ${H.deckSize} cards, max ${H.copyLimit} copies</span>`;
+    $('#bFilters').innerHTML = NS.Cards.leaders().map(l => `<span class="chip ${deck.leader === l.id ? 'on' : ''}" data-l="${l.id}">Leader: ${esc(l.name)} (${l.color})</span>`).join('') + `<span style="margin-left:auto;color:var(--dim);font-size:13px">${NS.touch ? 'Tap to add · tap a row in your deck to remove' : 'Click to add · right-click to remove'} · ${H.deckSize} cards, max ${H.copyLimit} copies</span>`;
     $('#bFilters').onclick = e => { const c = e.target.closest('[data-l]'); if (c && c.dataset.l !== deck.leader) { deck.leader = c.dataset.l; deck.cards = {}; renderBuilder(); } };
     const pool = NS.Cards.poolFor(L.color);
     $('#bPool').innerHTML = pool.map(c => { const q = deck.cards[c.id] || 0; return `<div class="pool-item ${q >= H.copyLimit ? 'maxed' : ''}" data-id="${c.id}">${NS.View.cardHTML(c, { w: 170 })}${q ? `<div class="qty">${q}</div>` : ''}</div>`; }).join('');
@@ -246,7 +246,7 @@
     $('#bDeck').innerHTML = `<input id="dlName" value="${esc(deck.name)}" maxlength="28">
       <div class="dl-stats"><span>Leader <b>${esc(L.name)}</b></span><span>Cards <b>${total}</b>/${H.deckSize}</span></div>
       <div class="dl-stats"><span>EX <b>${rows.filter(r => r[0].type === 'ex').reduce((a, r) => a + r[1], 0)}</b></span><span>With Support <b>${rows.filter(r => r[0].support).reduce((a, r) => a + r[1], 0)}</b></span></div>
-      <div class="dl-list">${rows.map(([c, n]) => `<div class="dl-row" style="--cc:${c.color === 'red' ? 'var(--red)' : 'var(--blue)'}" data-rm="${c.id}"><span>${esc(c.name)} <small>${c.type === 'ex' ? 'EX · ' : ''}${c.support ? esc(c.support.name) : c.id}</small></span><span class="q">×${n}</span></div>`).join('') || '<div style="color:var(--dim);padding:10px">Click cards on the left to add them.</div>'}</div>
+      <div class="dl-list">${rows.map(([c, n]) => `<div class="dl-row" style="--cc:${c.color === 'red' ? 'var(--red)' : 'var(--blue)'}" data-rm="${c.id}"><span>${esc(c.name)} <small>${c.type === 'ex' ? 'EX · ' : ''}${c.support ? esc(c.support.name) : c.id}</small></span><span class="q">×${n}</span></div>`).join('') || `<div style="color:var(--dim);padding:10px">${NS.touch ? 'Tap cards to add them.' : 'Click cards on the left to add them.'}</div>`}</div>
       <div class="dl-errs">${errs.length ? errs.map(esc).join('<br>') : `<span class="dl-ok">${NS.icon('check')} Legal deck</span>`}</div>
       <div class="dl-btns"><button class="btn primary" id="dS">Save</button><button class="btn" id="dN">New</button><button class="btn" id="dL">Load…</button><button class="btn" id="dF">Auto-fill</button><button class="btn ghost" id="dD" ${saved.find(s => s.id === deck.id) ? '' : 'disabled'}>Delete</button></div>`;
     $('#dlName').oninput = e => { deck.name = e.target.value; };
@@ -310,7 +310,7 @@
         <tr><td>${cm}</td><td>The <b>turn player</b> can activate Supports from the Support Area <b>or from hand</b>. The non-turn player can only use the Support Area. Always pay the Chakra cost first.</td></tr>
         <tr><td>${cm}</td><td>Cut-ins chain: each player in turn may answer the newest Support, and once a player passes, the whole chain resolves from <b>last to first</b>. <span class="kw tim">[During Your Opponent's Attack]</span> Supports can also answer a Support played during that attack. Kakashi and Shisui can negate each other and Support summons (such as Choji), but not normal or EX summons.</td></tr></table>
       <h3>Playing the Simulator</h3>
-      <p>Cards glowing orange can act, so click one to see its options. Hover over any card to read it in full, and right-click to cancel targeting. A response panel pops up whenever you have a Support you can cut in with.</p>
+      <p>${NS.touch ? 'Cards glowing orange can act, so tap one to see its options. Tap any card to read it in full, and tap anywhere else to cancel targeting.' : 'Cards glowing orange can act, so click one to see its options. Hover over any card to read it in full, and right-click to cancel targeting.'} A response panel pops up whenever you have a Support you can cut in with.</p>
       <p style="font-size:13px;color:var(--dim)">Sources: <a href="https://www.naruto-cardgame.com/en/welcome/" target="_blank">naruto-cardgame.com</a>, the official trailer, the Gen Con 2026 demo cards, and the community Naruto Card Game Rulebook v1.4 (<a href="https://www.reddit.com/r/NarutoCardGame/" target="_blank">r/NarutoCardGame</a> / fan Discord). This is an unofficial fan simulator, not affiliated with Bandai, Shueisha, Studio Pierrot or Masashi Kishimoto.</p>`;
   }
 

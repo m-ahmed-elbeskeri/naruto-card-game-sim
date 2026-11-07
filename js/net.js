@@ -234,9 +234,11 @@
       document.body.appendChild(ck.el);
     }
     // it sits in the free band of the right-hand column, or in the top corner while a pop-up or the card inspector is over that band
-    const st = stage.getBoundingClientRect(), k = st.width / 1600, pv = document.getElementById('preview');
-    const corner = (mb && mb.classList.contains('show') && !mb.classList.contains('resp')) || (pv && pv.classList.contains('show') && pv._right);
-    ck.el.style.transform = `translate(${Math.round(st.left + 1340 * k)}px,${Math.round(st.top + (corner ? 10 : 352) * k)}px) scale(${k.toFixed(4)})`;
+    const L = NS.boardLayout ? NS.boardLayout() : { W: 1600, clock: { x: 1340, y: 352, corner: 10, cols: 1 } };
+    const st = stage.getBoundingClientRect(), k = st.width / L.W, pv = document.getElementById('preview');
+    const corner = (mb && mb.classList.contains('show') && !mb.classList.contains('resp')) || (pv && pv.classList.contains('show') && pv._right && L.clock.cols === 1);
+    ck.el.classList.toggle('two', L.clock.cols === 2); // portrait: both clocks side by side in the band above the hand
+    ck.el.style.transform = `translate(${Math.round(st.left + L.clock.x * k)}px,${Math.round(st.top + (corner ? L.clock.corner : L.clock.y) * k)}px) scale(${k.toFixed(4)})`;
     const set = (e, v) => { if (e.textContent !== v) e.textContent = v; };
     for (const row of ck.el.children) {
       const pi = +row.dataset.pi, asked = pi === S.me ? ck.run : ck.wait, live = asked && asked.t0 ? asked : null; // their clock runs once they are really being asked

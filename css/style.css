@@ -683,3 +683,138 @@ body.nofx .slot .flag.rush, body.nofx .slot.atk::after, body.nofx .gb .lowlife, 
 .think-note { margin-top: 8px; font-size: 13px; line-height: 1.4; color: var(--dim); }
 .az-think { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 60; padding: 6px 14px; border-radius: 6px; background: rgba(12,14,20,.82); border: 1px solid rgba(255,255,255,.14); color: #d8d4c8; font-size: 13px; pointer-events: none; opacity: 0; transition: opacity .25s; }
 .az-think.on { opacity: 1; }
+
+/* ============================================================
+   SMALL AND UPRIGHT SCREENS
+   body.portrait  the 760-wide upright layout (js/main.js fit, js/ui.js boardLayout)
+   body.tiny      the stage is drawn at under 0.62x (phones): larger text and touch targets on it
+   body.narrow    the window is under 640 px wide: pop-ups and overlays, which sit outside the stage
+   ============================================================ */
+/* --- the board, upright --- */
+body.portrait .center-band { left: 266px; right: 10px; top: var(--band-y); height: 64px; }
+body.portrait .phase-dots { display: none; }
+body.portrait .topbtns { left: 10px; top: var(--band-y); gap: 8px; }
+body.portrait .topbtns .iconbtn { width: 56px; height: 64px; }
+body.portrait .topbtns .iconbtn .ico { width: 26px; height: 26px; }
+body.portrait .turn-chip { font-size: 19px; letter-spacing: 2px; padding: 17px 12px; white-space: nowrap; }
+body.portrait .end-btn { font-size: 28px; padding: 13px 26px; }
+body.portrait .prompt { top: calc(var(--band-y) - 4px); max-width: 740px; width: max-content; font-size: 22px; }
+body.portrait .toast-log { top: var(--toast-y); width: 720px; }
+body.portrait .logpanel { top: var(--log-top); bottom: var(--log-bottom); width: 600px; }
+body.portrait .logbody { font-size: 20px; }
+body.portrait .gb .emblem { left: 380px; top: var(--line-y); }
+body.portrait .zone .zl i, body.portrait .ck-zone .zl { display: none; }
+body.portrait .slot.rested { transform: rotate(90deg) scale(.78); }
+body.portrait .side-opp .slot.rested { transform: rotate(-90deg) scale(.78); }
+body.portrait .hand { align-items: flex-start; padding-top: 8px; }
+body.portrait .hand .hc { margin: 0 var(--hgap, -14px); }
+body.portrait .hand .hc:hover .lift { transform: rotate(calc(var(--r, 0deg) * -1)) translateY(-40px) scale(1.12); }
+body.portrait .replay-bar { right: auto; left: 50%; transform: translateX(-50%); top: var(--aux-y); }
+body.portrait .ohand-lbl { font-size: 17px !important; }
+body.portrait .leader-box .pname { font-size: 18px !important; }
+.clock.two { width: 504px; grid-template-columns: 1fr 1fr; }
+
+/* --- the board on a phone, either way up --- */
+:is(body.tiny, body.portrait) .statbar { font-size: 0; gap: 2px; bottom: -16px; }
+:is(body.tiny, body.portrait) .statbar span { padding: 1px 7px; color: #fff; }
+:is(body.tiny, body.portrait) .statbar b { font-size: 21px; margin: 0; }
+:is(body.tiny, body.portrait) .statbar span:nth-child(1) { background: #3d1515; } /* DMG */
+:is(body.tiny, body.portrait) .statbar span:nth-child(2) { background: #3d2c0e; } /* POW */
+:is(body.tiny, body.portrait) .statbar span:nth-child(3) { background: #12341f; } /* HP or LIFE */
+:is(body.tiny, body.portrait) .statbar span.dn b { color: #ff9a9a; }
+body.tiny .slot .sick, body.tiny .slot .flag { font-size: 15px; }
+body.tiny .pile .cnt { font-size: 17px; }
+body.tiny .toast-log div { font-size: 20px; }
+body.tiny .prompt { font-size: 22px; }
+body.tiny:not(.portrait) .topbtns { top: 324px; }
+body.tiny:not(.portrait) .topbtns .iconbtn { width: 50px; height: 50px; }
+body.tiny:not(.portrait) .topbtns .iconbtn .ico { width: 24px; height: 24px; }
+body.tiny:not(.portrait) .center-band { left: 252px; }
+body.tiny:not(.portrait) .turn-chip { font-size: 22px; }
+body.tiny:not(.portrait) .phase-dots span { font-size: 14px; }
+body.tiny:not(.portrait) .end-btn { font-size: 28px; }
+@media (hover: none) { .hand .hc:hover .nc { box-shadow: 0 0 0 3px var(--orange2), 0 10px 24px rgba(0, 0, 0, .7); } }
+
+/* --- menus, upright --- */
+body.portrait #screen-title .logo { left: 50%; top: 6%; width: 640px; transform: translateX(-50%); text-align: center; }
+body.portrait #screen-title .logo img { width: 560px; }
+body.portrait #screen-title .logo .sub { font-size: 30px; }
+body.portrait #screen-title .logo .pre { font-size: 18px; }
+body.portrait .menu { left: 50%; top: 34%; width: 600px; transform: translateX(-50%); gap: 14px; }
+body.portrait .menu .btn { font-size: 32px; padding: 20px 28px; }
+body.portrait .footer-note { font-size: 17px; padding: 0 30px; }
+body.portrait #stage .btn { font-size: 28px; }
+body.portrait #stage .btn.small { font-size: 22px; padding: 12px 20px; }
+body.portrait .h-title { font-size: 46px; left: 210px !important; top: 24px !important; }
+body.portrait .back-btn { left: 20px; top: 24px; }
+body.portrait #screen-setup .wrap, body.portrait #screen-online .wrap { left: 20px; right: 20px; top: 104px; bottom: 20px; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; gap: 16px; }
+body.portrait .deck-tile { height: 260px; }
+body.portrait .deck-tile .dt-name { font-size: 26px; line-height: 1.1; }
+body.portrait .deck-tile .dt-desc { font-size: 19px; }
+body.portrait .deck-tile .dt-badge, body.portrait .deck-tile .dt-tag { font-size: 16px; }
+body.portrait .setup-side { gap: 18px; }
+body.portrait #stage .field label { font-size: 19px; }
+body.portrait #stage .field input, body.portrait #stage .field select { font-size: 28px; padding: 12px 14px; }
+body.portrait #stage .seg button { font-size: 22px; padding: 16px 6px; }
+body.portrait .think-note { font-size: 20px; }
+body.portrait #matchup { font-size: 26px !important; }
+body.portrait .on-hint, body.portrait .on-note { font-size: 19px; }
+body.portrait .on-status { font-size: 22px; }
+body.portrait .on-join input { font-size: 30px; }
+body.portrait #screen-builder .wrap, body.portrait #screen-gallery .wrap { left: 14px; right: 14px; top: 104px; bottom: 14px; }
+body.portrait #screen-builder .wrap { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1.5fr) minmax(0, 1fr); }
+body.portrait .filters .chip { font-size: 19px; padding: 9px 16px; }
+body.portrait .filters > span[style] { font-size: 17px !important; }
+body.portrait .pool-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+body.portrait .dl-row { font-size: 22px; padding: 9px 12px; }
+body.portrait .dl-stats { font-size: 20px; }
+body.portrait .dl-btns .btn { font-size: 20px; padding: 12px 8px; }
+body.portrait .decklist input { font-size: 28px; }
+body.portrait .dl-errs { font-size: 19px; }
+body.portrait #screen-rules .wrap { width: calc(100% - 28px); top: 104px; bottom: 14px; padding: 22px 24px; font-size: 22px; }
+body.portrait #screen-rules .ph { grid-template-columns: 1fr 1fr; }
+body.portrait #screen-rules .ph div { font-size: 20px; }
+body.portrait #screen-rules h3 { font-size: 32px; }
+
+/* --- menus on a phone on its side --- */
+body.tiny:not(.portrait) #screen-title .logo { top: 30px; }
+body.tiny:not(.portrait) #screen-title .logo img { width: 340px; }
+body.tiny:not(.portrait) .menu { top: 250px; }
+body.tiny:not(.portrait) .menu .btn { font-size: 26px; padding: 12px 22px; }
+
+/* --- pop-ups and overlays on a narrow window --- */
+#preview.show.compact { flex-direction: row; align-items: flex-start; width: auto; gap: 8px; }
+#preview.compact .pv-text { max-height: calc(100vh - 16px); overflow: hidden; padding: 8px 10px; font-size: 12.5px; line-height: 1.35; }
+#preview.compact .pv-text h4 { font-size: 17px; }
+#preview.compact .pv-text .meta { font-size: 11px; margin-bottom: 4px; }
+#preview.compact .pv-text .st { margin: 4px 0; gap: 6px; }
+#preview.compact .pv-text .conf { display: none; }
+body.narrow .modal { min-width: 0; width: calc(100vw - 16px); max-width: calc(100vw - 16px); max-height: 92vh; padding: 16px 14px; }
+body.narrow .modal h2 { font-size: 24px; }
+body.narrow .modal p { font-size: 15px; }
+body.narrow .modal .cards-row { gap: 8px; }
+body.narrow .modal .cards-row .nc, body.narrow .modal .cards-row .nback { --w: 100px !important; }
+body.narrow .modal-back.resp { padding: 0 8px 8px; justify-content: center; align-items: flex-end; background: linear-gradient(0deg, rgba(0, 0, 0, .6), transparent 60%); }
+body.narrow .modal-back.resp .modal { max-width: none; }
+body.narrow .modal-back.resp .cards-row .nc { --w: 92px !important; }
+body.narrow .settings-list { min-width: 0; }
+body.narrow .set-row { font-size: 15px; gap: 8px 12px; }
+body.narrow .set-row:has(.seg) { flex-wrap: wrap; }
+body.narrow .set-row .seg { width: 100% !important; flex: 1 1 100% !important; }
+body.narrow .modal-back.replays .modal { width: auto; }
+body.narrow .rl-row { flex-wrap: wrap; }
+body.narrow .coach { left: 8px; right: 8px; top: 8px; width: auto; transform: none; animation: none; }
+body.narrow .popover { width: min(260px, calc(100vw - 16px)); }
+body.narrow .cutin-portrait { width: 62vw; height: 150px; top: 40px; }
+body.narrow .cutin-title { font-size: 34px; }
+body.narrow .cutin-sub { font-size: 13px; letter-spacing: 3px; }
+body.narrow .cutin.left .cutin-text { left: 30%; }
+body.narrow .cutin.right .cutin-text { right: 30%; }
+body.narrow .pb-scroll { padding: 10px 26px 12px; }
+body.narrow .pb-text { font-size: 38px; letter-spacing: 4px; }
+body.narrow .pb-sub { font-size: 12px; letter-spacing: 3px; }
+body.narrow .handoff h1 { font-size: 40px; }
+body.narrow .float-text { font-size: 28px; }
+body.narrow .outcome { font-size: 30px; }
+body.narrow .outcome.ko { font-size: 36px; }
+body.narrow .dmg-num { font-size: 64px; }
