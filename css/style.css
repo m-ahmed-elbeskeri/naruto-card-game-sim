@@ -684,6 +684,99 @@ body.nofx .slot .flag.rush, body.nofx .slot.atk::after, body.nofx .gb .lowlife, 
 .az-think { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 60; padding: 6px 14px; border-radius: 6px; background: rgba(12,14,20,.82); border: 1px solid rgba(255,255,255,.14); color: #d8d4c8; font-size: 13px; pointer-events: none; opacity: 0; transition: opacity .25s; }
 .az-think.on { opacity: 1; }
 
+/* Settings: card art pickers */
+.art-row { flex-wrap: wrap; }
+.art-row > div:first-child { flex: 1 1 220px; }
+.art-row .art-cap { color: var(--orange2); margin-top: 2px; }
+.art-pick { display: flex; flex-wrap: wrap; gap: 6px; max-width: 420px; justify-content: flex-end; }
+.art-pick button { width: 46px; height: 64px; padding: 0; cursor: pointer; background: #0c0c10; border: 2px solid #333; border-radius: 4px; overflow: hidden; }
+.art-pick button i { display: block; width: 100%; height: 100%; }
+.art-pick button.txt { width: auto; height: 64px; padding: 0 10px; color: var(--dim); font-family: var(--display); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; max-width: 130px; line-height: 1.2; }
+.art-pick button.on { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange); color: #fff; }
+.art-pick button:hover { border-color: var(--orange2); }
+body.narrow .art-pick { max-width: none; justify-content: flex-start; }
+
+/* Deck Builder and Revealed Cards: search, filters, copy counters, deck list, deck library */
+#bFilters, #gFilters { display: block; padding: 0; }
+.fbar { padding: 10px 12px; border-bottom: 1px solid #2a2a2a; display: flex; flex-direction: column; gap: 8px; }
+.fb-row { display: flex; align-items: center; gap: 10px; }
+.fb-search { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px; background: #0c0c10; border: 1px solid #333; }
+.fb-search:focus-within { border-color: var(--orange); }
+.fb-search .ico { color: var(--dim); width: 18px; height: 18px; }
+.fb-search input { flex: 1; min-width: 0; height: 100%; background: none; border: none; outline: none; color: #fff; font: 15px var(--font); }
+.fb-search input::placeholder { color: #6c6c76; }
+.fb-more { display: none; align-items: center; gap: 6px; height: 40px; padding: 0 12px; cursor: pointer; background: #0c0c10; border: 1px solid #333; color: var(--dim); font: 700 14px var(--font); white-space: nowrap; }
+.fb-more .ico { width: 18px; height: 18px; }
+.fb-more.on { color: var(--orange2); border-color: var(--orange); }
+.fb-count { font-size: 13px; color: var(--dim); white-space: nowrap; }
+.fb-opts { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 10px; }
+.fb-sel { display: flex; flex-direction: column; gap: 3px; }
+.fb-sel span { font-size: 10px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
+.fb-sel select { height: 36px; max-width: 220px; padding: 0 8px; background: #0c0c10; color: #fff; border: 1px solid #333; font: 14px var(--font); cursor: pointer; }
+.fb-sel select:focus { outline: none; border-color: var(--orange); }
+.fb-clear { height: 36px; }
+.fb-leaders { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px 0; }
+.fb-lbl { font-size: 10px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
+.lead-chip { display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 12px 0 4px; cursor: pointer; background: #0c0c10; border: 1px solid #333; border-left: 4px solid var(--cc); color: var(--dim); font: 700 14px var(--font); }
+.lead-chip i { width: 32px; height: 32px; border-radius: 50%; background-repeat: no-repeat; border: 1px solid #333; }
+.lead-chip small { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); }
+.lead-chip.on { color: #fff; border-color: var(--orange); border-left-color: var(--cc); background: #1f170f; }
+.fb-hint { margin-left: auto; font-size: 12px; color: var(--dim); }
+.pool-item .pi-ctl { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 2px; padding: 2px; background: rgba(10, 10, 14, .94); border: 1px solid #3a3a44; border-radius: 20px; opacity: 0; transition: opacity .15s; box-shadow: 0 4px 12px rgba(0, 0, 0, .6); }
+.pool-item:hover .pi-ctl, .pool-item.has .pi-ctl { opacity: 1; }
+@media (hover: none) { .pool-item .pi-ctl { opacity: 1; } }
+.pi-ctl button { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: none; border-radius: 50%; cursor: pointer; background: #26262f; color: #fff; }
+.pi-ctl button .ico { width: 16px; height: 16px; }
+.pi-ctl button:hover:not([disabled]) { background: var(--orange); color: #111; }
+.pi-ctl button[disabled] { opacity: .3; cursor: default; }
+.pi-ctl b { min-width: 34px; text-align: center; font-size: 13px; color: #fff; font-variant-numeric: tabular-nums; }
+.pool-item.has .nc { box-shadow: 0 0 0 3px var(--orange), 0 .3em .8em rgba(0, 0, 0, .55); }
+.pool-item .pi-art { position: absolute; left: 6px; right: 6px; bottom: 6px; z-index: 6; padding: 3px 6px; text-align: center; font-size: 11px; font-weight: 700; color: #ddd; background: rgba(10, 10, 14, .88); }
+.pool-empty { grid-column: 1 / -1; justify-self: stretch; padding: 40px 10px; text-align: center; line-height: 2.4; color: var(--dim); }
+.dl-top { display: flex; align-items: center; gap: 10px; }
+.dl-top input { flex: 1; min-width: 0; }
+.dl-dirty { font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+.dl-dirty.on { color: var(--orange2); }
+.dl-bar { position: relative; height: 26px; background: #0c0c10; border: 1px solid #333; overflow: hidden; }
+.dl-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--orange-d), var(--orange)); transition: width .2s; }
+.dl-bar.full i { background: linear-gradient(90deg, #146b3b, #23a35b); }
+.dl-bar span { position: relative; display: block; line-height: 24px; text-align: center; font-size: 13px; font-weight: 900; letter-spacing: 1px; text-shadow: 0 1px 2px #000; }
+.dl-stats { flex-wrap: wrap; gap: 2px 12px; font-size: 13px; }
+.dl-head { margin: 10px 0 4px; font-size: 11px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
+.dl-head:first-child { margin-top: 0; }
+.dl-head b { color: #fff; }
+.dl-row { grid-template-columns: minmax(0, 1fr) auto; }
+.dl-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-q { display: flex; align-items: center; gap: 4px; }
+.dl-q button { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 1px solid #3a3a44; background: #1d1d24; color: #fff; cursor: pointer; }
+.dl-q button .ico { width: 14px; height: 14px; }
+.dl-q button:hover:not([disabled]) { background: var(--orange); color: #111; border-color: var(--orange2); }
+.dl-q button[disabled] { opacity: .3; cursor: default; }
+.dl-q b { min-width: 18px; text-align: center; font-variant-numeric: tabular-nums; }
+.dl-empty { padding: 12px 10px; color: var(--dim); font-size: 13px; line-height: 1.5; }
+.dl-btns .btn .ico { width: .95em; height: .95em; vertical-align: -.12em; }
+.dl-btns2 .btn { font-size: 13px; }
+.modal-back.lib .modal { width: 820px; }
+.lib-warn { color: var(--orange2) !important; font-size: 14px !important; }
+.lib-tools { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0 12px; }
+.lib-tools .fb-search { flex: 1 1 280px; }
+.lib-tools .seg { flex: 0 0 240px; }
+.lib-list { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow: auto; margin-bottom: 12px; }
+.lib-row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: #121217; border: 1px solid #2a2a32; border-left: 4px solid var(--cc); }
+.lib-row > i { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 2px solid #333; background-repeat: no-repeat; }
+.lib-info { flex: 1; min-width: 0; }
+.lib-info b { display: block; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-info b em { font-style: normal; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--orange2); margin-left: 6px; }
+.lib-info small { font-size: 12px; color: var(--dim); }
+.lib-info .bad { color: #ff9a8a; }
+.lib-acts { display: flex; gap: 6px; }
+.lib-acts .btn .ico { width: 16px; height: 16px; vertical-align: -3px; }
+.lib-acts .btn.sure { color: #ff8a7a; border-color: #ff5a4a; }
+.lib-import .rl-code { height: 64px; margin-top: 0; }
+body.narrow .modal-back.lib .modal { width: auto; }
+body.narrow .lib-row { flex-wrap: wrap; }
+body.narrow .lib-tools .seg { flex: 1 1 100%; }
+
 /* ============================================================
    SMALL AND UPRIGHT SCREENS
    body.portrait  the 760-wide upright layout (js/main.js fit, js/ui.js boardLayout)
@@ -818,3 +911,36 @@ body.narrow .float-text { font-size: 28px; }
 body.narrow .outcome { font-size: 30px; }
 body.narrow .outcome.ko { font-size: 36px; }
 body.narrow .dmg-num { font-size: 64px; }
+
+/* --- Deck Builder and Revealed Cards on a phone --- */
+:is(body.portrait, body.tiny) .fb-more { display: flex; }
+:is(body.portrait, body.tiny) .fbar:not(.open) .fb-opts { display: none; }
+:is(body.portrait, body.tiny) .fb-hint { display: none; }
+:is(body.portrait, body.tiny) .fb-search, :is(body.portrait, body.tiny) .fb-more { height: 60px; }
+:is(body.portrait, body.tiny) .fb-search input { font-size: 24px; }
+:is(body.portrait, body.tiny) .fb-search .ico, :is(body.portrait, body.tiny) .fb-more .ico { width: 26px; height: 26px; }
+:is(body.portrait, body.tiny) .fb-more { font-size: 20px; }
+:is(body.portrait, body.tiny) .fb-count { font-size: 18px; }
+:is(body.portrait, body.tiny) .fb-sel span { font-size: 15px; }
+:is(body.portrait, body.tiny) .fb-sel select { height: 56px; max-width: 330px; font-size: 20px; }
+:is(body.portrait, body.tiny) .fb-clear { height: 56px; }
+:is(body.portrait, body.tiny) .lead-chip { height: 60px; font-size: 20px; }
+:is(body.portrait, body.tiny) .lead-chip i { width: 46px; height: 46px; }
+:is(body.portrait, body.tiny) .lead-chip small { font-size: 14px; }
+:is(body.portrait, body.tiny) .fb-lbl { font-size: 15px; }
+:is(body.portrait, body.tiny) .pi-ctl button { width: 46px; height: 46px; }
+:is(body.portrait, body.tiny) .pi-ctl button .ico { width: 22px; height: 22px; }
+:is(body.portrait, body.tiny) .pi-ctl b { min-width: 50px; font-size: 19px; }
+:is(body.portrait, body.tiny) .pool-item .pi-art { font-size: 15px; }
+:is(body.portrait, body.tiny) .dl-q button { width: 44px; height: 44px; }
+:is(body.portrait, body.tiny) .dl-q button .ico { width: 20px; height: 20px; }
+:is(body.portrait, body.tiny) .dl-q b { min-width: 28px; font-size: 22px; }
+:is(body.portrait, body.tiny) .dl-bar { height: 38px; }
+:is(body.portrait, body.tiny) .dl-bar span { line-height: 36px; font-size: 19px; }
+:is(body.portrait, body.tiny) .dl-head { font-size: 16px; }
+:is(body.portrait, body.tiny) .dl-stats { font-size: 18px; }
+:is(body.portrait, body.tiny) .dl-dirty { font-size: 15px; }
+:is(body.portrait, body.tiny) .dl-empty { font-size: 19px; }
+:is(body.portrait, body.tiny) .dl-row small { font-size: 16px; }
+:is(body.portrait, body.tiny) #stage .dl-btns2 .btn { font-size: 18px; }
+body.tiny:not(.portrait) .dl-row { font-size: 20px; }

@@ -6,7 +6,7 @@
   const SPEEDS = { slow: 1.5, normal: 1, fast: 0.5, turbo: 0.15 };
   const THINK = { quick: 0.5, normal: 1, long: 2.5, 'very long': 5, extreme: 20 }; // the Hokage bot's thinking time
 
-  const defaults = { music: true, sfx: true, cutins: true, fx: 'full', speed: 'normal', think: 'normal' }; // fx: full | low | off
+  const defaults = { music: true, sfx: true, cutins: true, fx: 'full', speed: 'normal', think: 'normal', chakraArt: 'sample', summonArt: 'sample' }; // fx: full | low | off; chakraArt: an NS.CHAKRA_ARTS id, 'leader' or 'mix'
   const saved = (() => { try { return JSON.parse(localStorage.getItem('ntcg.settings') || '{}'); } catch (e) { return {}; } })();
   if (saved.fx == null && saved.lowfx) saved.fx = 'low'; // the old "Reduced effects" switch
   NS.settings = Object.assign({}, defaults, saved, {

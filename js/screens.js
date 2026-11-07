@@ -208,73 +208,258 @@
     if (rec) $('#rR').onclick = () => { if (online) NS.Net.leave(); NS.Replay.watch(rec.id); };
   }
 
+  // ---------------- card search and filters (Deck Builder and Revealed Cards) ----------------
+  // Search words match a card's name, number, traits, ability text and Support (name, text, timing); every word must
+  // match. Filters narrow by colour, type, Support timing, rarity, trait and (builder) whether the card is in the deck.
+  const RAR = { L: 0, SR: 1, R: 2, C: 3 };
+  const cardBlob = c => c._q || (c._q = [c.name, c.id, (c.traits || []).join(' '), (c.text || []).join(' '),
+    c.support ? `support ${c.support.name} ${c.support.text} ${NS.TIMING[c.support.timing] || ''} cost ${c.support.cost}` : '',
+    c.type === 'ex' ? 'ex' : c.type, c.color || '', c.rarity || ''].join(' ').toLowerCase());
+  const newFilter = () => ({ q: '', color: 'all', type: 'all', sup: 'all', rar: 'all', trait: 'all', deck: 'all', sort: 'num' });
+  const gF = newFilter(), bF = newFilter();
+  const SORTS = {
+    num: (a, b) => a.id.localeCompare(b.id), name: (a, b) => a.name.localeCompare(b.name),
+    pow: (a, b) => (b.pow || 0) - (a.pow || 0), dmg: (a, b) => (b.dmg || 0) - (a.dmg || 0), hp: (a, b) => (b.hp || b.life || 0) - (a.hp || a.life || 0),
+    cost: (a, b) => (a.support ? a.support.cost : 99) - (b.support ? b.support.cost : 99),
+    rar: (a, b) => (a.rarity in RAR ? RAR[a.rarity] : 9) - (b.rarity in RAR ? RAR[b.rarity] : 9),
+  };
+  const words = q => q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const activeFilters = f => ['color', 'type', 'sup', 'rar', 'trait', 'deck'].filter(k => f[k] !== 'all').length;
+  function filterCards(list, f, inDeck) {
+    const w = words(f.q);
+    return list.filter(c => w.every(x => cardBlob(c).includes(x))
+      && (f.color === 'all' || c.color === f.color)
+      && (f.type === 'all' || c.type === f.type)
+      && (f.sup === 'all' || (f.sup === 'yes' ? !!c.support : f.sup === 'no' ? !c.support : !!c.support && c.support.timing === f.sup))
+      && (f.rar === 'all' || c.rarity === f.rar)
+      && (f.trait === 'all' || (c.traits || []).includes(f.trait))
+      && (f.deck === 'all' || (f.deck === 'in' ? inDeck(c) > 0 : inDeck(c) === 0)))
+      .sort((a, b) => SORTS[f.sort](a, b) || a.id.localeCompare(b.id));
+  }
+  // search box, filter menus (choices taken from the cards on offer), sort, clear, and the match count
+  function filterBar(f, pool, o) {
+    const sel = (k, label, items) => `<label class="fb-sel"><span>${label}</span><select data-f="${k}">${items.map(([v, l]) => `<option value="${esc(v)}"${f[k] === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
+    const timings = Object.keys(NS.TIMING).filter(t => pool.some(c => c.support && c.support.timing === t));
+    const traits = [...new Set(pool.flatMap(c => c.traits || []))].sort();
+    const rar = ['L', 'SR', 'R', 'C'].filter(r => pool.some(c => c.rarity === r));
+    const n = activeFilters(f);
+    return `<div class="fbar">
+      <div class="fb-row"><div class="fb-search">${NS.icon('search')}<input type="search" data-f="q" value="${esc(f.q)}" placeholder="Search name, trait, ability, Support..." autocomplete="off" spellcheck="false" aria-label="Search cards"></div>
+        <button class="fb-more${n ? ' on' : ''}" data-more title="Filters">${NS.icon('filter')}<span>Filters${n ? ` (${n})` : ''}</span></button>
+        <span class="fb-count"></span></div>
+      <div class="fb-opts">
+      ${o.color ? sel('color', 'Color', [['all', 'All'], ['red', 'Red'], ['blue', 'Blue']]) : ''}
+      ${sel('type', 'Type', [['all', 'All'], ...(o.leaders ? [['leader', 'Leader']] : []), ['character', 'Character'], ['ex', 'EX Character']])}
+      ${sel('sup', 'Support', [['all', 'Any'], ['yes', 'Has a Support'], ['no', 'No Support'], ...timings.map(t => [t, NS.TIMING[t].replace(/[[\]]/g, '')])])}
+      ${sel('rar', 'Rarity', [['all', 'Any'], ...rar.map(r => [r, r])])}
+      ${sel('trait', 'Trait', [['all', 'Any'], ...traits.map(t => [t, t])])}
+      ${o.deck ? sel('deck', 'Show', [['all', 'All cards'], ['in', 'In this deck'], ['out', 'Not in this deck']]) : ''}
+      ${sel('sort', 'Sort by', [['num', 'Number'], ['name', 'Name'], ['pow', 'POW, highest first'], ['dmg', 'DMG, highest first'], ['hp', 'HP, highest first'], ['cost', 'Support cost, lowest first'], ['rar', 'Rarity']])}
+      <button class="btn small ghost fb-clear" data-clear>Clear</button></div>
+    </div>`;
+  }
+  function bindFilterBar(box, f, onChange) {
+    const bar = $('.fbar', box), more = $('[data-more]', box);
+    const sync = () => { const n = activeFilters(f); more.classList.toggle('on', !!n); $('span', more).textContent = 'Filters' + (n ? ` (${n})` : ''); };
+    $$('[data-f]', box).forEach(el => el.addEventListener(el.tagName === 'INPUT' ? 'input' : 'change', () => { f[el.dataset.f] = el.value; sync(); onChange(); }));
+    more.onclick = () => bar.classList.toggle('open');
+    $('[data-clear]', box).onclick = () => { Object.assign(f, newFilter(), { sort: f.sort }); $$('[data-f]', box).forEach(el => { el.value = f[el.dataset.f]; }); sync(); onChange(); };
+    const q = $('input[data-f="q"]', box);
+    q.addEventListener('keydown', e => { if (e.key === 'Escape' && q.value) { e.stopPropagation(); q.value = ''; f.q = ''; onChange(); } });
+    return q;
+  }
+  // "/" jumps to the search box on the Deck Builder and Revealed Cards screens
+  document.addEventListener('keydown', e => {
+    if (e.key !== '/' || /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '') || $('#modalBack').classList.contains('show')) return;
+    const s = $('.screen.active input[data-f="q"]'); if (s) { e.preventDefault(); s.focus(); s.select(); }
+  });
+
   // ---------------- gallery ----------------
-  let gFilter = 'all';
+  // the Chakra and Summon card art versions are listed after the playable cards (see NS.CHAKRA_ARTS)
+  const extraCards = () => (NS.CHAKRA_ARTS || []).map(a => ({ type: 'chakra', name: 'Chakra Card', id: a.id === 'sample' ? 'C-001' : a.id, face: a.face, art: a.name, key: 'C:' + a.id }))
+    .concat((NS.SUMMON_ARTS || []).map(a => ({ type: 'summoncard', name: 'Summon Card', id: a.id === 'sample' ? 'S-001' : a.id, face: a.face, art: a.name, key: 'S:' + a.id })));
+  const extraById = {};
   function openGallery() {
-    const chips = [['all', 'All'], ['red', 'Red'], ['blue', 'Blue'], ['leader', 'Leaders'], ['ex', 'EX'], ['support', 'Has Support']];
-    $('#gFilters').innerHTML = chips.map(([k, l]) => `<span class="chip ${gFilter === k ? 'on' : ''}" data-f="${k}">${l}</span>`).join('') + `<span style="margin-left:auto;color:var(--dim);font-size:13px">${NS.Cards.all.length} revealed cards · pre-release</span>`;
-    $('#gFilters').onclick = e => { const c = e.target.closest('.chip'); if (c) { gFilter = c.dataset.f; openGallery(); } };
-    const list = NS.Cards.all.filter(c => gFilter === 'all' || c.color === gFilter || c.type === gFilter || (gFilter === 'support' && c.support));
-    $('#gPool').innerHTML = list.map(c => `<div class="pool-item" data-id="${c.id}">${NS.View.cardHTML(c, { w: 170 })}</div>`).join('')
-      + `<div class="pool-item" data-id="C">${NS.View.cardHTML(NS.View.CHAKRA_CARD, { w: 170 })}</div><div class="pool-item" data-id="S">${NS.View.cardHTML(NS.View.SUMMON_CARD, { w: 170 })}</div>`;
+    $('#gFilters').innerHTML = filterBar(gF, NS.Cards.all, { color: true, leaders: true });
+    bindFilterBar($('#gFilters'), gF, renderGallery);
+    renderGallery();
     show('gallery');
+  }
+  function renderGallery() {
+    const list = filterCards(NS.Cards.all, gF, () => 0);
+    // Chakra / Summon art shows when nothing but the search box is in use and the search fits it
+    const ex = activeFilters(gF) ? [] : extraCards().filter(c => words(gF.q).every(x => `${c.name} ${c.art} ${c.id} ${c.type}`.toLowerCase().includes(x)));
+    ex.forEach(c => { extraById[c.key] = c; });
+    $('#gFilters .fb-count').textContent = `${list.length} of ${NS.Cards.all.length} cards`;
+    $('#gPool').innerHTML = list.map(c => `<div class="pool-item" data-id="${c.id}">${NS.View.cardHTML(c, { w: 170 })}</div>`).join('')
+      + ex.map(c => `<div class="pool-item" data-id="${c.key}">${NS.View.cardHTML(c, { w: 170 })}<div class="pi-art">${esc(c.art)}</div></div>`).join('')
+      || `<div class="pool-empty">No cards match.</div>`;
   }
   function bindPreview(el) {
     el.addEventListener('mousemove', e => {
       const it = e.target.closest('[data-id]'); if (!it) return NS.View.hidePreview();
-      const c = it.dataset.id === 'C' ? NS.View.CHAKRA_CARD : it.dataset.id === 'S' ? NS.View.SUMMON_CARD : NS.Cards.byId[it.dataset.id];
+      const k = it.dataset.id, c = extraById[k] || NS.Cards.byId[k];
       if (c) NS.View.showPreview(c, e);
     });
     el.addEventListener('mouseleave', () => NS.View.hidePreview());
   }
 
   // ---------------- builder ----------------
-  let deck = null;
+  let deck = null, savedAs = ''; // savedAs: the deck as last saved (JSON), to show unsaved changes
   const newDeck = () => ({ id: 'd' + Date.now(), name: 'My Deck', leader: 'N-001', cards: {} });
-  function openBuilder() { deck = deck || newDeck(); renderBuilder(); show('builder'); }
-  function renderBuilder() {
-    const L = NS.Cards.byId[deck.leader];
-    const H = NS.house;
-    $('#bFilters').innerHTML = NS.Cards.leaders().map(l => `<span class="chip ${deck.leader === l.id ? 'on' : ''}" data-l="${l.id}">Leader: ${esc(l.name)} (${l.color})</span>`).join('') + `<span style="margin-left:auto;color:var(--dim);font-size:13px">${NS.touch ? 'Tap to add · tap a row in your deck to remove' : 'Click to add · right-click to remove'} · ${H.deckSize} cards, max ${H.copyLimit} copies</span>`;
-    $('#bFilters').onclick = e => { const c = e.target.closest('[data-l]'); if (c && c.dataset.l !== deck.leader) { deck.leader = c.dataset.l; deck.cards = {}; renderBuilder(); } };
-    const pool = NS.Cards.poolFor(L.color);
-    $('#bPool').innerHTML = pool.map(c => { const q = deck.cards[c.id] || 0; return `<div class="pool-item ${q >= H.copyLimit ? 'maxed' : ''}" data-id="${c.id}">${NS.View.cardHTML(c, { w: 170 })}${q ? `<div class="qty">${q}</div>` : ''}</div>`; }).join('');
-    const total = Object.values(deck.cards).reduce((a, b) => a + b, 0);
-    const errs = NS.Cards.validate(deck);
-    const rows = Object.entries(deck.cards).map(([id, n]) => [NS.Cards.byId[id], n]).filter(r => r[0]).sort((a, b) => a[0].name.localeCompare(b[0].name));
-    const saved = customDecks();
-    $('#bDeck').innerHTML = `<input id="dlName" value="${esc(deck.name)}" maxlength="28">
-      <div class="dl-stats"><span>Leader <b>${esc(L.name)}</b></span><span>Cards <b>${total}</b>/${H.deckSize}</span></div>
-      <div class="dl-stats"><span>EX <b>${rows.filter(r => r[0].type === 'ex').reduce((a, r) => a + r[1], 0)}</b></span><span>With Support <b>${rows.filter(r => r[0].support).reduce((a, r) => a + r[1], 0)}</b></span></div>
-      <div class="dl-list">${rows.map(([c, n]) => `<div class="dl-row" style="--cc:${c.color === 'red' ? 'var(--red)' : 'var(--blue)'}" data-rm="${c.id}"><span>${esc(c.name)} <small>${c.type === 'ex' ? 'EX · ' : ''}${c.support ? esc(c.support.name) : c.id}</small></span><span class="q">×${n}</span></div>`).join('') || `<div style="color:var(--dim);padding:10px">${NS.touch ? 'Tap cards to add them.' : 'Click cards on the left to add them.'}</div>`}</div>
+  const deckTotal = d => Object.values(d.cards).reduce((a, b) => a + b, 0);
+  const isDirty = () => JSON.stringify(deck) !== savedAs;
+  const toast = m => NS.UIx && NS.UIx.toast(m);
+  function setDeck(d, saved) { deck = d; savedAs = saved ? JSON.stringify(d) : ''; }
+  function openBuilder() { if (!deck) setDeck(newDeck(), false); renderBuilder(); show('builder'); }
+  function renderBuilder() { renderBuilderTop(); renderPool(); renderDeckPanel(); }
+  function renderBuilderTop() {
+    const H = NS.house, L = NS.Cards.byId[deck.leader];
+    $('#bFilters').innerHTML = `<div class="fb-leaders"><span class="fb-lbl">Leader</span>${NS.Cards.leaders().map(l => `<button class="lead-chip ${deck.leader === l.id ? 'on' : ''}" data-l="${l.id}" style="--cc:${l.color === 'red' ? 'var(--red)' : 'var(--blue)'}"><i style="${NS.View.portraitCSS(l, 1.7)}"></i>${esc(l.name)}<small>${l.color}</small></button>`).join('')}
+      <span class="fb-hint">${NS.touch ? 'Tap a card to add a copy' : 'Click a card to add a copy, right-click to take one out. Press / to search'} · ${H.deckSize} cards, up to ${H.copyLimit} of each</span></div>`
+      + filterBar(bF, NS.Cards.poolFor(L.color), { deck: true });
+    $$('[data-l]', $('#bFilters')).forEach(b => b.onclick = () => changeLeader(b.dataset.l));
+    const q = bindFilterBar($('#bFilters'), bF, renderPool);
+    q.addEventListener('keydown', e => { if (e.key === 'Enter') { const first = $('#bPool .pool-item'); if (first) addCard(first.dataset.id); } }); // Enter adds the first match
+  }
+  function changeLeader(id) {
+    if (id === deck.leader) return;
+    const color = NS.Cards.byId[id].color, gone = Object.keys(deck.cards).filter(k => NS.Cards.byId[k] && NS.Cards.byId[k].color !== color);
+    const n = gone.reduce((a, k) => a + deck.cards[k], 0);
+    deck.leader = id; gone.forEach(k => { delete deck.cards[k]; });
+    NS.Audio.play('click'); renderBuilder();
+    if (n) toast(`${n} card${n > 1 ? 's' : ''} of the other color taken out`);
+  }
+  function addCard(id) {
+    const H = NS.house, q = deck.cards[id] || 0, c = NS.Cards.byId[id];
+    if (!c) return;
+    if (q >= H.copyLimit) return toast(`Up to ${H.copyLimit} copies of a card`);
+    if (deckTotal(deck) >= H.deckSize) return toast(`The deck is full (${H.deckSize} cards)`);
+    deck.cards[id] = q + 1; NS.Audio.play('card'); renderPool(); renderDeckPanel();
+  }
+  function removeCard(id) {
+    if (!deck.cards[id]) return;
+    if (!--deck.cards[id]) delete deck.cards[id];
+    NS.Audio.play('click'); renderPool(); renderDeckPanel();
+  }
+  function renderPool() {
+    const H = NS.house, pool = NS.Cards.poolFor(NS.Cards.byId[deck.leader].color), full = deckTotal(deck) >= H.deckSize;
+    const list = filterCards(pool, bF, c => deck.cards[c.id] || 0);
+    $('#bFilters .fb-count').textContent = `${list.length} of ${pool.length} cards`;
+    $('#bPool').innerHTML = list.map(c => {
+      const q = deck.cards[c.id] || 0;
+      return `<div class="pool-item ${q >= H.copyLimit ? 'maxed' : ''} ${q ? 'has' : ''}" data-id="${c.id}">${NS.View.cardHTML(c, { w: 170 })}<div class="pi-ctl"><button data-dec="${c.id}" ${q ? '' : 'disabled'} aria-label="Take one out">${NS.icon('minus')}</button><b>${q}/${H.copyLimit}</b><button data-inc="${c.id}" ${q >= H.copyLimit || full ? 'disabled' : ''} aria-label="Add one">${NS.icon('plus')}</button></div></div>`;
+    }).join('') || `<div class="pool-empty">No cards match.<br><button class="btn small ghost" data-clear2>Clear search and filters</button></div>`;
+  }
+  // deck codes: NTCG1;<leader>;<name>;<id>x<count>;... (the name URI-encoded), to share a deck as text
+  const deckCode = d => ['NTCG1', d.leader, encodeURIComponent(d.name || 'Deck')].concat(Object.entries(d.cards).filter(e => e[1] > 0).sort().map(([id, n]) => `${id}x${n}`)).join(';');
+  function parseDeckCode(s) {
+    const p = String(s || '').trim().split(';');
+    if (p[0] !== 'NTCG1' || !NS.Cards.byId[p[1]] || NS.Cards.byId[p[1]].type !== 'leader') return null;
+    const d = { id: 'd' + Date.now(), name: (() => { try { return decodeURIComponent(p[2] || 'Imported deck').slice(0, 28); } catch (e) { return 'Imported deck'; } })(), leader: p[1], cards: {} };
+    for (const e of p.slice(3)) { const m = /^([A-Z]+-\d+)x(\d+)$/.exec(e.trim()); if (!m || !NS.Cards.byId[m[1]]) return null; d.cards[m[1]] = (d.cards[m[1]] || 0) + Math.min(99, +m[2]); }
+    return d;
+  }
+  function renderDeckPanel() {
+    const H = NS.house, L = NS.Cards.byId[deck.leader], total = deckTotal(deck), errs = NS.Cards.validate(deck);
+    const rows = Object.entries(deck.cards).map(([id, n]) => [NS.Cards.byId[id], n]).filter(r => r[0]);
+    const cnt = l => l.reduce((a, r) => a + r[1], 0), sup = rows.filter(r => r[0].support);
+    const avg = k => total ? (rows.reduce((a, [c, n]) => a + (c[k] || 0) * n, 0) / total).toFixed(1) : '-';
+    const costs = [...new Set(sup.map(r => r[0].support.cost))].sort().map(k => `${cnt(sup.filter(r => r[0].support.cost === k))}x${k}`).join(' ');
+    const row = ([c, n]) => `<div class="dl-row" style="--cc:${c.color === 'red' ? 'var(--red)' : 'var(--blue)'}" data-id="${c.id}"><span class="dl-name">${esc(c.name)} <small>${c.id} · POW ${c.pow}${c.support ? ` · ${esc(c.support.name)} (${c.support.cost})` : ''}</small></span><span class="dl-q"><button data-dec="${c.id}" aria-label="Take one out">${NS.icon('minus')}</button><b>${n}</b><button data-inc="${c.id}" ${n >= H.copyLimit || total >= H.deckSize ? 'disabled' : ''} aria-label="Add one">${NS.icon('plus')}</button></span></div>`;
+    const group = (title, list) => list.length ? `<div class="dl-head">${title} <b>${cnt(list)}</b></div>` + list.sort((a, b) => a[0].name.localeCompare(b[0].name) || a[0].id.localeCompare(b[0].id)).map(row).join('') : '';
+    const saved = customDecks().some(s => s.id === deck.id), dirty = isDirty();
+    $('#bDeck').innerHTML = `<div class="dl-top"><input id="dlName" value="${esc(deck.name)}" maxlength="28" aria-label="Deck name"><span class="dl-dirty ${dirty ? 'on' : ''}">${dirty ? 'Unsaved' : 'Saved'}</span></div>
+      <div class="dl-bar ${total === H.deckSize ? 'full' : ''}"><i style="width:${Math.min(100, total / H.deckSize * 100).toFixed(1)}%"></i><span>${total} / ${H.deckSize} cards</span></div>
+      <div class="dl-stats"><span>Leader <b>${esc(L.name)}</b></span><span>EX <b>${cnt(rows.filter(r => r[0].type === 'ex'))}</b></span><span>With a Support <b>${cnt(sup)}</b></span></div>
+      <div class="dl-stats"><span>Average POW <b>${avg('pow')}</b></span><span>DMG <b>${avg('dmg')}</b></span><span>Support costs <b>${costs || '-'}</b></span></div>
+      <div class="dl-list">${group('Characters', rows.filter(r => r[0].type === 'character'))}${group('EX Characters', rows.filter(r => r[0].type === 'ex'))}${rows.length ? '' : `<div class="dl-empty">${NS.touch ? 'Tap cards above to add them,' : 'Click cards to add them,'} or press <b>Auto-fill</b> to complete the deck at random.</div>`}</div>
       <div class="dl-errs">${errs.length ? errs.map(esc).join('<br>') : `<span class="dl-ok">${NS.icon('check')} Legal deck</span>`}</div>
-      <div class="dl-btns"><button class="btn primary" id="dS">Save</button><button class="btn" id="dN">New</button><button class="btn" id="dL">Load…</button><button class="btn" id="dF">Auto-fill</button><button class="btn ghost" id="dD" ${saved.find(s => s.id === deck.id) ? '' : 'disabled'}>Delete</button></div>`;
-    $('#dlName').oninput = e => { deck.name = e.target.value; };
-    $('#dS').onclick = () => { const all = customDecks(); const i = all.findIndex(s => s.id === deck.id); const copy = JSON.parse(JSON.stringify(deck)); if (i >= 0) all[i] = copy; else all.push(copy); store.set('decks', all); NS.Audio.play('upgrade'); renderBuilder(); };
-    $('#dN').onclick = () => { deck = newDeck(); renderBuilder(); };
-    $('#dF').onclick = () => { deck = Object.assign(NS.Cards.fitDeck(deck), { id: deck.id, name: deck.name }); renderBuilder(); };
-    $('#dD').onclick = () => { store.set('decks', customDecks().filter(s => s.id !== deck.id)); deck = newDeck(); renderBuilder(); };
-    $('#dL').onclick = () => {
-      const list = customDecks().concat(NS.STARTERS.map(s => Object.assign({}, s, { id: 'd' + Date.now() + s.id, name: s.name + ' (copy)' })));
-      const close = NS.View.modal(`<h2>Load a Deck</h2><div class="row-btns" style="flex-direction:column">${list.map((d, i) => `<button class="btn" data-i="${i}">${esc(d.name)}</button>`).join('')}<button class="btn ghost" id="lc">Close</button></div>`, m => {
-        $$('button[data-i]', m).forEach(b => b.onclick = () => { deck = JSON.parse(JSON.stringify(list[+b.dataset.i])); close(); renderBuilder(); });
-        $('#lc', m).onclick = () => close();
-      });
-    };
-    $('#bDeck .dl-list').onclick = e => { const r = e.target.closest('[data-rm]'); if (!r) return; deck.cards[r.dataset.rm]--; if (!deck.cards[r.dataset.rm]) delete deck.cards[r.dataset.rm]; renderBuilder(); };
+      <div class="dl-btns"><button class="btn primary" id="dS">${NS.icon('save')} Save</button><button class="btn" id="dL">${NS.icon('folder')} Decks</button><button class="btn" id="dN">New</button></div>
+      <div class="dl-btns dl-btns2"><button class="btn small" id="dF">Auto-fill</button><button class="btn small" id="dC" ${rows.length ? '' : 'disabled'}>Clear</button><button class="btn small" id="dX">${NS.icon('copy')} Deck code</button><button class="btn small ghost" id="dD" ${saved ? '' : 'disabled'}>${NS.icon('bin')} Delete</button></div>`;
+    $('#dlName').oninput = e => { deck.name = e.target.value; const d = $('.dl-dirty'); d.classList.toggle('on', isDirty()); d.textContent = isDirty() ? 'Unsaved' : 'Saved'; };
+    $('#dS').onclick = () => { const all = customDecks(), i = all.findIndex(s => s.id === deck.id), copy = JSON.parse(JSON.stringify(deck)); if (i >= 0) all[i] = copy; else all.push(copy); store.set('decks', all); savedAs = JSON.stringify(deck); NS.Audio.play('upgrade'); toast('Deck saved'); renderDeckPanel(); };
+    $('#dN').onclick = () => discardThen(() => { setDeck(newDeck(), false); renderBuilder(); });
+    $('#dF').onclick = () => { deck = Object.assign(NS.Cards.fitDeck(deck), { id: deck.id, name: deck.name }); renderPool(); renderDeckPanel(); };
+    $('#dC').onclick = () => { deck.cards = {}; renderPool(); renderDeckPanel(); };
+    $('#dX').onclick = () => shareDeck();
+    $('#dD').onclick = () => confirmBox('Delete this deck?', `"${esc(deck.name)}" will be removed from your saved decks.`, 'Delete', () => { store.set('decks', customDecks().filter(s => s.id !== deck.id)); setDeck(newDeck(), false); renderBuilder(); });
+    $('#dL').onclick = () => openLibrary();
+  }
+  function confirmBox(title, text, yes, onYes) {
+    const close = NS.View.modal(`<h2>${title}</h2><p>${text}</p><div class="row-btns"><button class="btn primary" id="cbY">${yes}</button><button class="btn" id="cbN">Cancel</button></div>`, m => {
+      $('#cbY', m).onclick = () => { close(); onYes(); };
+      $('#cbN', m).onclick = () => close();
+    });
+  }
+  const discardThen = fn => (isDirty() && deckTotal(deck) ? confirmBox('Discard changes?', `"${esc(deck.name)}" has changes that are not saved.`, 'Discard', fn) : fn());
+  function shareDeck() {
+    const code = deckCode(deck);
+    const close = NS.View.modal(`<h2>Deck code</h2><p>Copy this text to share "${esc(deck.name)}". Paste it under <b>Decks</b> &gt; <b>Import</b> to load it.</p><textarea class="rl-code" id="dcT" readonly>${esc(code)}</textarea><p class="rl-note" id="dcN"></p><div class="row-btns"><button class="btn primary" id="dcC">${NS.icon('copy')} Copy</button><button class="btn" id="dcX">Close</button></div>`, m => {
+      const t = $('#dcT', m); t.focus(); t.select();
+      $('#dcC', m).onclick = () => { const done = () => { $('#dcN', m).textContent = 'Copied.'; }; t.select(); if (navigator.clipboard) navigator.clipboard.writeText(code).then(done, () => { document.execCommand('copy'); done(); }); else { document.execCommand('copy'); done(); } };
+      $('#dcX', m).onclick = () => close();
+    });
+  }
+  // the deck library: your saved decks and the starters, searchable by deck name, Leader or a card in the deck
+  function openLibrary() {
+    const st = { q: '', color: 'all' };
+    const byId = NS.Cards.byId;
+    const close = NS.View.modal(`<h2>Decks</h2>${isDirty() && deckTotal(deck) ? `<p class="lib-warn">"${esc(deck.name)}" has unsaved changes. Opening another deck discards them.</p>` : ''}
+      <div class="lib-tools"><div class="fb-search">${NS.icon('search')}<input type="search" id="libQ" placeholder="Search by deck name, Leader or a card in it" autocomplete="off" spellcheck="false"></div><div class="seg" id="libC"><button data-c="all" class="on">All</button><button data-c="red">Red</button><button data-c="blue">Blue</button></div></div>
+      <div class="lib-list" id="libL"></div>
+      <div class="lib-import"><textarea class="rl-code" id="libT" placeholder="Paste a deck code (NTCG1;...) here"></textarea><p class="rl-note" id="libN"></p></div>
+      <div class="row-btns"><button class="btn" id="libI">Import code</button><button class="btn ghost" id="libX">Close</button></div>`, m => {
+      const render = () => {
+        const w = words(st.q);
+        const all = customDecks().map(d => ({ d, mine: true })).concat(NS.STARTERS.map(d => ({ d, mine: false })));
+        const list = all.filter(({ d }) => {
+          const L = byId[d.leader]; if (!L) return false;
+          const text = [d.name, L.name, L.color].concat(Object.keys(d.cards).map(id => byId[id] ? byId[id].name : '')).join(' ').toLowerCase();
+          return (st.color === 'all' || L.color === st.color) && w.every(x => text.includes(x));
+        });
+        $('#libL', m).innerHTML = list.map(({ d, mine }, i) => {
+          const L = byId[d.leader], ok = playable(d);
+          return `<div class="lib-row" style="--cc:${L.color === 'red' ? 'var(--red)' : 'var(--blue)'}" data-i="${i}"><i style="${NS.View.portraitCSS(L, 1.7)}"></i><div class="lib-info"><b>${esc(d.name)}${d.id === deck.id ? ' <em>open</em>' : ''}</b><small>${mine ? 'Your deck' : 'Starter'} · ${esc(L.name)} · ${deckTotal(d)} cards${ok ? '' : ' · <span class="bad">not legal under the current House Rules</span>'}</small></div><div class="lib-acts"><button class="btn small" data-a="open">Open</button><button class="btn small ghost" data-a="dup">Copy</button>${mine ? `<button class="btn small ghost" data-a="del">${NS.icon('bin')}</button>` : ''}</div></div>`;
+        }).join('') || '<div class="rl-empty">No decks match.</div>';
+        $$('.lib-row', m).forEach(r => r.onclick = e => {
+          const b = e.target.closest('[data-a]'); if (!b) return;
+          const { d, mine } = list[+r.dataset.i], copy = JSON.parse(JSON.stringify(d));
+          if (b.dataset.a === 'open') { close(); if (mine) setDeck(copy, true); else setDeck(Object.assign(copy, { id: 'd' + Date.now(), name: d.name.slice(0, 21) + ' (copy)' }), false); bF.q = ''; renderBuilder(); }
+          else if (b.dataset.a === 'dup') { const c = Object.assign(copy, { id: 'd' + Date.now(), name: (d.name.slice(0, 21) + ' (copy)') }); store.set('decks', customDecks().concat([c])); toast('Copy saved'); render(); }
+          else if (b.dataset.a === 'del') {
+            if (!b.classList.contains('sure')) { b.classList.add('sure'); b.innerHTML = 'Delete?'; return; }
+            store.set('decks', customDecks().filter(s => s.id !== d.id)); if (d.id === deck.id) savedAs = ''; render(); if (d.id === deck.id) renderDeckPanel();
+          }
+        });
+      };
+      $('#libQ', m).oninput = e => { st.q = e.target.value; render(); };
+      $$('#libC button', m).forEach(b => b.onclick = () => { st.color = b.dataset.c; $$('#libC button', m).forEach(x => x.classList.toggle('on', x === b)); render(); });
+      $('#libI', m).onclick = () => {
+        const d = parseDeckCode($('#libT', m).value);
+        if (!d) { $('#libN', m).textContent = 'That is not a deck code this simulator can read.'; return; }
+        close(); setDeck(d, false); renderBuilder(); toast(`Imported "${d.name}". Save it to keep it.`);
+      };
+      $('#libX', m).onclick = () => close();
+      render();
+      if (!NS.touch) $('#libQ', m).focus();
+    }, 'lib');
   }
   function bindBuilder() {
     $('#bPool').addEventListener('click', e => {
-      const it = e.target.closest('[data-id]'); if (!it) return;
-      const q = deck.cards[it.dataset.id] || 0;
-      if (q >= NS.house.copyLimit) return;
-      deck.cards[it.dataset.id] = q + 1; NS.Audio.play('card'); renderBuilder();
+      const inc = e.target.closest('[data-inc]'), dec = e.target.closest('[data-dec]');
+      if (dec) return removeCard(dec.dataset.dec);
+      if (inc) return addCard(inc.dataset.inc);
+      if (e.target.closest('[data-clear2]')) { Object.assign(bF, newFilter(), { sort: bF.sort }); return renderBuilder(); }
+      const it = e.target.closest('[data-id]'); if (it) addCard(it.dataset.id);
     });
-    $('#bPool').addEventListener('contextmenu', e => {
-      e.preventDefault();
-      const it = e.target.closest('[data-id]'); if (!it || !deck.cards[it.dataset.id]) return;
-      deck.cards[it.dataset.id]--; if (!deck.cards[it.dataset.id]) delete deck.cards[it.dataset.id]; renderBuilder();
+    $('#bPool').addEventListener('contextmenu', e => { const it = e.target.closest('[data-id]'); if (!it) return; e.preventDefault(); removeCard(it.dataset.id); });
+    $('#bDeck').addEventListener('click', e => {
+      const inc = e.target.closest('.dl-row [data-inc]'), dec = e.target.closest('.dl-row [data-dec]');
+      if (dec) removeCard(dec.dataset.dec); else if (inc) addCard(inc.dataset.inc);
     });
+    $('#bDeck').addEventListener('contextmenu', e => { const r = e.target.closest('.dl-row'); if (!r) return; e.preventDefault(); removeCard(r.dataset.id); });
+    bindPreview($('#bDeck'));
   }
 
   // ---------------- rules ----------------
@@ -315,6 +500,12 @@
   }
 
   // ---------------- settings (incl. House Rules) ----------------
+  // a row of small card faces to choose an art version from, plus text choices (extra: [value, label])
+  function artPicker(key, label, note, arts, extra) {
+    const cur = NS.settings[key], all = (arts || []).map(a => [a.id, a.name, a.face]).concat(extra.map(([v, l]) => [v, l, null]));
+    const sel = all.find(a => a[0] === cur) || all[0];
+    return `<div class="set-row art-row"><div>${label}<small>${note}</small><small class="art-cap">${esc(sel[1])}</small></div><div class="art-pick">${all.map(([v, l, f]) => `<button data-art="${key}" data-v="${v}" title="${esc(l)}" class="${v === sel[0] ? 'on' : ''}${f ? '' : ' txt'}">${f ? `<i style="${NS.View.artCSS(f)}"></i>` : esc(l)}</button>`).join('')}</div></div>`;
+  }
   function openSettings() {
     const st = NS.settings, H = NS.house;
     const tog = (k, l, s, obj) => `<div class="set-row"><div>${l}<small>${s}</small></div><button class="toggle ${(obj || st)[k] ? 'on' : ''}" data-k="${k}" data-o="${obj ? 'h' : 's'}"></button></div>`;
@@ -324,6 +515,8 @@
       <div class="set-row"><div>Visual effects<small>Reduced: fewer particles, no light layer. Off: no particles, flashes, screen shake or cut-ins; cards still move. Use on slower PCs</small></div><div class="seg" style="width:320px;flex:none">${[['full', 'Full'], ['low', 'Reduced'], ['off', 'Off']].map(([k, l]) => `<button data-fx="${k}" class="${st.fx === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       ${tog('music', 'Music', 'Generated soundtrack')}${tog('sfx', 'Sound effects', 'Hits, jutsu, chakra')}${tog('cutins', 'Jutsu cut-ins', 'Big banners for Supports and EX summons')}
       <div class="set-row"><div>Animation speed</div><div class="seg" style="width:320px">${['slow', 'normal', 'fast', 'turbo'].map(s => `<button data-sp="${s}" class="${st.speed === s ? 'on' : ''}">${s}</button>`).join('')}</div></div>
+      ${artPicker('chakraArt', 'Chakra card art', 'Looks only: every version has the same text. Your opponent\'s Chakra shows their Leader\'s art', NS.CHAKRA_ARTS, [['leader', 'Each Leader\'s art'], ['mix', 'Mixed set C-001 to C-005']])}
+      ${artPicker('summonArt', 'Summon card art', 'Looks only', NS.SUMMON_ARTS, [])}
       <h4>House Rules (defaults follow the community rulebook v1.4)</h4>
       ${num('deckSize', 'Deck size', 'Gen Con demo: 30 (retail: 50)', 10, 60)}
       ${num('copyLimit', 'Copies per card', 'Gen Con demo decks: 3', 1, 10)}
@@ -351,6 +544,12 @@
       $$('[data-fx]', m).forEach(b => b.onclick = () => { st.save({ fx: b.dataset.fx }); st.applyFx(); $$('[data-fx]', m).forEach(x => x.classList.toggle('on', x === b)); });
       $$('[data-n]', m).forEach(i => i.onchange = () => { H[i.dataset.n] = Math.max(+i.min, Math.min(+i.max, +i.value || 0)); store.set('house', H); });
       $$('[data-sp]', m).forEach(b => b.onclick = () => { st.save({ speed: b.dataset.sp }); $$('[data-sp]', m).forEach(x => x.classList.toggle('on', x === b)); });
+      $$('[data-art]', m).forEach(b => b.onclick = () => {
+        const k = b.dataset.art, row = b.closest('.art-row');
+        st.save({ [k]: b.dataset.v }); $$('[data-art]', row).forEach(x => x.classList.toggle('on', x === b));
+        $('.art-cap', row).textContent = b.title;
+        if (NS.activeUI && NS.activeUI.g) NS.activeUI.render({ noFlip: true });
+      });
       $('#hrReset', m).onclick = () => { Object.assign(H, NS.HOUSE_DEFAULTS); store.set('house', H); close(); openSettings(); };
       $('#sDone', m).onclick = () => close();
     });

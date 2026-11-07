@@ -33,6 +33,23 @@
     chakraFace: { url: 'cards/hd/C-001.webp', full: true },
     summonFace: { url: 'cards/hd/S-001.webp', full: true },
   };
+  // Chakra and Summon card art (cosmetic; every version has the same text). 'sample' is the first image Bandai showed
+  // (July 2026); the others are the printings revealed in October 2026 for the Premium Card Collection vol.00 CHAKRA
+  // and the CP-001 convention promo. Picked in Settings.
+  const NEWS = B + '/en/images/news/premier-demo-deck-event/';
+  NS.CHAKRA_ARTS = [
+    { id: 'sample', name: 'First sample (swirl)', face: NS.ASSETS.chakraFace },
+    { id: 'C-001', name: 'C-001 Naruto Uzumaki', face: { url: NEWS + 'C-001.webp', full: true } },
+    { id: 'C-002', name: 'C-002 Sasuke Uchiha', face: { url: NEWS + 'C-002.webp', full: true } },
+    { id: 'C-003', name: 'C-003 Sakura Haruno', face: { url: NEWS + 'C-003.webp', full: true } },
+    { id: 'C-004', name: 'C-004 Kakashi Hatake', face: { url: NEWS + 'C-004.webp', full: true } },
+    { id: 'C-005', name: 'C-005 Gaara', face: { url: NEWS + 'C-005.webp', full: true } },
+    { id: 'CP-001', name: 'CP-001 convention promo', face: { url: B + '/jp/images/news/premier-demo-deck-event/CP-001.webp', full: true } },
+  ];
+  NS.SUMMON_ARTS = [
+    { id: 'sample', name: 'First sample (silhouette)', face: NS.ASSETS.summonFace },
+    { id: 'S-001', name: 'S-001 Naruto Uzumaki', face: { url: NEWS + 'S-001.webp', full: true } },
+  ];
 
   // mode: 'face' = real official card face (text printed on it),
   //       'art'  = official illustration with simulator frame,
@@ -66,7 +83,7 @@
       mode: 'face', conf: 'demo',
     },
     {
-      id: 'N-005', type: 'ex', name: 'Gamabunta', color: 'red', dmg: 2, pow: 10, hp: 8, rarity: 'R',
+      id: 'N-005', type: 'ex', name: 'Gamabunta', color: 'red', dmg: 2, pow: 10, hp: 8, rarity: 'C',
       traits: ['Water', 'Toad', 'Mount Myoboku'],
       text: [
         'Cannot be summoned normally.',
@@ -76,13 +93,13 @@
       mode: 'face', conf: 'official',
     },
     {
-      id: 'N-006', type: 'character', name: 'Jiraiya', color: 'red', dmg: 1, pow: 7, hp: 4, rarity: 'R',
+      id: 'N-006', type: 'character', name: 'Jiraiya', color: 'red', dmg: 1, pow: 7, hp: 4, rarity: 'SR',
       traits: ['Fire', 'The Legendary Sannin', 'Hidden Leaf Village'],
       support: { name: 'Fire Style: Toad Flame Bombs', cost: 2, timing: 'oppAttack', text: 'Choose up to 2 rested Characters: K.O. the chosen cards.' },
       mode: 'face', conf: 'demo',
     },
     {
-      id: 'N-007', type: 'character', name: 'Minato Namikaze', color: 'red', dmg: 2, pow: 8, hp: 8, rarity: 'R',
+      id: 'N-007', type: 'character', name: 'Minato Namikaze', color: 'red', dmg: 2, pow: 8, hp: 8, rarity: 'SR',
       traits: ['Wind', 'Lightning', 'The Five Kage', 'Hidden Leaf Village'],
       text: ['[Your Turn] If this Character has 10 or more power, this Character gains [Rush].'],
       mode: 'face', conf: 'demo',
@@ -106,13 +123,13 @@
       mode: 'face', conf: 'official',
     },
     {
-      id: 'N-002', type: 'character', name: 'Choji Akimichi', color: 'red', dmg: 1, pow: 7, hp: 3, rarity: 'C',
+      id: 'N-002', type: 'character', name: 'Choji Akimichi', color: 'red', dmg: 1, pow: 7, hp: 3, rarity: 'R',
       traits: ['Taijutsu', 'Hidden Leaf Village', 'Team 10'],
       support: { name: 'Expansion Jutsu', cost: 1, timing: 'quick', text: "Choose 1 Character: Summon this card, and the chosen card's power is doubled during this turn." },
       mode: 'face', conf: 'demo',
     },
     {
-      id: 'N-020', type: 'character', name: 'Sakura Haruno', color: 'blue', dmg: 1, pow: 6, hp: 4, rarity: 'C',
+      id: 'N-020', type: 'character', name: 'Sakura Haruno', color: 'blue', dmg: 1, pow: 6, hp: 4, rarity: 'R',
       traits: ['Taijutsu', 'Hidden Leaf Village', 'Team 7'],
       support: { name: 'Cha!', cost: 1, timing: 'oppAttack', text: "Choose 1 Character: Return the chosen card to the owner's hand." },
       mode: 'face', conf: 'demo',
@@ -140,7 +157,7 @@
       mode: 'face', conf: 'demo',
     },
     {
-      id: 'N-013', type: 'character', name: 'Itachi Uchiha', color: 'blue', dmg: 2, pow: 8, hp: 8, rarity: 'R',
+      id: 'N-013', type: 'character', name: 'Itachi Uchiha', color: 'blue', dmg: 2, pow: 8, hp: 8, rarity: 'SR',
       traits: ['Fire', 'Illusion', 'Uchiha Clan', 'Akatsuki'],
       text: ['[On Summon] Choose 1 Leader or Character: Reveal the top card of your deck, and if the revealed card has the {Uchiha Clan} type, the selected card cannot attack during your opponent\'s next turn.'],
       mode: 'face', conf: 'official',
@@ -191,7 +208,7 @@
       mode: 'face', conf: 'demo',
     },
     {
-      id: 'N-017', type: 'character', name: 'Orochimaru', color: 'blue', dmg: 1, pow: 4, hp: 7, rarity: 'R',
+      id: 'N-017', type: 'character', name: 'Orochimaru', color: 'blue', dmg: 1, pow: 4, hp: 7, rarity: 'SR',
       traits: ['Special', 'The Legendary Sannin', 'Hidden Sound Village'],
       support: { name: 'Striking Shadow Snake', cost: 2, timing: 'oppAttack', text: 'Choose up to 2 rested Characters: K.O. the chosen cards.' },
       mode: 'face', conf: 'demo',

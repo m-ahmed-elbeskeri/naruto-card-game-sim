@@ -43,8 +43,8 @@
     o = o || {};
     const w = o.w || 150;
     let face;
-    if (card.type === 'chakra') face = `<div class="nc" data-card="chakra" style="--w:${w}px"><div class="nc-art" style="${artCSS(NS.ASSETS.chakraFace)}"></div></div>`;
-    else if (card.type === 'summoncard') face = `<div class="nc" data-card="summon" style="--w:${w}px"><div class="nc-art" style="${artCSS(NS.ASSETS.summonFace)}"></div></div>`;
+    if (card.type === 'chakra') face = `<div class="nc" data-card="chakra" style="--w:${w}px"><div class="nc-art" style="${artCSS(card.face || NS.ASSETS.chakraFace)}"></div></div>`;
+    else if (card.type === 'summoncard') face = `<div class="nc" data-card="summon" style="--w:${w}px"><div class="nc-art" style="${artCSS(card.face || NS.ASSETS.summonFace)}"></div></div>`;
     else if (card.mode === 'plain') face = `<div class="nc m-plain" data-card="${card.id}" style="--w:${w}px;background-image:url('${NS.ASSETS.swirl}')"><div class="pend"><img src="${NS.ASSETS.logo}" alt=""><b>${esc(card.name)}</b><small>Art not yet revealed</small></div></div>`;
     else face = `<div class="nc r-${card.rarity}${card.type === 'ex' ? ' ex' : ''}" data-card="${card.id}" style="--w:${w}px"><div class="nc-art" style="${artCSS(card.art)}"></div>${card.type === 'ex' ? '<div class="ex-rim"></div>' : ''}</div>`;
     if (!o.statbar || card.type === 'chakra' || card.type === 'summoncard') return face;
@@ -146,6 +146,28 @@
   }
   const CHAKRA_CARD = { type: 'chakra', name: 'Chakra Card', id: 'C-001' };
   const SUMMON_CARD = { type: 'summoncard', name: 'Summon Card', id: 'S-001' };
+  // Which art each Chakra / Summon card shows (Settings). Your side shows your pick; the opponent's Chakra follows
+  // their Leader (Naruto C-001, Sasuke C-002) unless you picked the first sample, which both sides then share.
+  // 'leader' does that for both sides, 'mix' lays out C-001 to C-005 across the five cards.
+  const artCards = {};
+  function artCard(type, art) {
+    const k = type + '|' + art.id;
+    return artCards[k] || (artCards[k] = { type, name: type === 'chakra' ? 'Chakra Card' : 'Summon Card', id: art.id === 'sample' ? (type === 'chakra' ? 'C-001' : 'S-001') : art.id, face: art.face });
+  }
+  function chakraCard(g, pi, i, mine) {
+    const A = NS.CHAKRA_ARTS || [], pick = (NS.settings && NS.settings.chakraArt) || 'sample', by = id => A.find(a => a.id === id) || A[0];
+    if (!A.length) return CHAKRA_CARD;
+    let art;
+    if (pick === 'sample') art = A[0];
+    else if (pick === 'mix') art = A[1 + (i % 5)];
+    else if (pick !== 'leader' && mine) art = by(pick);
+    else art = by(g && g.p(pi).leader.card.id === 'N-012' ? 'C-002' : 'C-001');
+    return artCard('chakra', art);
+  }
+  function summonCard() {
+    const A = NS.SUMMON_ARTS || [], pick = (NS.settings && NS.settings.summonArt) || 'sample';
+    return A.length ? artCard('summoncard', A.find(a => a.id === pick) || A[0]) : SUMMON_CARD;
+  }
 
   // ---------------- board geometry ----------------
   // Landscape is the original 1600 x 900 playmat. Portrait (phones held upright) stacks the same zones in a column
@@ -433,8 +455,8 @@
       const Ld = P.leader, lw = Q.leader.w;
       h += `<div class="leader-box ${g.active === pi ? 'active' : ''}" style="left:${Q.leader.x}px;top:${Q.leader.y}px;width:${lw}px"><div class="slot ${side} ${Ld.rested ? 'rested' : ''} ${this.atkUid === Ld.uid ? 'atk' : ''}" data-k="${Ld.uid}" data-unit="${Ld.uid}">${cardHTML(Ld.card, { w: lw, statbar: true, life: Ld.life, live: { pow: g.pow(Ld), dmg: g.dmg(Ld) } })}</div></div>`;
       h += `<div class="leader-box" style="left:${Q.life.x}px;top:${Q.life.y}px;width:72px"><div class="life ${Ld.life <= 5 ? 'low' : ''}" style="position:static;width:72px" data-life="${pi}" data-zone="life-${pi}"><small>LIFE</small><b>${Ld.life}</b></div><div class="pname" style="font-size:13px">${esc(P.name)}</div></div>`;
-      h += `<div class="slot ${P.summonRested ? 'rested' : ''} ${side}" data-k="SUM${pi}" style="position:absolute;left:${Q.sum.x}px;top:${Q.sum.y}px">${cardHTML(SUMMON_CARD, { w: 58 })}</div>`;
-      h += `<div class="chakra-row" data-zone="chakra-${pi}" style="left:${Q.ck.x}px;top:${Q.ck.y}px">${P.chakra.map((up, i) => `<div class="ck" data-ck="${pi}-${i}">${up ? cardHTML(CHAKRA_CARD, { w: 42 }) : backHTML('chakra', 42)}</div>`).join('')}</div>`;
+      h += `<div class="slot ${P.summonRested ? 'rested' : ''} ${side}" data-k="SUM${pi}" style="position:absolute;left:${Q.sum.x}px;top:${Q.sum.y}px">${cardHTML(summonCard(), { w: 58 })}</div>`;
+      h += `<div class="chakra-row" data-zone="chakra-${pi}" style="left:${Q.ck.x}px;top:${Q.ck.y}px">${P.chakra.map((up, i) => `<div class="ck" data-ck="${pi}-${i}">${up ? cardHTML(chakraCard(g, pi, i, pi === this.viewPi), { w: 42 }) : backHTML('chakra', 42)}</div>`).join('')}</div>`;
       // deck / trash / hand
       const pw = Q.pw, ph = Math.round(pw * 1.397);
       h += `<div class="pile" data-pile="deck-${pi}" style="left:${Q.deck.x}px;top:${Q.deck.y}px">${P.deck.length ? backHTML('', pw) : `<div class="empty" style="width:${pw}px;height:${ph}px"></div>`}<div class="cnt">DECK ${P.deck.length}</div></div>`;
@@ -517,8 +539,8 @@
       }
       if (sup) { const s = this.findSup(sup.dataset.sup); if (s && g.chain.some(l => l.sup === s)) return showPreview(s.card, e, 'Activated. Waiting to resolve.'); if (s && this.opts.reveal) return showPreview(s.card, e, `Face-down in ${esc(g.p(s.owner).name)}'s Support Area. Activates for <b>${s.card.support.cost}</b> Chakra.`); if (s && s.owner === this.viewPi) return showPreview(s.card, e, `Face-down in your Support Area. Activate for <b>${s.card.support.cost}</b> Chakra.`); }
       if (pile) { const pi = +pile.dataset.pile.split('-')[1]; const t = g.p(pi).trash; if (t.length) return showPreview(t[t.length - 1].card, e, `Trash: ${t.length} cards (${NS.touch ? 'tap' : 'click'} to view)`); }
-      const ck = e.target.closest('[data-ck]'); if (ck) return showPreview(CHAKRA_CARD, e, `Face-up Chakra: <b>${g.faceUpChakra(+ck.dataset.ck[0])}</b>/5`);
-      if (e.target.closest('[data-k^=SUM]')) return showPreview(SUMMON_CARD, e);
+      const ck = e.target.closest('[data-ck]'); if (ck) { const [cp, ci] = ck.dataset.ck.split('-').map(Number); return showPreview(chakraCard(g, cp, ci, cp === this.viewPi), e, `Face-up Chakra: <b>${g.faceUpChakra(cp)}</b>/5`); }
+      if (e.target.closest('[data-k^=SUM]')) return showPreview(summonCard(), e);
       hidePreview();
     }
     handHint(c) {
@@ -1171,6 +1193,6 @@
     const pk = el.closest('[data-note]');
     if (card) showPreview(card, e, pk ? pk.dataset.note : '');
   });
-  NS.View = { cardHTML, backHTML, artCSS, portraitCSS, textPanel, showPreview, hidePreview, modal, esc, CHAKRA_CARD, SUMMON_CARD };
+  NS.View = { cardHTML, backHTML, artCSS, portraitCSS, textPanel, showPreview, hidePreview, modal, esc, CHAKRA_CARD, SUMMON_CARD, chakraCard, summonCard };
   NS.GameUI = GameUI;
 })();
