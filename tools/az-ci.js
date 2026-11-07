@@ -228,7 +228,7 @@ async function learn() {
   const promote = !!test && test.promote, confirmed = (vb < SANITY ? ' | BELOW THE SANITY MARK' : '') + (test ? test.text : '');
   pool.close();
   const lg = leagueText(Object.values(league).sort((x, y) => x.gen - y.gen));
-  let msg = `iter ${state.iter}: ${buffer.length} samples (${older ? `${Math.round(100 * fresh / total)}% this round, ` : ''}self-play ${SP_SEARCH.worlds} x ${SP_SEARCH.sims}${PAST > 0 ? `, ${Math.round(PAST * 100)}% v past champions` : ''}${RED_MIRROR !== 0.5 ? `, ${Math.round(RED_MIRROR * 100)}% of mirrors red` : ''}), train ${((t1 - t0) / 1000).toFixed(0)}s lr ${LR} loss v=${loss.v} p=${loss.p} | vs champion ${(vb * 100).toFixed(1)}% (${gate} games: ${sb.text}) | vs Kage ${(vk * 100).toFixed(1)}% (${kage} games: ${sk.text})` +
+  let msg = `iter ${state.iter}: ${buffer.length} samples (${older ? `${Math.round(100 * fresh / total)}% this round, ` : ''}self-play ${SP_SEARCH.worlds} x ${SP_SEARCH.sims}${PAST > 0 ? `, ${Math.round(PAST * 100)}% v past champions` : ''}${RED_MIRROR !== 0.5 ? `, ${Math.round(RED_MIRROR * 100)}% of mirrors red` : ''}), train ${((t1 - t0) / 1000).toFixed(0)}s lr ${LR}${decay ? ` avg ${decay}` : ''} loss v=${loss.v} p=${loss.p} | vs champion ${(vb * 100).toFixed(1)}% (${gate} games: ${sb.text}) | vs Kage ${(vk * 100).toFixed(1)}% (${kage} games: ${sk.text})` +
     (lg ? ` | self-play learner v past champions: ${lg}` : '') + confirmed;
   if (promote) {
     // the champion being replaced joins the past champions; the oldest beyond POOL_KEEP drop out

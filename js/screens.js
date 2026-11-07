@@ -82,11 +82,11 @@
   // ---------------- setup ----------------
   const setup = { hot: false, pick: 'me', me: 'st-red', opp: 'st-blue', lv: 'chunin' };
   const THINK_NOTES = {
-    quick: 'Plays faster but weaker. Up to 0.7s per move, about 40 seconds of thinking per game.',
+    quick: 'Plays faster. Up to 0.7s per move, about 40 seconds of thinking per game. In tests it played about as well as normal.',
     normal: 'The standard Hokage. Up to 1.4s per move, about a minute of thinking per game.',
-    long: 'Searches deeper, so it usually plays stronger. Up to 3.5s per move, about 3 minutes of thinking per game.',
-    'very long': 'Searches deeper still. Up to 7s per move, about 6 minutes of thinking per game.',
-    extreme: 'As deep as it goes. Up to 28s per move, about 25 minutes of thinking per game. Uses a lot of memory and battery, so it may struggle on phones and older PCs.',
+    long: 'Searches deeper. Up to 3.5s per move, about 3 minutes of thinking per game. Tests so far found no clear gain over normal.',
+    'very long': 'Searches deeper still. Up to 7s per move, about 6 minutes of thinking per game. Tests so far found no clear gain over normal.',
+    extreme: 'As deep as it goes. Up to 28s per move, about 25 minutes of thinking per game. Tests so far found no clear gain over normal, and it uses a lot of memory and battery.',
   };
   function syncThink() {
     $('#thinkField').style.display = !setup.hot && setup.lv === 'hokage' ? '' : 'none';

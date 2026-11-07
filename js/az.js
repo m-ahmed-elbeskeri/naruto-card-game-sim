@@ -29,8 +29,9 @@
   }
 
   // Search options, compared head to head by tools/exp/ab.js: merge = one candidate per distinct move;
-  // knownTop = worlds keep the top deck cards the searching player has seen
-  AZ.opts = AZ.opts || { merge: true, knownTop: true };
+  // knownTop = worlds keep the top deck cards the searching player has seen. Merge measured level at equal
+  // thinking time (50.0% over 1600 games) and costs about a tenth of the speed, so it is off.
+  AZ.opts = AZ.opts || { merge: false, knownTop: true };
   const unitKey = (g, u) => u.isLeader ? u.uid : [u.card.id, u.owner, +!!u.rested, +!!u.negated, g.pow(u), g.dmg(u), g.hpLeft(u), u.summonedTurn === g.turn ? 1 : 0, u.buffs.length, u.flags.cantAttackTurn, u.flags.immuneSupportTurn, u.flags.immuneFrom, g.p(u.owner).once['N-011:' + u.uid] ? 1 : 0].join('/');
   function cardKey(g, c) {
     const Q = g.p(c.owner);
